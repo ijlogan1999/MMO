@@ -7,3 +7,5 @@ obj/
 out/
 *.csv
 !data/**/*.csv
+!results/**/*.csv
+sweep-smoke/

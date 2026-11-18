@@ -46,6 +46,9 @@ namespace Economy.Core.Ledger
         HiredHandWage,
         MarketMakerPurchase,
 
+        /// <summary>Coins created by a bug or exploit (a dupe). Only for testing the gold-flood scenario.</summary>
+        ExploitDupe,
+
         // Sinks
         MarketTax,
         StationFee,
@@ -78,6 +81,7 @@ namespace Economy.Core.Ledger
             Flow.NpcScrapPurchase => FlowDirection.Faucet,
             Flow.HiredHandWage => FlowDirection.Faucet,
             Flow.MarketMakerPurchase => FlowDirection.Faucet,
+            Flow.ExploitDupe => FlowDirection.Faucet,
 
             Flow.MarketTax => FlowDirection.Sink,
             Flow.StationFee => FlowDirection.Sink,
@@ -104,7 +108,7 @@ namespace Economy.Core.Ledger
 
         /// <summary>
         /// Checks a flow moves between the right kinds of account. The starter
-        /// purse is the only faucet paid by the mint (true money creation);
+        /// purse (and, in tests, an exploit dupe) is paid by the mint (true money creation);
         /// every other faucet is paid from the treasury.
         /// </summary>
         public static bool IsAllowed(Flow flow, AccountKind from, AccountKind to)
@@ -113,7 +117,9 @@ namespace Economy.Core.Ledger
             {
                 case FlowDirection.Faucet:
                     if (!InCirculation(to)) return false;
-                    return flow == Flow.StarterPurse ? from == AccountKind.Mint : from == AccountKind.Treasury;
+                    return flow == Flow.StarterPurse || flow == Flow.ExploitDupe
+                        ? from == AccountKind.Mint
+                        : from == AccountKind.Treasury;
                 case FlowDirection.Sink:
                     return InCirculation(from) && to == AccountKind.Treasury;
                 case FlowDirection.Transfer:
