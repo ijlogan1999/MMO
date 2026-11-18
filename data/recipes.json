@@ -1,0 +1,26 @@
+{
+  "_note": "Starting recipes. methodCeiling = best quality the basic method can reach; discovered methods will add higher-ceiling variants later.",
+  "recipes": [
+    { "id": "smelt_iron",      "output": "iron_ingot",     "qty": 1, "inputs": { "iron_ore": 2, "coal": 1 },                     "station": "smelter",   "skill": "blacksmithing",   "minSkill": 0,  "methodCeiling": 80,  "minutes": 5 },
+    { "id": "saw_planks",      "output": "plank",          "qty": 2, "inputs": { "timber": 1 },                                  "station": "sawpit",    "skill": "carpentry",       "minSkill": 0,  "methodCeiling": 80,  "minutes": 4 },
+    { "id": "mill_flour",      "output": "flour",          "qty": 2, "inputs": { "grain": 3 },                                   "station": "mill",      "skill": "cooking",         "minSkill": 0,  "methodCeiling": 80,  "minutes": 3 },
+    { "id": "weave_cloth",     "output": "cloth",          "qty": 1, "inputs": { "fiber": 3 },                                   "station": "loom",      "skill": "tailoring",       "minSkill": 0,  "methodCeiling": 80,  "minutes": 6 },
+    { "id": "tan_leather",     "output": "leather",        "qty": 1, "inputs": { "hide": 2, "herbs": 1 },                        "station": "tannery",   "skill": "leatherworking",  "minSkill": 0,  "methodCeiling": 80,  "minutes": 8 },
+
+    { "id": "forge_blade",     "output": "blade_blank",    "qty": 1, "inputs": { "iron_ingot": 3, "coal": 1 },                   "station": "forge",     "skill": "blacksmithing",   "minSkill": 30, "methodCeiling": 90,  "minutes": 12 },
+    { "id": "simmer_stock",    "output": "stock",          "qty": 2, "inputs": { "meat": 1, "herbs": 1 },                        "station": "kitchen",   "skill": "cooking",         "minSkill": 20, "methodCeiling": 90,  "minutes": 10 },
+    { "id": "quilt_padding",   "output": "padding",        "qty": 1, "inputs": { "cloth": 2, "fiber": 1 },                       "station": "loom",      "skill": "tailoring",       "minSkill": 20, "methodCeiling": 90,  "minutes": 8 },
+
+    { "id": "bake_bread",      "output": "bread",          "qty": 4, "inputs": { "flour": 2 },                                   "station": "oven",      "skill": "cooking",         "minSkill": 0,  "methodCeiling": 70,  "minutes": 6 },
+    { "id": "cook_stew",       "output": "stew",           "qty": 4, "inputs": { "stock": 2, "meat": 1, "grain": 1 },            "station": "kitchen",   "skill": "cooking",         "minSkill": 25, "methodCeiling": 95,  "minutes": 15 },
+    { "id": "brew_healing",    "output": "healing_potion", "qty": 3, "inputs": { "herbs": 3 },                                   "station": "alembic",   "skill": "alchemy",         "minSkill": 10, "methodCeiling": 90,  "minutes": 8 },
+    { "id": "forge_pickaxe",   "output": "pickaxe",        "qty": 1, "inputs": { "iron_ingot": 2, "plank": 1 },                  "station": "forge",     "skill": "blacksmithing",   "minSkill": 5,  "methodCeiling": 85,  "minutes": 10 },
+    { "id": "forge_woodaxe",   "output": "woodaxe",        "qty": 1, "inputs": { "iron_ingot": 2, "plank": 1 },                  "station": "forge",     "skill": "blacksmithing",   "minSkill": 5,  "methodCeiling": 85,  "minutes": 10 },
+    { "id": "forge_sickle",    "output": "sickle",         "qty": 1, "inputs": { "iron_ingot": 1, "plank": 1 },                  "station": "forge",     "skill": "blacksmithing",   "minSkill": 0,  "methodCeiling": 80,  "minutes": 8 },
+    { "id": "forge_knife",     "output": "skinning_knife", "qty": 1, "inputs": { "iron_ingot": 1, "leather": 1 },                "station": "forge",     "skill": "blacksmithing",   "minSkill": 0,  "methodCeiling": 80,  "minutes": 8 },
+    { "id": "forge_sword",     "output": "sword",          "qty": 1, "inputs": { "blade_blank": 1, "leather": 1, "plank": 1 },   "station": "forge",     "skill": "blacksmithing",   "minSkill": 40, "methodCeiling": 95,  "minutes": 20 },
+    { "id": "stitch_leather",  "output": "leather_armor",  "qty": 1, "inputs": { "leather": 4, "padding": 1 },                  "station": "workbench", "skill": "leatherworking",  "minSkill": 20, "methodCeiling": 90,  "minutes": 20 },
+    { "id": "forge_plate",     "output": "plate_armor",    "qty": 1, "inputs": { "iron_ingot": 10, "padding": 2, "leather": 2 }, "station": "forge",     "skill": "blacksmithing",   "minSkill": 60, "methodCeiling": 100, "minutes": 60 },
+    { "id": "forge_relic",     "output": "relic_sword",    "qty": 1, "inputs": { "blade_blank": 1, "leather": 1, "plank": 1, "relic_core": 1 }, "station": "forge", "skill": "blacksmithing", "minSkill": 60, "methodCeiling": 100, "minutes": 30 }
+  ]
+}
