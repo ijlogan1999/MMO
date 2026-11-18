@@ -76,7 +76,7 @@ public sealed class SimConfig
     public double OverharvestFraction { get; set; } = 0.10;
     public double OverharvestRegenFactor { get; set; } = 0.25;
     public int OverharvestDays { get; set; } = 7;
-    public double FarmYieldPerHour { get; set; } = 4;
+    public double FarmYieldPerHour { get; set; } = 6;
     public double HuntHidePerHour { get; set; } = 1.2;
     public double HuntMeatPerHour { get; set; } = 1.5;
     public double GrainYieldMultiplier { get; set; } = 1.0;
@@ -115,8 +115,11 @@ public sealed class SimConfig
     public double RoleSwitchIncomeRatio { get; set; } = 0.3;
 
     // Token
-    public double TokenInitialPrice { get; set; } = 15000;
-    public double TokenSellersPerAgentPerDay { get; set; } = 0.001;
+    public double TokenInitialPrice { get; set; } = 3000;
+    public double TokenSellersPerAgentPerDay { get; set; } = 0.008;
+
+    /// <summary>Lowest price a player will sell at, as a share of the starting price.</summary>
+    public double SellerFloorShare { get; set; } = 0.5;
     public double MemberShare { get; set; } = 0.5;
     public int FreeTokenAtDay { get; set; } = 30;
 

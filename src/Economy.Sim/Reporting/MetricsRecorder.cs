@@ -192,16 +192,34 @@ public sealed class MetricsRecorder
         m.DayPlayerUnits > 0 ? (double)m.DayPlayerValue / m.DayPlayerUnits : m.LastPrice;
 
     /// <summary>Average across towns of bread + pickaxe + leather armor.</summary>
+    /// <summary>
+    /// A week's cost of living for an ordinary player, priced at what
+    /// players actually paid today (trade-weighted across towns, else the
+    /// last price paid): food, potions, and the materials that keep tools
+    /// and gear repaired. Thin markets for finished gear are left out, since
+    /// a single odd sale would swing the index.
+    /// </summary>
     public double Basket()
     {
         double sum = 0;
-        foreach (var id in new[] { "bread", "pickaxe", "leather_armor" })
+        foreach (var (id, qty) in BasketItems)
         {
             int g = _w.Goods[id];
-            sum += _w.Towns.Average(t => PriceOf(t.Markets[g]));
+            long value = 0; int units = 0;
+            foreach (var t in _w.Towns) { value += t.Markets[g].DayPlayerValue; units += t.Markets[g].DayPlayerUnits; }
+            if (units > 0) _basketLast[g] = (double)value / units;
+            else if (!_basketLast.ContainsKey(g)) _basketLast[g] = _w.Towns.Average(t => PriceOf(t.Markets[g]));
+            sum += _basketLast[g] * qty;
         }
         return sum;
     }
+
+    public static readonly (string id, int qty)[] BasketItems =
+    {
+        ("bread", 14), ("stew", 4), ("healing_potion", 6), ("iron_ingot", 2), ("leather", 2), ("plank", 2),
+    };
+
+    private readonly Dictionary<int, double> _basketLast = new();
 
     /// <summary>Hours of beginner mining needed to buy a pickaxe and three bread.</summary>
     public double StarterKitHours()

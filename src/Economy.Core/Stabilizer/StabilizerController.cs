@@ -47,8 +47,8 @@ namespace Economy.Core.Stabilizer
         public int MaxStrength { get; set; } = 6;
 
         /// <summary>Volume cap per role at full strength, as a share of a day's normal volume.</summary>
-        public double CaravanCap { get; set; } = 0.30;
-        public double BuyerGuildCap { get; set; } = 0.30;
+        public double CaravanCap { get; set; } = 0.20;
+        public double BuyerGuildCap { get; set; } = 0.15;
         public double HiredHandCap { get; set; } = 0.10;
         public double MarketMakerCap { get; set; } = 0.05;
 

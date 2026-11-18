@@ -153,8 +153,8 @@ public sealed partial class World
         a.Orders.Clear();
     }
 
-    /// <summary>Nobody sells for less than 15% of the starting price; they would rather stop.</summary>
-    private double FloorFor(int good) => good == TokenIndex ? 1000 : Math.Max(1, Goods.BasePrice[good] * 0.15);
+    /// <summary>Nobody sells for less than half the starting price; they would rather stop and do something else.</summary>
+    private double FloorFor(int good) => good == TokenIndex ? 1000 : Math.Max(1, Goods.BasePrice[good] * Config.SellerFloorShare);
 
     private double CeilingFor(int good) => good == TokenIndex ? 1_000_000 : Goods.BasePrice[good] * 20;
 
