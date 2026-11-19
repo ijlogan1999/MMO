@@ -83,7 +83,15 @@ public static class Sweep
         var series = new ConcurrentBag<RunSeries>();
         int done = 0;
         var wall = Stopwatch.StartNew();
-        Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, job =>
+        // Longest runs first (big worlds, long scenarios), handed out one at a
+        // time, so no core is left finishing one slow run at the end.
+        jobs = jobs.OrderByDescending(j =>
+        {
+            var c = new SimConfig { Days = days, AgentCount = agents };
+            j.s.Configure(c);
+            return (double)c.AgentCount * c.Days;
+        }).ToList();
+        Parallel.ForEach(Partitioner.Create(jobs, EnumerablePartitionerOptions.NoBuffering), new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, job =>
         {
             var config = new SimConfig { Seed = job.seed, Days = days, AgentCount = agents, StabilizerEnabled = job.on };
             job.s.Configure(config);

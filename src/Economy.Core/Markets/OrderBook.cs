@@ -131,7 +131,9 @@ namespace Economy.Core.Markets
         public int Cancel(Order order)
         {
             var list = order.Side == Side.Buy ? _buys : _sells;
-            if (!list.Remove(order)) return 0;
+            int i = IndexOf(list, order, order.Side == Side.Buy ? (Func<Order, Order, bool>)BuyBefore : SellBefore);
+            if (i < 0) return 0;
+            list.RemoveAt(i);
             int left = order.Remaining;
             order.Remaining = 0;
             return left;
@@ -177,6 +179,21 @@ namespace Economy.Core.Markets
 
         private static bool BuyBefore(Order a, Order b) => a.Price > b.Price || (a.Price == b.Price && a.Sequence < b.Sequence);
         private static bool SellBefore(Order a, Order b) => a.Price < b.Price || (a.Price == b.Price && a.Sequence < b.Sequence);
+
+        /// <summary>
+        /// Finds a resting order by binary search: books are sorted by price
+        /// then sequence, and sequences are unique within a book.
+        /// </summary>
+        private static int IndexOf(List<Order> list, Order order, Func<Order, Order, bool> before)
+        {
+            int lo = 0, hi = list.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (before(list[mid], order)) lo = mid + 1; else hi = mid;
+            }
+            return lo < list.Count && ReferenceEquals(list[lo], order) ? lo : -1;
+        }
 
         private static void Insert(List<Order> list, Order order, Func<Order, Order, bool> before)
         {
