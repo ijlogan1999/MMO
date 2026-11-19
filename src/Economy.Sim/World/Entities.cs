@@ -121,6 +121,9 @@ public sealed class Agent
     public int TaskUnitsToday { get; set; }
     /// <summary>Crafter starter quest done, and how many first items its NPC will still buy.</summary>
     public bool CraftQuestDone { get; set; }
+    /// <summary>Gear this player has on order, and gear it stopped ordering (no crafter took it).</summary>
+    public HashSet<int> WorkOrderGoods { get; } = new();
+    public HashSet<int> WorkOrderGaveUp { get; } = new();
     /// <summary>Raw materials held back for novice crafting.</summary>
     public Dictionary<int, int> NoviceKeep { get; } = new();
     public int CommissionLeft { get; set; }

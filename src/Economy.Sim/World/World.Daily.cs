@@ -25,6 +25,7 @@ public sealed partial class World
         OpenTaskBudgets();
         TrackDay();
         ExpireCourierJobs();
+        ExpireWorkOrders();
         PostTownCourierJobs();
 
         foreach (var a in Agents)

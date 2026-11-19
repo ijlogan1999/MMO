@@ -78,7 +78,7 @@
       },
       "station": "forge",
       "skill": "blacksmithing",
-      "minSkill": 30,
+      "minSkill": 15,
       "methodCeiling": 90,
       "minutes": 12
     },
@@ -221,7 +221,7 @@
       },
       "station": "forge",
       "skill": "blacksmithing",
-      "minSkill": 40,
+      "minSkill": 20,
       "methodCeiling": 95,
       "minutes": 20
     },

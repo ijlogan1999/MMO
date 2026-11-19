@@ -160,8 +160,11 @@ public sealed partial class World
             set(fresh);
             return fresh;
         }
-        long price = (long)Math.Round(AskOrBelief(a, good));
-        PlaceBuy(a, good, 1, Math.Max(1, price));
+        if (!PostWorkOrder(a, good))
+        {
+            long price = (long)Math.Round(AskOrBelief(a, good));
+            PlaceBuy(a, good, 1, Math.Max(1, price));
+        }
         return item != null && item.IsUsable ? item : null;
     }
 
@@ -234,7 +237,6 @@ public sealed partial class World
     private static readonly string[] LoggerGoods = { "timber" };
     private static readonly string[] HerbalistGoods = { "herbs" };
     private static readonly string[] FarmerGoods = { "grain", "fiber", "herbs" };
-    private static readonly string[] CasualGoods = { "iron_ore", "timber", "herbs" };
 
     private void Gather(Agent a, double productivity)
     {
@@ -281,7 +283,7 @@ public sealed partial class World
                 Role.Miner or Role.Bot => MinerGoods,
                 Role.Logger => LoggerGoods,
                 Role.Herbalist => HerbalistGoods,
-                _ => CasualGoods,
+                _ => Config.SideGatherGoods,
             };
             if (a.Role == Role.Bot && a.TargetGood >= 0) GatherFromNode(a, town, a.TargetGood, Config.GatherPerHour * rate);
             else
@@ -341,6 +343,16 @@ public sealed partial class World
         string skill = Roles.CraftSkill(a.Role)!;
         Recipe? best = null;
         double bestProfit = 0;
+        // A work order comes first: hand it over if made, else work on it.
+        var order = TakeWorkOrder(a);
+        if (order != null)
+        {
+            DeliverWorkOrder(a, order);
+            if (_orders.Contains(order)) best = Goods.RecipesByOutput[order.Good].First();
+        }
+        // Orders are for the common version: a skilled crafter makes it well, but with common materials.
+        double tierSkill = order != null && _orders.Contains(order) ? Math.Min(a.Skill, OrderTierSkill) : a.Skill;
+        if (best == null)
         foreach (var r in Goods.Catalog.Recipes)
         {
             if (r.Skill != skill || r.MinSkill > a.Skill) continue;
@@ -360,7 +372,7 @@ public sealed partial class World
         // Missing a component we could make ourselves (a blade blank, flour)?
         // Make that first when the market is not offering it cheaply.
         var recipe = best;
-        foreach (var (g, q) in TieredInputs(best, a.Skill))
+        foreach (var (g, q) in TieredInputs(best, tierSkill))
         {
             if (a.Inventory[g] >= q) continue;
             var ask = Towns[a.Town].Markets[g].Book.BestAsk;
@@ -371,7 +383,7 @@ public sealed partial class World
 
         int crafts = Math.Max(1, (int)Math.Round(60.0 / recipe.CraftMinutes * productivity));
         int possible = crafts;
-        var tiered = TieredInputs(recipe, a.Skill);
+        var tiered = TieredInputs(recipe, tierSkill);
         foreach (var (g, q) in tiered) possible = Math.Min(possible, a.Inventory[g] / q);
 
         int output2 = Goods[recipe.OutputGoodId];

@@ -43,6 +43,7 @@ public sealed partial class World
         Ledger = new CoinLedger(config.VerifyEveryTransfer);
         Escrow = Ledger.OpenEscrow("order escrow");
         _courierEscrow = Ledger.OpenEscrow("courier fees");
+        _orderEscrow = Ledger.OpenEscrow("work orders");
         Metrics = new MetricsRecorder(this);
 
         Regions = worldFile.Regions.ToArray();

@@ -80,14 +80,19 @@ public static class Cli
             {
                 var cfg = new SimConfig { Seed = (ulong)s, Days = days, AgentCount = agents };
                 if (noTasks) cfg.DeliveryTasks = false;
-                var w = new World.World(cfg, catalog, worldFile, ScenarioCatalog.Get("baseline"));
+                ApplySets(args, cfg);
+                var scen = ScenarioCatalog.Get("baseline");
+                var w = new World.World(cfg, catalog, worldFile, scen);
+                var sw2 = Stopwatch.StartNew();
                 w.Run();
+                var sum = Reporting.RunAnalysis.Summarize(w, scen, sw2.Elapsed.TotalSeconds);
                 var roles = Enum.GetValues<Role>();
                 var kinds = Enum.GetValues<IncomeKind>();
                 var flows = Enum.GetValues<GoodFlowKind>();
                 results.Add(new
                 {
                     seed = s,
+                    npcShare = sum.NpcShare, treasuryDrift = sum.TreasuryDrift, basket = sum.BasketTotalInflation, tokenMedian = sum.TokenHoursMedian, moneyEnd = sum.MoneyPerPlayerEnd,
                     roleIncome = w.AverageRoleIncome().ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
                     roles = roles.ToDictionary(r => r.ToString(), r => new
                     {
@@ -103,7 +108,7 @@ public static class Cli
                 });
                 Console.WriteLine($"  seed {s} done");
             });
-            var file = Path.Combine(dir, noTasks ? "diagnose-notasks.json" : "diagnose.json");
+            var file = Path.Combine(dir, Arg(args, "--name") is string nm ? nm + ".json" : noTasks ? "diagnose-notasks.json" : "diagnose.json");
             File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(results.ToArray()));
             Console.WriteLine($"Wrote {file}.");
             return 0;
@@ -128,14 +133,7 @@ public static class Cli
         var scenario = ScenarioCatalog.Get(scenarioId);
         var config = new SimConfig { Seed = seed, Days = days, AgentCount = agents, StabilizerEnabled = !args.Contains("--no-stabilizer") };
         scenario.Configure(config);
-        // --set Name=Value overrides any setting, for quick what-ifs.
-        for (int i = 0; i < args.Length - 1; i++)
-        {
-            if (args[i] != "--set") continue;
-            var parts = args[i + 1].Split('=', 2);
-            var prop = typeof(SimConfig).GetProperty(parts[0]) ?? throw new ArgumentException($"No setting {parts[0]}");
-            prop.SetValue(config, Convert.ChangeType(parts[1], prop.PropertyType, System.Globalization.CultureInfo.InvariantCulture));
-        }
+        ApplySets(args, config);
 
         var sw = Stopwatch.StartNew();
         var world = new World.World(config, catalog, worldFile, scenario);
@@ -159,6 +157,8 @@ public static class Cli
             Console.WriteLine($"  role switches {world.RoleSwitches}, items injected {world.ItemsInjected}");
             Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}, hired tanks {world.NpcTanksHired} healers {world.NpcHealersHired} porters {world.NpcPortersHired}, deaths {world.Deaths}, furniture placed {world.FurniturePlaced}, shops {world.Agents.Count(a => a.HasShop)}");
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
+            Console.WriteLine($"  work orders posted {world.WorkOrdersPosted}, done {world.WorkOrdersDone}, expired {world.WorkOrdersExpired}; novice crafts {world.NoviceCrafts}; crafter quests {world.CrafterQuestsGiven}");
+            Console.WriteLine("  order misses: " + string.Join(", ", world.WorkOrderMisses.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key.good}/{kv.Key.why} {kv.Value}")));
             Console.WriteLine($"  NPC buyback {world.BuybackUnits} units for {world.BuybackCoins}; courier jobs posted {world.CourierJobsPosted}, delivered {world.CourierJobsDelivered}, fees {world.CourierFeesPaid}, cargo lost {world.CourierCargoLost}");
             if (Arg(args, "--inspect") is string inspect && Enum.TryParse<Role>(inspect, true, out var ir))
                 foreach (var a in world.Agents.Where(a => a.Active && a.Role == ir).Take(8))
@@ -169,6 +169,18 @@ public static class Cli
         Console.WriteLine($"Finished {scenario.Name}, seed {seed}, {days} days, in {sw.Elapsed.TotalSeconds:0.0}s.");
         if (outDir != null) world.Metrics.WriteCsv(outDir);
         return 0;
+    }
+
+    /// <summary>--set Name=Value overrides any setting, for quick what-ifs.</summary>
+    private static void ApplySets(string[] args, SimConfig config)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] != "--set") continue;
+            var parts = args[i + 1].Split('=', 2);
+            var prop = typeof(SimConfig).GetProperty(parts[0]) ?? throw new ArgumentException($"No setting {parts[0]}");
+            prop.SetValue(config, prop.PropertyType == typeof(string[]) ? parts[1].Split(',') : Convert.ChangeType(parts[1], prop.PropertyType, System.Globalization.CultureInfo.InvariantCulture));
+        }
     }
 
     private static string? Arg(string[] args, string name)

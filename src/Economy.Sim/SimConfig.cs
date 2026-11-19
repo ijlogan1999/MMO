@@ -132,12 +132,21 @@ public sealed class SimConfig
     public string[] NoviceGoods { get; set; } = { "bread", "bandage", "flour", "firewood", "cloth" };
     /// <summary>Novice work: quality, and coins of time cost per craft step (it's slow).</summary>
     public double NoviceQuality { get; set; } = 25;
-    public double NoviceTimeCost { get; set; } = 15;
+    public double NoviceTimeCost { get; set; } = 40;
     /// <summary>Make it yourself when the market asks at least this multiple of the novice cost.</summary>
-    public double NoviceMakeThreshold { get; set; } = 1.3;
+    public double NoviceMakeThreshold { get; set; } = 2;
 
     /// <summary>Crafter starter quest: skill floor, and how many first items its materials cover (the NPC buys that many).</summary>
     public bool CrafterStarterQuest { get; set; } = true;
+
+    /// <summary>What fighters and casual players gather on the side (sharing nodes with the trades).</summary>
+    public string[] SideGatherGoods { get; set; } = { "iron_ore", "timber", "herbs" };
+
+    /// <summary>Work orders: gear ordered and paid into escrow, made by a local crafter.</summary>
+    public bool WorkOrders { get; set; } = true;
+    public double WorkOrderMinMargin { get; set; } = 0.1;
+    public int WorkOrderWaitHours { get; set; } = 48;
+    public int WorkOrderBuildHours { get; set; } = 72;
     public double CrafterQuestSkill { get; set; } = 20;
     public int CrafterQuestCrafts { get; set; } = 5;
     /// <summary>Rough coin value of the quest's materials (a fighter's sword and armor are worth about this).</summary>
@@ -175,7 +184,7 @@ public sealed class SimConfig
     /// </summary>
     public bool TownStockpiles { get; set; } = true;
     public double StockpileDays { get; set; } = 2;
-    public double StockpileTaskPriceShare { get; set; } = 1.0;
+    public double StockpileTaskPriceShare { get; set; } = 0.8;
     /// <summary>NPCs always buy raw goods at this share of the market price (0 = off); players keep this many spare before dumping.</summary>
     public double NpcBuybackShare { get; set; } = 0.5;
     public int NpcBuybackKeep { get; set; } = 30;
@@ -186,7 +195,7 @@ public sealed class SimConfig
     public double HaulFeeShare { get; set; } = 0.12;
     /// <summary>Hire board: a player tank or healer hired for one trip-hour, split across the party.</summary>
     public long PlayerHireFee { get; set; } = 150;
-    public double PartyGatherPerHour { get; set; } = 8;
+    public double PartyGatherPerHour { get; set; } = 11;
     /// <summary>Carry limits are in weight (ore 2 per unit, herbs 0.2).</summary>
     public double PartyCarryPerMember { get; set; } = 3;
     public double PartyCarryPerHauler { get; set; } = 15;
@@ -235,8 +244,8 @@ public sealed class SimConfig
     /// </summary>
     public bool CourierJobs { get; set; } = true;
     public bool TownCourierJobs { get; set; } = true;
-    public double CourierFeeShare { get; set; } = 0.06;
-    public double CourierWeightFee { get; set; } = 0.5;
+    public double CourierFeeShare { get; set; } = 0.1;
+    public double CourierWeightFee { get; set; } = 1;
     /// <summary>A job is posted only if the owner nets at least this much more than selling at home.</summary>
     public double CourierMinGain { get; set; } = 0.1;
     public int CourierMaxUnits { get; set; } = 60;

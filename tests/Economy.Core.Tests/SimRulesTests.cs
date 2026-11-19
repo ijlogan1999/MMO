@@ -212,4 +212,14 @@ public class SimRulesTests
         Assert.True(w.CommissionCoins > 0);
         Assert.All(w.Agents.Where(a => a.Active && Roles.IsCrafter(a.Role) && a.CraftQuestDone), a => Assert.True(a.Skill >= w.Config.CrafterQuestSkill));
     }
+
+    [Fact]
+    public void CraftersFillWorkOrdersForGear()
+    {
+        var w = Run(days: 40);
+        Assert.True(w.WorkOrdersPosted > 0);
+        Assert.True(w.WorkOrdersDone > 0);
+        var off = Run(c => c.WorkOrders = false, days: 40);
+        Assert.Equal(0, off.WorkOrdersPosted);
+    }
 }
