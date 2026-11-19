@@ -119,6 +119,9 @@ public sealed class Agent
     public double BuffCredit { get; set; }
     public double PackCredit { get; set; }
     public int TaskUnitsToday { get; set; }
+    /// <summary>Crafter starter quest done, and how many first items its NPC will still buy.</summary>
+    public bool CraftQuestDone { get; set; }
+    public int CommissionLeft { get; set; }
     /// <summary>Owns one of the town's limited shops (only shop owners sell while offline).</summary>
     public bool HasShop { get; set; }
     /// <summary>Combat level progress, 0-100. Separate from the profession skill.</summary>
@@ -128,6 +131,9 @@ public sealed class Agent
     public double BuffHours { get; set; }
     /// <summary>Combat power this hour, used to weight contract pay.</summary>
     public double LastPower { get; set; }
+
+    /// <summary>Goods this player has waiting with a courier (one job per good at a time).</summary>
+    public HashSet<int> CourierPending { get; } = new();
 
     /// <summary>Courier jobs a hauler is carrying.</summary>
     public List<CourierJob> Cargo { get; } = new();

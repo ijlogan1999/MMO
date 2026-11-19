@@ -128,6 +128,14 @@ public static class Cli
         var scenario = ScenarioCatalog.Get(scenarioId);
         var config = new SimConfig { Seed = seed, Days = days, AgentCount = agents, StabilizerEnabled = !args.Contains("--no-stabilizer") };
         scenario.Configure(config);
+        // --set Name=Value overrides any setting, for quick what-ifs.
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] != "--set") continue;
+            var parts = args[i + 1].Split('=', 2);
+            var prop = typeof(SimConfig).GetProperty(parts[0]) ?? throw new ArgumentException($"No setting {parts[0]}");
+            prop.SetValue(config, Convert.ChangeType(parts[1], prop.PropertyType, System.Globalization.CultureInfo.InvariantCulture));
+        }
 
         var sw = Stopwatch.StartNew();
         var world = new World.World(config, catalog, worldFile, scenario);

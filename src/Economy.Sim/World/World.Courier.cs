@@ -31,6 +31,7 @@ public sealed partial class World
 {
     private readonly List<CourierJob>[] _jobs;
     private readonly AccountId _courierEscrow;
+    private long[] _jobFees = Array.Empty<long>();
 
     public long CourierJobsPosted { get; private set; }
     public long CourierJobsDelivered { get; private set; }
@@ -57,7 +58,7 @@ public sealed partial class World
     {
         if (!Config.CourierJobs || spare <= 0) return 0;
         var here = Towns[a.Town];
-        if (_jobs[here.Index].Any(j => j.Owner == a.Id && j.Good == g)) return 0;
+        if (a.CourierPending.Contains(g)) return 0;
         double local = RecentPrice(here, g);
         int bestTo = -1, bestQty = 0;
         double bestGain = 0;
@@ -80,6 +81,8 @@ public sealed partial class World
         Ledger.Transfer(a.Account, _courierEscrow, bestFee, Flow.EscrowRelease);
         int quality = a.Inventory.QualityOf(g);
         a.Inventory.Take(g, bestQty);
+        a.CourierPending.Add(g);
+        _jobFees[here.Index] += bestFee;
         double value = bestQty * RecentPrice(Towns[bestTo], g);
         _jobs[here.Index].Add(new CourierJob
         {
@@ -116,11 +119,13 @@ public sealed partial class World
             from.Markets[g].NpcStock -= qty;
             int hours = _worldFile.TravelHoursBetween(from.Def.Region, to.Def.Region);
             double dest = RecentPrice(to, g);
-            _jobs[from.Index].Add(new CourierJob
+            var job = new CourierJob
             {
                 Owner = -1, From = from.Index, To = to.Index, Good = g, Qty = qty, Quality = NpcGoodsQuality,
                 Fee = CourierFee(g, qty, dest, hours), Collateral = (long)(qty * dest * Config.CourierCollateralShare), PostedHour = Hour,
-            });
+            };
+            _jobs[from.Index].Add(job);
+            _jobFees[from.Index] += job.Fee;
             CourierJobsPosted++;
         }
     }
@@ -135,6 +140,7 @@ public sealed partial class World
                 var j = list[i];
                 if (Hour - j.PostedHour < Config.CourierJobExpiryHours) continue;
                 list.RemoveAt(i);
+                _jobFees[j.From] -= j.Fee;
                 ReturnJob(j);
             }
         }
@@ -146,6 +152,7 @@ public sealed partial class World
         var owner = Agents[j.Owner];
         Ledger.Transfer(_courierEscrow, owner.Account, j.Fee, Flow.EscrowRelease);
         owner.Inventory.Add(j.Good, j.Qty, j.Quality);
+        owner.CourierPending.Remove(j.Good);
     }
 
     private void CourierTurn(Agent a, double productivity)
@@ -202,6 +209,7 @@ public sealed partial class World
                     load += w;
                     held += j.Collateral;
                     jobs.Remove(j);
+                    _jobFees[here.Index] -= j.Fee;
                     a.Cargo.Add(j);
                 }
                 if (a.Cargo.Count > 0)
@@ -219,7 +227,7 @@ public sealed partial class World
         foreach (var t in Towns)
         {
             if (t.Index == here.Index || !CanTravel(here, t)) continue;
-            long fees = _jobs[t.Index].Sum(j => j.Fee);
+            long fees = _jobFees[t.Index];
             if (fees > most) { most = fees; target = t.Index; }
         }
         if (target >= 0 && _agentRng.Chance(0.5))
@@ -241,6 +249,7 @@ public sealed partial class World
         else
         {
             var owner = Agents[j.Owner];
+            owner.CourierPending.Remove(j.Good);
             owner.AddRemote(j.To, j.Good, j.Qty, j.Quality);
             Ledger.Transfer(_courierEscrow, courier.Account, j.Fee, Flow.EscrowRelease);
             owner.TodayIncome -= j.Fee;
@@ -260,6 +269,7 @@ public sealed partial class World
             CourierCargoLost += j.Qty;
             if (j.Owner < 0) continue;
             var owner = Agents[j.Owner];
+            owner.CourierPending.Remove(j.Good);
             long pay = Math.Min(j.Collateral, Coins(courier));
             if (pay > 0) Ledger.Transfer(courier.Account, owner.Account, pay, Flow.PlayerTrade);
             courier.TodayIncome -= pay;

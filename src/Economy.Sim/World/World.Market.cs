@@ -273,7 +273,8 @@ public sealed partial class World
     /// <summary>True when a purchase is a cost of doing business rather than consumption.</summary>
     private bool IsBusinessInput(Agent a, int good) => a.Role switch
     {
-        Role.Hauler or Role.Speculator => true,
+        Role.Speculator => true,
+        Role.Hauler => !Config.CourierJobs, // couriers buy no cargo; their food is not a business cost
         Role.Repairer => good == Goods.RepairMaterial[Goods["pickaxe"]] || good == Goods.RepairMaterial[Goods["leather_armor"]],
         _ => Roles.IsCrafter(a.Role) && IsInputFor(a, good),
     };

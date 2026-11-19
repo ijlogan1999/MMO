@@ -225,6 +225,7 @@ public sealed partial class World
             a.Skill = 15;
             if (GatherGoodsFor(role).Length > 0 || SettleNearFor(role).Length > 0) a.Town = PickTown(role, _agentRng);
             if (Roles.Repairs(role)) { Towns[a.Town].Repairers.Add(a.Id); a.RepairPrice = 150; }
+            GiveCrafterQuest(a);
             a.Tool = null;
             RoleSwitches++;
         }

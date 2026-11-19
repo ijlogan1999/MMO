@@ -118,6 +118,7 @@ public sealed partial class World
         bool stew = Config.BreadObsolete || (coins > 15000 && a.Belief[Stew] < a.Belief[Bread] * 3);
         int good = stew ? Stew : Bread;
         int qty = stew ? (want + 1) / 2 : want;
+        if (!stew) { qty -= TryNoviceMake(a, good, qty); if (qty <= 0) return; }
         long price = Math.Max(1, (long)Math.Round(a.Belief[good]));
         if (price * qty > coins / 3) qty = (int)Math.Max(1, coins / 3 / price);
         PlaceBuy(a, good, qty, price);
@@ -392,6 +393,7 @@ public sealed partial class World
             int quality = Goods.Defs[output2].IsMagical && coreQuality > 0 ? Math.Min(roll.Quality, coreQuality + 20) : roll.Quality;
             a.Inventory.Add(output2, recipe.OutputQuantity, quality);
             TrackGood(output2, GoodFlowKind.Crafted, recipe.OutputQuantity);
+            if (a.CommissionLeft > 0) PayCommission(a, output2, recipe.OutputQuantity);
             RegionProducedHour[Towns[a.Town].Region, output2] = Hour;
             a.Skill = Math.Min(100, a.Skill + Config.SkillGainPerHour / Math.Max(1, crafts));
         }
@@ -566,7 +568,11 @@ public sealed partial class World
             a.PotionCredit -= 1;
             if (!TakeHealing(a, heal)) power *= 0.7;
         }
-        if (a.Inventory[heal] < 3) PlaceBuy(a, heal, 4, Math.Max(1, (long)Math.Round(a.Belief[heal])));
+        if (a.Inventory[heal] < 3)
+        {
+            int want = 4 - TryNoviceMake(a, heal, 4);
+            if (want > 0) PlaceBuy(a, heal, want, Math.Max(1, (long)Math.Round(a.Belief[heal])));
+        }
         if (Config.FoodBuffs)
         {
             double t = a.CombatSkill / 100.0;

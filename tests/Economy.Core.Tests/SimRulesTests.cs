@@ -45,7 +45,8 @@ public class SimRulesTests
     [Fact]
     public void PartiesFormAndMostHaveATankAndHealer()
     {
-        var w = Run();
+        // A bigger town than the other checks: in a 400-player world there are too few tanks and healers online at once.
+        var w = Run(agents: 1000);
         Assert.True(w.PartiesFormed > 100, $"only {w.PartiesFormed} parties");
         Assert.True(w.PartiesFull > w.PartiesFormed / 3, $"{w.PartiesFull} of {w.PartiesFormed} parties full");
         Assert.True(w.PartyUnits > 0);
@@ -192,5 +193,23 @@ public class SimRulesTests
         Assert.True(w.BuybackUnits > 0);
         var off = Run(c => c.NpcBuybackShare = 0, days: 20);
         Assert.Equal(0, off.BuybackUnits);
+    }
+
+    [Fact]
+    public void PlayersMakeBasicsThemselvesWhenTheMarketOvercharges()
+    {
+        var w = Run(days: 20);
+        Assert.True(w.NoviceCrafts > 0);
+        var off = Run(c => c.NoviceCrafting = false, days: 20);
+        Assert.Equal(0, off.NoviceCrafts);
+    }
+
+    [Fact]
+    public void NewCraftersGetAStarterQuest()
+    {
+        var w = Run(days: 20);
+        Assert.True(w.CrafterQuestsGiven > 0);
+        Assert.True(w.CommissionCoins > 0);
+        Assert.All(w.Agents.Where(a => a.Active && Roles.IsCrafter(a.Role) && a.CraftQuestDone), a => Assert.True(a.Skill >= w.Config.CrafterQuestSkill));
     }
 }

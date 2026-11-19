@@ -126,6 +126,22 @@ public sealed class SimConfig
 
     /// <summary>Crafters stop making what is not selling: hold at most this many days of recent sales (at least CraftStockMin units).</summary>
     public bool CraftersWatchSales { get; set; } = true;
+
+    /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
+    public bool NoviceCrafting { get; set; } = true;
+    public string[] NoviceGoods { get; set; } = { "bread", "bandage", "flour", "firewood", "cloth" };
+    /// <summary>Novice work: quality, and coins of time cost per craft step (it's slow).</summary>
+    public double NoviceQuality { get; set; } = 25;
+    public double NoviceTimeCost { get; set; } = 15;
+    /// <summary>Make it yourself when the market asks at least this multiple of the novice cost.</summary>
+    public double NoviceMakeThreshold { get; set; } = 1.3;
+
+    /// <summary>Crafter starter quest: skill floor, and how many first items its materials cover (the NPC buys that many).</summary>
+    public bool CrafterStarterQuest { get; set; } = true;
+    public double CrafterQuestSkill { get; set; } = 20;
+    public int CrafterQuestCrafts { get; set; } = 5;
+    /// <summary>Rough coin value of the quest's materials (a fighter's sword and armor are worth about this).</summary>
+    public double CrafterQuestValue { get; set; } = 3000;
     public double CraftStockDays { get; set; } = 4;
     public int CraftStockMin { get; set; } = 3;
     /// <summary>Weight of today in each player's running average of units sold per day.</summary>
