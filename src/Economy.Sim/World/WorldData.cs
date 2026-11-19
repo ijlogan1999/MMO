@@ -108,6 +108,11 @@ public sealed class WorldFile
     /// <summary>Calibrated starting prices; these override recipe roll-ups and raw base prices.</summary>
     public Dictionary<string, double> StartPrices { get; } = new();
 
+    /// <summary>Design prices from world.json only, ignoring calibrated start prices.</summary>
+    public Dictionary<string, double> DesignRawPrices() => BasePrices
+        .Where(kv => kv.Value.ValueKind == JsonValueKind.Number)
+        .ToDictionary(kv => kv.Key, kv => kv.Value.GetDouble());
+
     public Dictionary<string, double> RawPrices()
     {
         var prices = BasePrices

@@ -229,7 +229,7 @@ public sealed partial class World
 
     /// <summary>
     /// Where new and switching players go: the base role mix, pulled toward
-    /// roles that earn more, but no role grows past twice its normal share
+    /// roles that earn more, but no role grows past 1.5 times its normal share
     /// (in a real game, crowded professions stop looking attractive).
     /// </summary>
     private List<(Role, double)> JoinMix()
@@ -237,7 +237,7 @@ public sealed partial class World
         var income = RoleIncome();
         var share = RoleShares();
         return Config.RoleMix
-            .Select(kv => (kv.Key, share.GetValueOrDefault(kv.Key) >= kv.Value * 2 ? 0.0
+            .Select(kv => (kv.Key, share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 ? 0.0
                 : kv.Value * Math.Pow(Math.Clamp(income.GetValueOrDefault(kv.Key, 1.0), 0.3, 3.0), Config.JoinerIncomeBias)))
             .ToList();
     }

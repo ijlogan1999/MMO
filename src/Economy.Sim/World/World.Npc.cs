@@ -238,7 +238,7 @@ public sealed partial class World
     /// </summary>
     private double CalibratedReference(int g, double fastPrice)
     {
-        double b = Goods.BasePrice[g];
+        double b = DesignPrice[g];
         return Math.Clamp(fastPrice, b / 3, b * 3);
     }
 

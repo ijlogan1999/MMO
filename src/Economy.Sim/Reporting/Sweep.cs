@@ -182,7 +182,7 @@ public static class Sweep
             $"Median basket change {RunAnalysis.Median(baseline.Select(r => r.BasketTotalInflation)):+0%;-0%} over the run.");
 
         C(7, "Cheap start", "Starter kit in under 2 hours of play", "baseline", baseline, r => r.KitHoursMedian < 2,
-            $"Median {RunAnalysis.Median(baseline.Select(r => r.KitHoursMedian)):0.0} hours.");
+            $"Median {RunAnalysis.Median(baseline.Select(r => r.KitHoursMedian)):0.0} hours (starter quest); buying one at market would take {RunAnalysis.Median(baseline.Select(r => r.KitMarketHoursMedian)):0.0}.");
 
         var spec = on.Where(r => r.SpeculatorProfit.HasValue).ToList();
         C(8, "Cornering fails", "Speculators lose money", "scenarios 6 and 13", spec, r => r.SpeculatorProfit < 0,

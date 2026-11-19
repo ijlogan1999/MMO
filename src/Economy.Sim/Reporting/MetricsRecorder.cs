@@ -31,6 +31,9 @@ public sealed class DayRow
     public long Sinks;
     public double Basket;
     public double StarterKitHours;
+
+    /// <summary>Hours to buy the kit at market prices instead (shown for reference when the quest gives it).</summary>
+    public double StarterKitMarketHours;
     public double TokenPrice;
     public double TokenHoursMaster;
     public double TokenHoursMedian;
@@ -165,7 +168,8 @@ public sealed class MetricsRecorder
             Faucets = w.Ledger.FaucetTotal - _dayFaucetStart,
             Sinks = w.Ledger.SinkTotal - _daySinkStart,
             Basket = Basket(),
-            StarterKitHours = StarterKitHours(),
+            StarterKitMarketHours = StarterKitHours(),
+            StarterKitHours = w.Config.StarterQuest ? w.Config.StarterQuestHours : StarterKitHours(),
             TokenPrice = w.Tokens.LastPrice,
             TokenHoursMaster = master,
             TokenHoursMedian = median,
@@ -228,7 +232,7 @@ public sealed class MetricsRecorder
         // whichever local raw material sells best, as a beginner (skill 15,
         // quality-35 tool) who pays market tax. Averaged over towns.
         int pick = _w.Goods["pickaxe"], bread = _w.Goods["bread"];
-        double beginnerRate = _w.Config.GatherPerHour * (0.75 + 0.5 * 0.35) * (0.6 + 0.8 * 0.15) * (1 - _w.TaxRate);
+        double beginnerRate = _w.Config.GatherPerHour * (0.75 + 0.5 * 0.35) * (1 - _w.TaxRate);
         var hours = new List<double>();
         foreach (var t in _w.Towns)
         {

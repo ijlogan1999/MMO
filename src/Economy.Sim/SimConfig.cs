@@ -69,14 +69,14 @@ public sealed class SimConfig
     public double GatherPerHour { get; set; } = 3;
 
     /// <summary>Unsold units of one good a gatherer holds before gathering something else.</summary>
-    public int StockpileLimit { get; set; } = 60;
+    public int StockpileLimit { get; set; } = 20;
     public double NoToolFactor { get; set; } = 0.25;
     public double NodeRegenPerRichness { get; set; } = 60;
     public double NodeStockHours { get; set; } = 48;
     public double OverharvestFraction { get; set; } = 0.10;
     public double OverharvestRegenFactor { get; set; } = 0.25;
     public int OverharvestDays { get; set; } = 7;
-    public double FarmYieldPerHour { get; set; } = 6;
+    public double FarmYieldPerHour { get; set; } = 4;
     public double HuntHidePerHour { get; set; } = 1.2;
     public double HuntMeatPerHour { get; set; } = 1.5;
     public double GrainYieldMultiplier { get; set; } = 1.0;
@@ -117,6 +117,28 @@ public sealed class SimConfig
     // Token
     public double TokenInitialPrice { get; set; } = 3000;
     public double TokenSellersPerAgentPerDay { get; set; } = 0.008;
+
+    /// <summary>
+    /// Gear tiers. A crafter makes gear at the highest tier their skill
+    /// reaches; each tier needs more of the recipe's materials, and the top
+    /// tiers also need different ones. Repairing gear uses repair material
+    /// in proportion to the item's tier (set by its quality).
+    /// </summary>
+    public GearTier[] GearTiers { get; set; } =
+    {
+        new() { Name = "Common", MinSkill = 0, InputMultiplier = 1.0 },
+        new() { Name = "Fine", MinSkill = 25, InputMultiplier = 1.5 },
+        new() { Name = "Superior", MinSkill = 50, InputMultiplier = 2.0,
+            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 2 }, ["leatherworking"] = new() { ["herbs"] = 2 } } },
+        new() { Name = "Masterwork", MinSkill = 75, InputMultiplier = 3.0,
+            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 3, ["leather"] = 1 }, ["leatherworking"] = new() { ["herbs"] = 3, ["cloth"] = 1 } } },
+    };
+
+    /// <summary>New players get their role's starter kit from a short quest instead of buying it.</summary>
+    public bool StarterQuest { get; set; } = true;
+
+    /// <summary>Hours of play the starter quest takes.</summary>
+    public double StarterQuestHours { get; set; } = 1.0;
 
     /// <summary>Lowest price a player will sell at, as a share of the starting price.</summary>
     public double SellerFloorShare { get; set; } = 0.5;
@@ -169,4 +191,16 @@ public static class Roles
         Role.Carpenter => "carpentry",
         _ => null,
     };
+}
+
+public sealed class GearTier
+{
+    public string Name { get; set; } = "";
+    public int MinSkill { get; set; }
+
+    /// <summary>Quality is roughly skill, so an item's tier is also read from its quality.</summary>
+    public double InputMultiplier { get; set; } = 1;
+
+    /// <summary>Extra, different materials by craft skill (e.g. blacksmithing: coal, leather).</summary>
+    public Dictionary<string, Dictionary<string, int>> Extra { get; set; } = new();
 }

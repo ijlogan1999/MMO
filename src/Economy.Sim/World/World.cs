@@ -37,6 +37,7 @@ public sealed partial class World
         ScenarioRng = root.Fork(4);
 
         Goods = new GoodsTable(catalog, worldFile.RawPrices());
+        DesignPrice = new GoodsTable(catalog, worldFile.DesignRawPrices()).BasePrice;
         Durability = new DurabilityRules(config.Durability);
         QualityRules = new QualityRules(config.Quality);
         Ledger = new CoinLedger(config.VerifyEveryTransfer);
@@ -64,6 +65,12 @@ public sealed partial class World
     public IScenario? Scenario { get; }
     public SimRandom ScenarioRng { get; }
     public GoodsTable Goods { get; }
+
+    /// <summary>
+    /// Prices from the design data alone. Sellers' floors and ceilings hang
+    /// off these, so recalibrating start prices can never ratchet them down.
+    /// </summary>
+    public double[] DesignPrice { get; }
     public DurabilityRules Durability { get; }
     public QualityRules QualityRules { get; }
     public CoinLedger Ledger { get; }
@@ -98,6 +105,9 @@ public sealed partial class World
 
     /// <summary>Units the NPCs brought in from outside the world.</summary>
     public long ItemsInjected { get; set; }
+
+    /// <summary>Starter kits the starter quest handed to new players.</summary>
+    public int StarterKitsGiven { get; private set; }
 
     private void Setup()
     {
@@ -212,6 +222,10 @@ public sealed partial class World
         agent.Belief[TokenIndex] = Tokens.LastPrice;
 
         // Starting kit: food, plus the tool or gear the role works with.
+        // Veterans already own theirs; new players get it from the starter
+        // quest (with the quest off, they start empty-handed and must buy).
+        if (!veteran && !Config.StarterQuest) return agent;
+        if (!veteran) StarterKitsGiven++;
         agent.Inventory.Add(Bread, 3, 40);
         int q = veteran ? rng.NextInt(30, 70) : 35;
         switch (role)

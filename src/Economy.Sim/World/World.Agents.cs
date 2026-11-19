@@ -157,11 +157,13 @@ public sealed partial class World
         }
 
         Agent? best = null;
+        // Better gear takes more material to repair.
+        int units = (int)Math.Ceiling(Config.GearTiers[TierFor(item.Quality)].InputMultiplier);
         foreach (int id in Towns[owner.Town].Repairers)
         {
             var r = Agents[id];
             if (!r.Active || r.Id == owner.Id) continue;
-            if (material >= 0 && r.Inventory[material] == 0) continue;
+            if (material >= 0 && r.Inventory[material] < units) continue;
             if (best == null || r.RepairPrice < best.RepairPrice) best = r;
         }
         if (best == null) return false;
@@ -171,7 +173,7 @@ public sealed partial class World
         Ledger.Transfer(owner.Account, best.Account, best.RepairPrice, Flow.PlayerTrade);
         best.TodayIncome += best.RepairPrice;
         Ledger.Transfer(owner.Account, Ledger.Treasury, Config.RepairStationFee, Flow.RepairFee);
-        if (material >= 0) best.Inventory.Take(material, 1);
+        if (material >= 0) best.Inventory.Take(material, units);
         best.RepairsToday++;
         best.RepairSkill = Math.Min(100, best.RepairSkill + Config.SkillGainPerHour * 2);
 
@@ -208,7 +210,9 @@ public sealed partial class World
         };
         var tool = Maintain(a, a.Tool, Goods[toolGood], t => a.Tool = t);
         double toolFactor = tool != null ? 0.75 + 0.5 * tool.Quality / 100.0 : Config.NoToolFactor;
-        double skillFactor = 0.6 + 0.8 * a.Skill / 100.0;
+        // Skill raises the quality of what is gathered, not the amount, so a
+        // server full of veterans does not flood the market as everyone levels.
+        const double skillFactor = 1.0;
         double rate = productivity * toolFactor * skillFactor;
         var town = Towns[a.Town];
 
@@ -299,7 +303,7 @@ public sealed partial class World
             int output = Goods[r.OutputGoodId];
             double value = a.Belief[output] * r.OutputQuantity;
             double cost = Config.StationFee;
-            foreach (var inp in r.Inputs) cost += InputCost(a, Goods[inp.GoodId]) * inp.Quantity;
+            foreach (var (g, q) in TieredInputs(r, a.Skill)) cost += InputCost(a, g) * q;
             double perHour = (value - cost) * (60.0 / r.CraftMinutes);
             // Do not flood a market: count what we already hold unsold.
             perHour *= 1.0 / (1 + a.Inventory[output] / 20.0);
@@ -310,10 +314,9 @@ public sealed partial class World
         // Missing a component we could make ourselves (a blade blank, flour)?
         // Make that first when the market is not offering it cheaply.
         var recipe = best;
-        foreach (var inp in best.Inputs)
+        foreach (var (g, q) in TieredInputs(best, a.Skill))
         {
-            int g = Goods[inp.GoodId];
-            if (a.Inventory[g] >= inp.Quantity) continue;
+            if (a.Inventory[g] >= q) continue;
             var ask = Towns[a.Town].Markets[g].Book.BestAsk;
             if (ask.HasValue && ask.Value <= a.Belief[g] * 1.2) continue;
             var sub = Goods.RecipesByOutput[g].FirstOrDefault(r => r.Skill == skill && r.MinSkill <= a.Skill);
@@ -322,7 +325,8 @@ public sealed partial class World
 
         int crafts = Math.Max(1, (int)Math.Round(60.0 / recipe.CraftMinutes * productivity));
         int possible = crafts;
-        foreach (var inp in recipe.Inputs) possible = Math.Min(possible, a.Inventory[Goods[inp.GoodId]] / inp.Quantity);
+        var tiered = TieredInputs(recipe, a.Skill);
+        foreach (var (g, q) in tiered) possible = Math.Min(possible, a.Inventory[g] / q);
 
         int output2 = Goods[recipe.OutputGoodId];
         for (int i = 0; i < possible; i++)
@@ -330,12 +334,11 @@ public sealed partial class World
             if (!Ledger.TryTransfer(a.Account, Ledger.Treasury, Config.StationFee, Flow.StationFee, out _)) break;
             _inputs.Clear();
             int coreQuality = 0;
-            foreach (var inp in recipe.Inputs)
+            foreach (var (g, need) in tiered)
             {
-                int g = Goods[inp.GoodId];
                 int q = a.Inventory.QualityOf(g);
-                a.Inventory.Take(g, inp.Quantity);
-                _inputs.Add(new InputQuality(q, inp.Quantity));
+                a.Inventory.Take(g, need);
+                _inputs.Add(new InputQuality(q, need));
                 if (g == RelicCore) coreQuality = q;
             }
             var roll = QualityRules.Roll(recipe, (int)a.Skill, _inputs, QualityRules.SimulatedPerformance((int)a.Skill, _agentRng), _agentRng);
@@ -347,10 +350,9 @@ public sealed partial class World
 
         // Order inputs for the next hour's crafting: take a fair ask now, else bid.
         long coins = Coins(a);
-        foreach (var inp in recipe.Inputs)
+        foreach (var (g, q) in tiered)
         {
-            int g = Goods[inp.GoodId];
-            int need = inp.Quantity * crafts - a.Inventory[g];
+            int need = q * crafts - a.Inventory[g];
             if (need <= 0) continue;
             var ask = Towns[a.Town].Markets[g].Book.BestAsk;
             long price = ask.HasValue && ask.Value <= a.Belief[g] * 1.25
@@ -359,6 +361,39 @@ public sealed partial class World
             if (price * need > coins / 2) need = (int)(coins / 2 / price);
             if (need > 0) PlaceBuy(a, g, need, price);
         }
+    }
+
+    private readonly Dictionary<(Recipe, int), List<(int good, int qty)>> _tieredCache = new();
+
+    /// <summary>Gear tier for a skill level (or an item's quality).</summary>
+    public int TierFor(double skillOrQuality)
+    {
+        int t = 0;
+        for (int i = 0; i < Config.GearTiers.Length; i++) if (skillOrQuality >= Config.GearTiers[i].MinSkill) t = i;
+        return t;
+    }
+
+    /// <summary>
+    /// Inputs for one craft at the crafter's tier. Only gear is tiered:
+    /// food, potions and materials use the base recipe.
+    /// </summary>
+    private List<(int good, int qty)> TieredInputs(Recipe r, double skill)
+    {
+        int output = Goods[r.OutputGoodId];
+        int tier = Goods.Defs[output].Use == GoodUse.Equipment ? TierFor(skill) : 0;
+        if (_tieredCache.TryGetValue((r, tier), out var list)) return list;
+        var t = Config.GearTiers[tier];
+        list = r.Inputs.Select(i => (Goods[i.GoodId], i.GoodId == "relic_core" ? i.Quantity : (int)Math.Ceiling(i.Quantity * t.InputMultiplier))).ToList();
+        if (t.Extra.TryGetValue(r.Skill, out var extra))
+            foreach (var kv in extra)
+            {
+                int g = Goods[kv.Key];
+                int idx = list.FindIndex(x => x.Item1 == g);
+                if (idx >= 0) list[idx] = (g, list[idx].Item2 + kv.Value);
+                else list.Add((g, kv.Value));
+            }
+        _tieredCache[(r, tier)] = list;
+        return list;
     }
 
     /// <summary>What an input would cost right now: a fair ask, else the agent's belief.</summary>
@@ -393,8 +428,8 @@ public sealed partial class World
         if (g == Potion && a.Role == Role.Fighter) return 6;
         if (g == RelicCore && a.Role == Role.Fighter && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
-        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 4;
-        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 4;
+        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
+        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
         if (Roles.IsCrafter(a.Role) && IsInputFor(a, g)) return 30;
         return 0;
     }
@@ -416,7 +451,7 @@ public sealed partial class World
         foreach (var material in new[] { Goods.RepairMaterial[Goods["pickaxe"]], Goods.RepairMaterial[Goods["leather_armor"]] })
         {
             if (material < 0) continue;
-            int need = 4 - a.Inventory[material];
+            int need = 8 - a.Inventory[material];
             if (need > 0) PlaceBuy(a, material, need, Math.Max(1, (long)Math.Round(a.Belief[material])));
         }
         if (a.RepairsToday > 3) a.RepairPrice = Math.Min(2000, a.RepairPrice + 10);

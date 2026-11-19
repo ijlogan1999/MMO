@@ -31,6 +31,7 @@ public sealed class RunSummary
     public double BasketTotalInflation { get; set; }
 
     public double KitHoursMedian { get; set; }
+    public double KitMarketHoursMedian { get; set; }
     public double TokenHoursMaster { get; set; }
     public double TokenHoursMedian { get; set; }
 
@@ -114,6 +115,7 @@ public static class RunAnalysis
         summary.BasketWeeklyInflation = b0 > 0 && b1 > 0 ? Math.Pow(b1 / b0, 1 / weeks) - 1 : 0;
 
         summary.KitHoursMedian = Median(days.Select(d => d.StarterKitHours));
+        summary.KitMarketHoursMedian = Median(days.Select(d => d.StarterKitMarketHours));
         summary.TokenHoursMaster = Median(days.Select(d => d.TokenHoursMaster));
         summary.TokenHoursMedian = Median(days.Select(d => d.TokenHoursMedian));
 
@@ -143,7 +145,7 @@ public static class RunAnalysis
             series.MoneyPerPlayer.Add(Math.Round(d.MoneyPerPlayer, 1));
             series.Treasury.Add(d.Treasury);
             series.Basket.Add(Math.Round(d.Basket, 1));
-            series.KitHours.Add(Clean(d.StarterKitHours));
+            series.KitHours.Add(Clean(d.StarterKitMarketHours));
             series.TokenPrice.Add(Math.Round(d.TokenPrice));
             series.NpcShare.Add(d.PlayerValue + d.NpcValue > 0 ? Math.Round((double)d.NpcValue / (d.PlayerValue + d.NpcValue), 4) : 0);
             series.Active.Add(d.Active);

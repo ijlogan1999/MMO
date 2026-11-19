@@ -147,16 +147,16 @@ public sealed partial class World
             else
             {
                 ReturnGoods(a, oo.Good, left, o.Quality);
-                if (learn) a.Belief[oo.Good] = Math.Max(a.Belief[oo.Good] * 0.96, FloorFor(oo.Good));
+                if (learn) a.Belief[oo.Good] = Math.Max(a.Belief[oo.Good] * 0.98, FloorFor(oo.Good));
             }
         }
         a.Orders.Clear();
     }
 
     /// <summary>Nobody sells for less than half the starting price; they would rather stop and do something else.</summary>
-    private double FloorFor(int good) => good == TokenIndex ? 1000 : Math.Max(1, Goods.BasePrice[good] * Config.SellerFloorShare);
+    private double FloorFor(int good) => good == TokenIndex ? 1000 : Math.Max(1, DesignPrice[good] * Config.SellerFloorShare);
 
-    private double CeilingFor(int good) => good == TokenIndex ? 1_000_000 : Goods.BasePrice[good] * 20;
+    private double CeilingFor(int good) => good == TokenIndex ? 1_000_000 : DesignPrice[good] * 20;
 
     private void ReturnGoods(Agent a, int good, int qty, int quality)
     {
@@ -191,7 +191,8 @@ public sealed partial class World
             }
             ReceiveGoods(buyer, good, f.Quantity, f.Sell.Quality);
             if (good != TokenIndex && IsBusinessInput(buyer, good)) buyer.TodayIncome -= total;
-            buyer.Belief[good] = Math.Max(1, buyer.Belief[good] * 0.99);
+            // Buyers learn what things cost: belief moves toward the price paid.
+            buyer.Belief[good] = Math.Max(1, buyer.Belief[good] + 0.2 * (f.Price - buyer.Belief[good]));
         }
         else
         {
