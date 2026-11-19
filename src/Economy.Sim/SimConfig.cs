@@ -86,6 +86,12 @@ public sealed class SimConfig
 
     public double FoodPerHour { get; set; } = 0.5;
     public double StewFoodValue { get; set; } = 2.0;
+    /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>
+    public double BuffFoodPerFightHourMin { get; set; } = 0.15;
+    public double BuffFoodPerFightHourMax { get; set; } = 0.6;
+    /// <summary>Combat power bonus while buffed (loot, dungeon cores, contract share).</summary>
+    public double BuffPowerBonus { get; set; } = 0.25;
+    public bool FoodBuffs { get; set; } = true;
     public int ToolWearPerHour { get; set; } = 16;
     public int WeaponWearPerHour { get; set; } = 20;
     public int ArmorWearPerHour { get; set; } = 14;

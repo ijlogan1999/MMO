@@ -424,7 +424,7 @@ public sealed partial class World
     private int KeepAmount(Agent a, int g)
     {
         if (g == Bread) return 6;
-        if (g == Stew) return 3;
+        if (g == Stew) return a.Role == Role.Fighter ? 6 : 3;
         if (g == Potion && a.Role == Role.Fighter) return 6;
         if (g == RelicCore && a.Role == Role.Fighter && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
@@ -478,6 +478,28 @@ public sealed partial class World
             if (a.Inventory.Take(Potion, 1) == 0) power *= 0.7;
         }
         if (a.Inventory[Potion] < 3) PlaceBuy(a, Potion, 4, Math.Max(1, (long)Math.Round(a.Belief[Potion])));
+        if (Config.FoodBuffs)
+        {
+            double t = a.Skill / 100.0;
+            a.BuffCredit += Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t;
+            if (a.BuffCredit >= 1)
+            {
+                a.BuffCredit -= 1;
+                if (a.Inventory.Take(Stew, 1) == 1) a.BuffHours = 1.0 / Math.Max(0.01, Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t);
+            }
+            if (a.BuffHours > 0) { a.BuffHours -= 1; power *= 1 + Config.BuffPowerBonus; }
+            // Keep a few buff meals on hand; stronger fighters keep more.
+            int keep = 2 + (int)Math.Round(3 * t);
+            if (a.Inventory[Stew] < keep)
+            {
+                long coins2 = Coins(a);
+                long price = Math.Max(1, (long)Math.Round(a.Belief[Stew]));
+                int qty = keep + 1 - a.Inventory[Stew];
+                if (price * qty > coins2 / 4) qty = (int)Math.Max(0, coins2 / 4 / price);
+                if (qty > 0) PlaceBuy(a, Stew, qty, price);
+            }
+        }
+        a.LastPower = power;
 
         if (weapon != null) Durability.Wear(weapon, Config.WeaponWearPerHour);
         if (armor != null) Durability.Wear(armor, Config.ArmorWearPerHour);
@@ -617,14 +639,15 @@ public sealed partial class World
     {
         if (_fightersThisHour.Count > 0 && _contractPoolThisHour > 0)
         {
-            long each = _contractPoolThisHour / _fightersThisHour.Count;
-            if (each > 0)
+            // Stronger (fed, equipped, buffed) fighters complete more of the contract.
+            double total = 0;
+            foreach (var f in _fightersThisHour) total += Math.Max(0.01, f.LastPower);
+            foreach (var f in _fightersThisHour)
             {
-                foreach (var f in _fightersThisHour)
-                {
-                    if (!Ledger.TryTransfer(Ledger.Treasury, f.Account, each, Flow.TownContract, out _)) break;
-                    f.TodayIncome += each;
-                }
+                long each = (long)(_contractPoolThisHour * Math.Max(0.01, f.LastPower) / total);
+                if (each <= 0) continue;
+                if (!Ledger.TryTransfer(Ledger.Treasury, f.Account, each, Flow.TownContract, out _)) break;
+                f.TodayIncome += each;
             }
         }
         _fightersThisHour.Clear();

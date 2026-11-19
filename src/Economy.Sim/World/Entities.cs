@@ -110,6 +110,10 @@ public sealed class Agent
 
     public double FoodHours { get; set; }
     public double PotionCredit { get; set; }
+    public double BuffCredit { get; set; }
+    public double BuffHours { get; set; }
+    /// <summary>Combat power this hour, used to weight contract pay.</summary>
+    public double LastPower { get; set; }
 
     /// <summary>Hauler state: hours left on the road, and where to.</summary>
     public int TravelHoursLeft { get; set; }
