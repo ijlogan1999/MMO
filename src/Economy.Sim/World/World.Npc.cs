@@ -139,7 +139,7 @@ public sealed partial class World
         }
 
         // NPC vendors sell raw materials at normal quality in small daily amounts.
-        if (Goods.Defs[g].Tier == GoodTier.Raw && m.VendorLeftToday > 0)
+        if (Goods.Defs[g].Tier == GoodTier.Raw && !IsRare(g) && m.VendorLeftToday > 0)
         {
             long price = (long)Math.Ceiling(m.Reference.Value * Config.NpcVendorMarkup);
             int qty = m.VendorLeftToday;
@@ -150,7 +150,8 @@ public sealed partial class World
             _ = sold;
         }
 
-        if (!StabilizerLive) return;
+        // Rare wilds materials are for crafters only: NPCs neither buy nor sell them.
+        if (!StabilizerLive || IsRare(g)) return;
         double band = Config.Stabilizer.PriceBand;
         double reference = m.Reference.Value;
         double perHour(NpcRole role) => m.Stabilizer.VolumeShare(role) * s.DailyVolume / 24.0;

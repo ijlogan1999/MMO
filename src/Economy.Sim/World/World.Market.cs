@@ -96,6 +96,17 @@ public sealed partial class World
         return filled;
     }
 
+    /// <summary>Lists goods from a player's storage in another town on that town's market.</summary>
+    private void PlaceSellAt(Agent a, int town, int good, int qty, long price, int quality)
+    {
+        var book = BookFor(town, good);
+        var order = new Order(++_orderIds, a.Id, Side.Sell, Math.Max(1, price), qty, quality, book.NextSequence());
+        _fills.Clear();
+        book.Submit(order, _fills, true);
+        SettleAll(town, good);
+        if (order.Remaining > 0) a.Orders.Add(new OpenOrder(order, town, good) { PlacedHour = Hour });
+    }
+
     /// <summary>An NPC order. Buys are paid by the treasury, which must be able to cover them.</summary>
     public Order? PlaceNpcOrder(int town, int good, Side side, int qty, long price, int quality, int tag, int owner = NpcOwner)
     {
@@ -143,6 +154,12 @@ public sealed partial class World
             {
                 Ledger.Transfer(Escrow, a.Account, o.Price * left, Flow.EscrowRelease);
                 if (learn) a.Belief[oo.Good] = Math.Min(a.Belief[oo.Good] * 1.05, CeilingFor(oo.Good));
+            }
+            else if (oo.Town >= 0 && oo.Town != a.Town)
+            {
+                // Goods in another town's storage stay there.
+                a.AddRemote(oo.Town, oo.Good, left, o.Quality);
+                if (learn) a.Belief[oo.Good] = Math.Max(a.Belief[oo.Good] * 0.98, FloorFor(oo.Good));
             }
             else
             {
@@ -214,6 +231,7 @@ public sealed partial class World
             if (good != TokenIndex)
             {
                 seller.TodayIncome += total - tax;
+                seller.SoldToday[good] += f.Quantity;
                 Track(seller, buyerId >= 0 ? IncomeKind.SalesToPlayers : IncomeKind.SalesToNpcs, total - tax);
                 if (buyerId < 0) TrackGood(good, GoodFlowKind.SoldToNpc, f.Quantity);
             }

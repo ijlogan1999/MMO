@@ -42,10 +42,13 @@ public sealed partial class World
         QualityRules = new QualityRules(config.Quality);
         Ledger = new CoinLedger(config.VerifyEveryTransfer);
         Escrow = Ledger.OpenEscrow("order escrow");
+        _courierEscrow = Ledger.OpenEscrow("courier fees");
         Metrics = new MetricsRecorder(this);
 
         Regions = worldFile.Regions.ToArray();
         Towns = worldFile.Towns.Select((t, i) => new Town(i, t, Array.IndexOf(Regions, t.Region), Goods.Count)).ToArray();
+        foreach (var t in Towns) t.InitStockpile(Goods.Count);
+        _jobs = Towns.Select(_ => new List<CourierJob>()).ToArray();
         RegionProducedHour = new int[Regions.Length, Goods.Count];
         for (int r = 0; r < Regions.Length; r++)
             for (int g = 0; g < Goods.Count; g++) RegionProducedHour[r, g] = 0;

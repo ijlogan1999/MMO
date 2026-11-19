@@ -24,6 +24,8 @@ public sealed partial class World
         if (weekEnd || Day == 0) AssignShops();
         OpenTaskBudgets();
         TrackDay();
+        ExpireCourierJobs();
+        PostTownCourierJobs();
 
         foreach (var a in Agents)
         {
@@ -33,6 +35,12 @@ public sealed partial class World
             a.DailyIncome[dayIndex] = a.TodayIncome;
             a.TodayIncome = 0;
             a.RepairsToday = 0;
+            for (int g = 0; g < a.SoldToday.Length; g++)
+            {
+                if (a.SoldToday[g] == 0 && a.SalesPerDay[g] == 0) continue;
+                a.SalesPerDay[g] += Config.SalesAverageWeight * (a.SoldToday[g] - a.SalesPerDay[g]);
+                a.SoldToday[g] = 0;
+            }
         }
 
         if (weekEnd) WeeklyFees();

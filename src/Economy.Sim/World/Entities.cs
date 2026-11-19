@@ -71,6 +71,8 @@ public sealed class Agent
         Account = account;
         Inventory = new Inventory(goods);
         Belief = new double[goods];
+        SoldToday = new int[goods];
+        SalesPerDay = new double[goods];
     }
 
     public int Id { get; }
@@ -81,6 +83,10 @@ public sealed class Agent
 
     /// <summary>What this agent thinks each good is worth, adjusted by how its orders fill.</summary>
     public double[] Belief { get; }
+
+    /// <summary>Units of each good sold today, and a running average of units sold per day.</summary>
+    public int[] SoldToday { get; }
+    public double[] SalesPerDay { get; }
 
     public List<OpenOrder> Orders { get; } = new();
 
@@ -122,6 +128,20 @@ public sealed class Agent
     public double BuffHours { get; set; }
     /// <summary>Combat power this hour, used to weight contract pay.</summary>
     public double LastPower { get; set; }
+
+    /// <summary>Courier jobs a hauler is carrying.</summary>
+    public List<CourierJob> Cargo { get; } = new();
+
+    /// <summary>Goods kept in other towns' storage (key town*10000+good): units and quality.</summary>
+    public Dictionary<int, (int qty, int quality)> Remote { get; } = new();
+
+    public void AddRemote(int town, int good, int qty, int quality)
+    {
+        int key = town * 10000 + good;
+        var cur = Remote.GetValueOrDefault(key);
+        int q = cur.qty + qty > 0 ? (cur.qty * cur.quality + qty * quality) / (cur.qty + qty) : quality;
+        Remote[key] = (cur.qty + qty, q);
+    }
 
     /// <summary>Hauler state: hours left on the road, and where to.</summary>
     public int TravelHoursLeft { get; set; }
@@ -258,6 +278,10 @@ public sealed class Town
     public double[] DeepStock { get; }
     public double[] DeepRegenPerHour { get; }
     /// <summary>Coins left in today's delivery-task budget, and what it started at.</summary>
+    /// <summary>Raw goods the town holds, and how much of each it uses up per day.</summary>
+    public double[] Stockpile { get; private set; } = Array.Empty<double>();
+    public double[] DailyUse { get; private set; } = Array.Empty<double>();
+    public void InitStockpile(int goods) { Stockpile = new double[goods]; DailyUse = new double[goods]; }
     public double TaskBudget { get; set; }
     public double TaskBudgetStart { get; set; }
     public int[] DepletedUntilHour { get; }

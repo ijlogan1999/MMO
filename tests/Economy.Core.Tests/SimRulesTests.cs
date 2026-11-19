@@ -149,4 +149,48 @@ public class SimRulesTests
         var w = Run();
         Assert.DoesNotContain(w.Agents, a => a.Active && a.Role == Role.Repairer);
     }
+
+    [Fact]
+    public void HaulersCarryCourierJobsForAFee()
+    {
+        var w = Run(days: 20);
+        Assert.True(w.CourierJobsPosted > 0);
+        Assert.True(w.CourierJobsDelivered > 0);
+        Assert.True(w.CourierFeesPaid > 0);
+    }
+
+    [Fact]
+    public void NoNpcOrTownTakesRareMaterials()
+    {
+        var w = Run(c => c.WarmupDays = 2, days: 20);
+        Assert.True(w.GoodFlows[w.Goods["ice_crystal"], (int)GoodFlowKind.Gathered] > 0);
+        foreach (var id in w.Config.RareGoods)
+        {
+            int g = w.Goods[id];
+            Assert.True(w.IsRare(g));
+            Assert.Equal(0, w.GoodFlows[g, (int)GoodFlowKind.TaskDelivered]);
+            Assert.Equal(0, w.GoodFlows[g, (int)GoodFlowKind.SoldToNpc]);
+            Assert.Equal(0, w.GoodFlows[g, (int)GoodFlowKind.BoughtFromNpc]);
+        }
+    }
+
+    [Fact]
+    public void TownStockpilesStayNearTheirTarget()
+    {
+        var w = Run(days: 20);
+        foreach (var t in w.Towns)
+            for (int g = 0; g < w.Goods.Count; g++)
+                // The target moves a little with each day's budget, so allow some slack.
+                Assert.True(t.Stockpile[g] <= t.DailyUse[g] * w.Config.StockpileDays * 1.5 + 5,
+                    $"{t.Name} {w.Goods.Defs[g].Id} stockpile {t.Stockpile[g]:0} over target {t.DailyUse[g] * w.Config.StockpileDays:0}");
+    }
+
+    [Fact]
+    public void NpcsBuyExcessRawGoodsAtHalfPrice()
+    {
+        var w = Run(days: 20);
+        Assert.True(w.BuybackUnits > 0);
+        var off = Run(c => c.NpcBuybackShare = 0, days: 20);
+        Assert.Equal(0, off.BuybackUnits);
+    }
 }

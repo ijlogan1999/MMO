@@ -155,26 +155,28 @@ public sealed partial class World
             return;
         }
 
-        double stock = 0;
-        for (int g = 0; g < Goods.Count; g++) stock += town.DeepStock[g];
+        double stock = 0, stockWeight = 0;
+        for (int g = 0; g < Goods.Count; g++) { stock += town.DeepStock[g]; stockWeight += town.DeepStock[g] * WeightOf(g); }
         if (stock <= 0) return;
+        // Carrying limits are by weight: heavy ore fills a bag far sooner than herbs.
+        double perUnit = Math.Max(0.05, stockWeight / stock);
 
         // Personal loot: each member keeps what they gather, as far as they can
         // carry it. Haulers (and a hired porter) carry the overflow for a fee.
         int n = party.Count;
         var gathered = new double[n];
         var own = new double[n];
-        double haulCap = npcPorter ? Config.PartyCarryPerHauler : 0, overflow = 0;
+        double haulCap = npcPorter ? Config.PartyCarryPerHauler / perUnit : 0, overflow = 0;
         for (int i = 0; i < n; i++)
         {
             var a = party[i];
             gathered[i] = (IsGatherFocus(a.Role) ? 1.0 : 0.4) * Config.PartyGatherPerHour;
-            double carry = Config.PartyCarryPerMember;
-            if (a.Role == Role.Hauler) haulCap += Config.PartyCarryPerHauler;
+            double carry = Config.PartyCarryPerMember / perUnit;
+            if (a.Role == Role.Hauler) haulCap += Config.PartyCarryPerHauler / perUnit;
             // Travel packs (leatherworkers) add carrying space and wear out.
             if (a.Inventory[Pack] > 0)
             {
-                carry += Config.PackCarry;
+                carry += Config.PackCarry / perUnit;
                 a.PackCredit += Config.PackUsePerTrip;
                 if (a.PackCredit >= 1) { a.PackCredit -= 1; a.Inventory.Take(Pack, 1); }
             }
@@ -223,7 +225,7 @@ public sealed partial class World
         // Pay the haulers for what they carried (a hired NPC porter was paid up front).
         if (haulers.Count > 0)
         {
-            double playerHaul = haulCap - (npcPorter ? Config.PartyCarryPerHauler : 0);
+            double playerHaul = haulCap - (npcPorter ? Config.PartyCarryPerHauler / perUnit : 0);
             double playerShare = haulCap > 0 ? playerHaul / haulCap : 0;
             for (int i = 0; i < n; i++)
             {

@@ -115,7 +115,7 @@ public sealed class SimConfig
     /// <summary>Fighters below this combat level heal with bandages (tailors) instead of potions.</summary>
     public double BandageMaxLevel { get; set; } = 40;
     /// <summary>Extra party carry for each member with a travel pack (leatherworkers); packs wear out per trip.</summary>
-    public double PackCarry { get; set; } = 2;
+    public double PackCarry { get; set; } = 3;
     public double PackUsePerTrip { get; set; } = 0.1;
     /// <summary>Players with more coins than this furnish their homes (carpenters' furniture).</summary>
     public long FurnitureWealth { get; set; } = 6000;
@@ -123,6 +123,13 @@ public sealed class SimConfig
 
     // Stronger mobs (Ian, 2026-11-19): deaths damage gear instead of extra wear.
     public double MobStrength { get; set; } = 1.0;
+
+    /// <summary>Crafters stop making what is not selling: hold at most this many days of recent sales (at least CraftStockMin units).</summary>
+    public bool CraftersWatchSales { get; set; } = true;
+    public double CraftStockDays { get; set; } = 4;
+    public int CraftStockMin { get; set; } = 3;
+    /// <summary>Weight of today in each player's running average of units sold per day.</summary>
+    public double SalesAverageWeight { get; set; } = 0.15;
     public double DeathChancePerFightHour { get; set; } = 0.03;
     /// <summary>Durability lost on death, in hours of normal wear.</summary>
     public double DeathWearHours { get; set; } = 15;
@@ -145,14 +152,28 @@ public sealed class SimConfig
     public double TaskAcceptShare { get; set; } = 0.9;
     public int SoloTaskCapPerDay { get; set; } = 20;
     public int PartyTaskCapPerMember { get; set; } = 30;
+
+    /// <summary>
+    /// Need-based tasks (Ian, 2026-11-19): towns keep a stockpile; a full-price
+    /// task is open only while it is under StockpileDays of daily use.
+    /// </summary>
+    public bool TownStockpiles { get; set; } = true;
+    public double StockpileDays { get; set; } = 2;
+    public double StockpileTaskPriceShare { get; set; } = 1.0;
+    /// <summary>NPCs always buy raw goods at this share of the market price (0 = off); players keep this many spare before dumping.</summary>
+    public double NpcBuybackShare { get; set; } = 0.5;
+    public int NpcBuybackKeep { get; set; } = 30;
+    /// <summary>Rare wilds materials: crafters only, no town or NPC buys or sells them.</summary>
+    public HashSet<string> RareGoods { get; set; } = new() { "ember_slag", "ice_crystal" };
     /// <summary>Personal loot: haulers carry members' overflow for this share of its value.</summary>
     public bool PersonalLoot { get; set; } = true;
     public double HaulFeeShare { get; set; } = 0.12;
     /// <summary>Hire board: a player tank or healer hired for one trip-hour, split across the party.</summary>
     public long PlayerHireFee { get; set; } = 150;
     public double PartyGatherPerHour { get; set; } = 8;
-    public double PartyCarryPerMember { get; set; } = 2;
-    public double PartyCarryPerHauler { get; set; } = 10;
+    /// <summary>Carry limits are in weight (ore 2 per unit, herbs 0.2).</summary>
+    public double PartyCarryPerMember { get; set; } = 3;
+    public double PartyCarryPerHauler { get; set; } = 15;
     public double PartyQualityBonus { get; set; } = 15;
     public double PartyWipeChanceFull { get; set; } = 0.02;
     public double PartyWipeChanceMissingRole { get; set; } = 0.12;
@@ -190,6 +211,37 @@ public sealed class SimConfig
 
     // Hauling
     public int WagonCapacity { get; set; } = 120;
+
+    /// <summary>
+    /// Courier jobs (Ian, 2026-11-19): haulers carry other people's goods for a
+    /// fee paid on delivery instead of buying cargo. Fee = share of the goods'
+    /// value plus coins per unit of weight per travel hour.
+    /// </summary>
+    public bool CourierJobs { get; set; } = true;
+    public bool TownCourierJobs { get; set; } = true;
+    public double CourierFeeShare { get; set; } = 0.06;
+    public double CourierWeightFee { get; set; } = 0.5;
+    /// <summary>A job is posted only if the owner nets at least this much more than selling at home.</summary>
+    public double CourierMinGain { get; set; } = 0.1;
+    public int CourierMaxUnits { get; set; } = 60;
+    public double CourierCollateralShare { get; set; } = 0.5;
+    public int CourierJobExpiryHours { get; set; } = 48;
+    public long CourierRideEmptyMinFees { get; set; } = 150;
+    public int TownCourierMinStock { get; set; } = 20;
+    /// <summary>Weight a wagon carries (ore weighs 2, herbs 0.2).</summary>
+    public double WagonWeight { get; set; } = 150;
+
+    /// <summary>Weight per unit of each good; anything not listed weighs 1.</summary>
+    public Dictionary<string, double> GoodWeights { get; set; } = new()
+    {
+        ["iron_ore"] = 2, ["coal"] = 1.5, ["timber"] = 2, ["hide"] = 1, ["meat"] = 1, ["grain"] = 0.5,
+        ["fiber"] = 0.3, ["herbs"] = 0.2, ["ember_slag"] = 1.5, ["ice_crystal"] = 1, ["relic_core"] = 0.5,
+        ["iron_ingot"] = 1, ["plank"] = 1, ["firewood"] = 1, ["flour"] = 0.5, ["cloth"] = 0.3, ["leather"] = 0.5,
+        ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
+        ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
+        ["skinning_knife"] = 0.5, ["sword"] = 3, ["blade_blank"] = 2, ["leather_armor"] = 5, ["plate_armor"] = 15,
+        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["furniture"] = 20,
+    };
     public double CargoLossChance { get; set; } = 0.03;
     public double HaulMinMargin { get; set; } = 0.12;
 

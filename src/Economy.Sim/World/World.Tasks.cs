@@ -4,11 +4,13 @@ using Economy.Core.Ledger;
 namespace Economy.Sim.World;
 
 /// <summary>
-/// Town delivery tasks (Ian, 2026-11-19): each town buys raw materials at a
-/// per-unit price, a little under the player price, out of a daily budget.
-/// The price eases as the day's budget is spent and resets the next day.
-/// Bring 5 or 150; solo players have a small daily cap, parties a bigger one
-/// whose pay is split evenly. Delivered goods are used up by the town.
+/// Town delivery tasks (Ian, 2026-11-19). Each town keeps a stockpile of the
+/// raw goods gathered near it and uses some up every day. While a stockpile is
+/// below its target, a task pays full market price per unit; once it is full
+/// the task closes. Solo players have a small daily cap, parties a bigger one
+/// whose pay is split evenly. NPCs always buy raw goods at half price as a
+/// fallback, and that stock is resold by NPC traders. Rare wilds materials are
+/// for crafters only: no town or NPC takes them.
 /// </summary>
 public sealed partial class World
 {
@@ -26,7 +28,10 @@ public sealed partial class World
         return pool - tasks;
     }
 
-    /// <summary>At day end, yesterday's delivery pool becomes today's town budgets.</summary>
+    /// <summary>
+    /// At day end: yesterday's delivery pool sets how much each town uses per
+    /// day; the town uses that up from its stockpile and sets its target.
+    /// </summary>
     private void OpenTaskBudgets()
     {
         double total = 0;
@@ -35,17 +40,36 @@ public sealed partial class World
         {
             t.TaskBudget = _taskPoolToday * t.Def.Size / Math.Max(0.01, total);
             t.TaskBudgetStart = t.TaskBudget;
+            if (!Config.TownStockpiles) continue;
+            // Split the town's daily use across its goods by what is gathered nearby.
+            double value = 0;
+            for (int g = 0; g < Goods.Count; g++) if (IsTaskGood(t, g)) value += t.RegenPerHour[g] * t.Markets[g].Reference.Value;
+            for (int g = 0; g < Goods.Count; g++)
+            {
+                if (!IsTaskGood(t, g) || value <= 0) { t.DailyUse[g] = 0; continue; }
+                double coins = t.TaskBudget * t.RegenPerHour[g] * t.Markets[g].Reference.Value / value;
+                t.DailyUse[g] = coins / Math.Max(1, t.Markets[g].Reference.Value);
+                t.Stockpile[g] = Math.Max(0, t.Stockpile[g] - t.DailyUse[g]);
+            }
         }
         _taskPoolToday = 0;
         foreach (var a in Agents) a.TaskUnitsToday = 0;
     }
 
+    public bool IsRare(int g) => Goods.Defs[g].Tier == GoodTier.RelicCore || Config.RareGoods.Contains(Goods.Defs[g].Id);
+
     private bool IsTaskGood(Town t, int g) =>
-        Goods.Defs[g].Tier == GoodTier.Raw && (t.RegenPerHour[g] > 0 || t.DeepRegenPerHour[g] > 0);
+        Goods.Defs[g].Tier == GoodTier.Raw && !IsRare(g) && t.RegenPerHour[g] > 0;
+
+    /// <summary>Units the town still wants of a good today (stockpile mode), or no limit (budget mode).</summary>
+    private int TaskUnitsWanted(Town t, int g) =>
+        Config.TownStockpiles ? Math.Max(0, (int)(t.DailyUse[g] * Config.StockpileDays - t.Stockpile[g])) : int.MaxValue;
 
     /// <summary>The town's current price for one unit of a raw good.</summary>
     private double TaskPrice(Town t, int g)
     {
+        if (Config.TownStockpiles)
+            return TaskUnitsWanted(t, g) > 0 ? Config.StockpileTaskPriceShare * t.Markets[g].Reference.Value : 0;
         if (t.TaskBudget <= 0 || t.TaskBudgetStart <= 0) return 0;
         double spent = 1 - t.TaskBudget / t.TaskBudgetStart;
         return Config.TaskPriceShare * t.Markets[g].Reference.Value * (1 - Config.TaskPriceEase * spent);
@@ -59,16 +83,18 @@ public sealed partial class World
     {
         int units = 0;
         long coins = 0;
+        maxUnits = Math.Min(maxUnits, TaskUnitsWanted(t, g));
         while (units < maxUnits)
         {
             double p = TaskPrice(t, g);
-            if (p <= 0 || p < minPrice || p > t.TaskBudget) break;
+            if (p <= 0 || p < minPrice || (!Config.TownStockpiles && p > t.TaskBudget)) break;
             long pay = Math.Max(1, (long)Math.Round(p));
             if (Ledger.TreasuryBalance - NpcCommitted - coins < pay) break;
             t.TaskBudget -= pay;
             coins += pay;
             units++;
         }
+        if (Config.TownStockpiles) t.Stockpile[g] += units;
         return (units, coins);
     }
 
@@ -99,6 +125,39 @@ public sealed partial class World
             TaskUnitsDelivered += units;
             TrackGood(g, GoodFlowKind.TaskDelivered, units);
             PayTask(a, coins);
+        }
+    }
+
+    public long BuybackUnits { get; private set; }
+    public long BuybackCoins { get; private set; }
+
+    /// <summary>
+    /// NPCs always buy raw goods at half price: a gatherer sitting on more than
+    /// they can sell dumps the excess. The goods go to the NPC traders' stock
+    /// and are resold, like scrapped items. Never rare materials.
+    /// </summary>
+    private void SellExcessToNpcs(Agent a)
+    {
+        if (Config.NpcBuybackShare <= 0) return;
+        var t = Towns[a.Town];
+        for (int g = 0; g < Goods.Count; g++)
+        {
+            if (Goods.Defs[g].Tier != GoodTier.Raw || IsRare(g)) continue;
+            int excess = a.Inventory[g] - KeepAmount(a, g) - Math.Max(0, Config.NpcBuybackKeep - ListedUnits(a, g));
+            if (excess <= 0) continue;
+            var m = t.Markets[g];
+            if (WarehouseFull(m)) continue;
+            long price = Math.Max(1, (long)Math.Floor(m.Reference.Value * Config.NpcBuybackShare));
+            long coins = price * excess;
+            if (Ledger.TreasuryBalance - NpcCommitted < coins) return;
+            if (!Ledger.TryTransfer(Ledger.Treasury, a.Account, coins, Flow.NpcScrapPurchase, out _)) return;
+            a.Inventory.Take(g, excess);
+            m.NpcStock += excess;
+            a.TodayIncome += coins;
+            Track(a, IncomeKind.SalesToNpcs, coins);
+            TrackGood(g, GoodFlowKind.SoldToNpc, excess);
+            BuybackUnits += excess;
+            BuybackCoins += coins;
         }
     }
 

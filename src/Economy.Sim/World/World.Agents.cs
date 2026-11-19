@@ -65,7 +65,8 @@ public sealed partial class World
                 RepairerTurn(a);
                 break;
             case Role.Hauler:
-                HaulerTurn(a);
+                if (Config.CourierJobs) CourierTurn(a, productivity);
+                else HaulerTurn(a);
                 break;
             case Role.Fighter:
                 if (Config.EveryoneFights) Gather(a, productivity * 0.6); // side gathering
@@ -80,7 +81,7 @@ public sealed partial class World
         }
 
         if (a.Role is not (Role.Speculator or Role.Bot)) SoloDeliver(a);
-        if (a.Role != Role.Speculator && a.Role != Role.Hauler) SellSurplus(a);
+        if (a.Role != Role.Speculator && (a.Role != Role.Hauler || Config.CourierJobs)) { SellSurplus(a); SellExcessToNpcs(a); SellRemoteStock(a); }
         BuyFood(a);
         // Well-off players furnish their homes (carpenters' furniture).
         if (a.Role is not (Role.Speculator or Role.Bot) && Coins(a) > Config.FurnitureWealth
@@ -222,7 +223,7 @@ public sealed partial class World
             }
             return Durability.RepairBroken(item, (int)(best.Role == Role.Repairer ? best.RepairSkill : best.Skill), core);
         }
-        Durability.Upkeep(item);
+        Durability.Upkeep(item, (int)(best.Role == Role.Repairer ? best.RepairSkill : best.Skill));
         return true;
     }
 
@@ -343,6 +344,8 @@ public sealed partial class World
         {
             if (r.Skill != skill || r.MinSkill > a.Skill) continue;
             int output = Goods[r.OutputGoodId];
+            // A real crafter stops making (and buying materials for) what is not selling.
+            if (Config.CraftersWatchSales && a.Inventory[output] >= UnsoldLimit(a, output)) continue;
             double value = a.Belief[output] * r.OutputQuantity;
             double cost = Config.StationFee;
             foreach (var (g, q) in TieredInputs(r, a.Skill)) cost += InputCost(a, g) * q;
@@ -381,6 +384,7 @@ public sealed partial class World
                 int q = a.Inventory.QualityOf(g);
                 a.Inventory.Take(g, need);
                 TrackGood(g, GoodFlowKind.UsedInCrafts, need);
+                a.SoldToday[g] += need; // using stock up counts as moving it, like a sale
                 _inputs.Add(new InputQuality(q, need));
                 if (g == RelicCore) coreQuality = q;
             }
@@ -406,6 +410,10 @@ public sealed partial class World
             if (need > 0) PlaceBuy(a, g, need, price);
         }
     }
+
+    /// <summary>How much unsold stock of a good a crafter will hold before making more: a few days of recent sales and own use.</summary>
+    private double UnsoldLimit(Agent a, int good) =>
+        Math.Max(Config.CraftStockMin, a.SalesPerDay[good] * Config.CraftStockDays);
 
     private readonly Dictionary<(Recipe, int), List<(int good, int qty)>> _tieredCache = new();
 
@@ -458,11 +466,24 @@ public sealed partial class World
             if (have <= 0) continue;
             int keep = KeepAmount(a, g);
             int sell = have - keep;
+            if (sell > 0 && Config.CourierJobs && !Goods.Defs[g].HasDurability && a.Role is not (Role.Bot or Role.Hauler))
+                sell -= MaybePostCourierJob(a, g, sell / 2);
+            // With NPCs buying the excess, list only a sensible amount on the market.
+            if (DumpsExcess(g)) sell = Math.Min(sell, Config.NpcBuybackKeep - ListedUnits(a, g));
             if (sell <= 0) continue;
             long price = Math.Max(1, (long)Math.Round(a.Belief[g] * (0.97 + 0.06 * _agentRng.NextDouble())));
             if (a.Role == Role.Bot) price = Math.Max(1, (long)(a.Belief[g] * 0.9));
             PlaceSell(a, g, sell, price);
         }
+    }
+
+    private bool DumpsExcess(int g) => Config.NpcBuybackShare > 0 && Goods.Defs[g].Tier == GoodTier.Raw && !IsRare(g);
+
+    private static int ListedUnits(Agent a, int g)
+    {
+        int n = 0;
+        foreach (var o in a.Orders) if (o.Good == g && o.Order.Side == Economy.Core.Markets.Side.Sell) n += o.Order.Remaining;
+        return n;
     }
 
     private int KeepAmount(Agent a, int g)
@@ -688,7 +709,11 @@ public sealed partial class World
     {
         a.TravelHoursLeft--;
         if (a.TravelHoursLeft > 0) return;
-        if (_agentRng.Chance(Config.CargoLossChance)) a.Inventory.Clear();
+        if (_agentRng.Chance(Config.CargoLossChance))
+        {
+            if (a.Cargo.Count > 0) LoseCargo(a);
+            else if (!Config.CourierJobs) a.Inventory.Clear();
+        }
         a.Town = a.TravelTo;
         a.TravelTo = -1;
         var m = Towns[a.Town].Markets;

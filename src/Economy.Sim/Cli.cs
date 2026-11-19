@@ -36,8 +36,15 @@ public static class Cli
             // "this is the right price", so never start below 25% of the design price.
             worldFile.StartPrices.Clear();
             var design = new World.GoodsTable(catalog, worldFile.RawPrices());
+            // Gear trades rarely, so a handful of sales to rich players can set an
+            // absurd price nobody else can pay. Keep gear within reach of its recipe cost.
+            double Clamp(string id, double traded)
+            {
+                double d = design.BasePrice[design[id]];
+                return design.Defs[design[id]].HasDurability ? Math.Clamp(traded, d * 0.5, d * 1.5) : Math.Max(traded, d * 0.25);
+            }
             var prices = value.Where(kv => kv.Value.u >= 5).OrderBy(kv => kv.Key)
-                .ToDictionary(kv => kv.Key, kv => Math.Round(Math.Max(kv.Value.v / kv.Value.u, design.BasePrice[design[kv.Key]] * 0.25), 1));
+                .ToDictionary(kv => kv.Key, kv => Math.Round(Clamp(kv.Key, kv.Value.v / kv.Value.u), 1));
             var path = Path.Combine(dataDir, WorldFile.StartPricesFile);
             File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(prices, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
             foreach (var kv in prices) Console.WriteLine($"  {kv.Key,-16} {kv.Value,9:0.0}");
@@ -92,6 +99,7 @@ public static class Cli
                     goods = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => flows.ToDictionary(k => k.ToString(), k => w.GoodFlows[g, (int)k])),
                     prices = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => w.DailyPrices.Select(d => Math.Round(d[g], 1)).ToArray()),
                     taskUnits = w.TaskUnitsDelivered, taskCoins = w.TaskCoinsPaid, haulFees = w.HaulFeesPaid,
+                    buybackUnits = w.BuybackUnits, buybackCoins = w.BuybackCoins, courierPosted = w.CourierJobsPosted, courierDelivered = w.CourierJobsDelivered, courierFees = w.CourierFeesPaid,
                 });
                 Console.WriteLine($"  seed {s} done");
             });
@@ -125,6 +133,12 @@ public static class Cli
         var world = new World.World(config, catalog, worldFile, scenario);
         world.Run(w =>
         {
+            if (Arg(args, "--watch-role") is string wr && Enum.TryParse<Role>(wr, true, out var watch) && w.Day % 10 == 9)
+            {
+                var g = w.Agents.Where(a => a.Active && a.Role == watch).ToList();
+                if (g.Count > 0)
+                    Console.WriteLine($"  {watch} day {w.Day + 1}: n {g.Count} coins avg {g.Average(a => w.Coins(a)):0} median {g.Select(a => w.Coins(a)).OrderBy(c => c).ElementAt(g.Count / 2)} skill avg {g.Average(a => a.Skill):0} max {g.Max(a => a.Skill):0} >=60: {g.Count(a => a.Skill >= 60)} new(<10d) {g.Count(a => w.Hour - a.JoinedHour < 240)}");
+            }
             if (w.Day % 10 != 9 && !args.Contains("--verbose")) return;
             var d = w.Metrics.Days[^1];
             Console.WriteLine($"day {d.Day + 1,3}: active {d.Active,5}  money/player {d.MoneyPerPlayer,7:0}  treasury {d.Treasury,9}  basket {d.Basket,7:0.0}  kit {d.StarterKitHours,5:0.0}h  token {d.TokenPrice,6:0}  npc {(d.PlayerValue + d.NpcValue > 0 ? 100.0 * d.NpcValue / (d.PlayerValue + d.NpcValue) : 0),5:0.0}%");
@@ -137,6 +151,7 @@ public static class Cli
             Console.WriteLine($"  role switches {world.RoleSwitches}, items injected {world.ItemsInjected}");
             Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}, hired tanks {world.NpcTanksHired} healers {world.NpcHealersHired} porters {world.NpcPortersHired}, deaths {world.Deaths}, furniture placed {world.FurniturePlaced}, shops {world.Agents.Count(a => a.HasShop)}");
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
+            Console.WriteLine($"  NPC buyback {world.BuybackUnits} units for {world.BuybackCoins}; courier jobs posted {world.CourierJobsPosted}, delivered {world.CourierJobsDelivered}, fees {world.CourierFeesPaid}, cargo lost {world.CourierCargoLost}");
             if (Arg(args, "--inspect") is string inspect && Enum.TryParse<Role>(inspect, true, out var ir))
                 foreach (var a in world.Agents.Where(a => a.Active && a.Role == ir).Take(8))
                     Console.WriteLine($"    #{a.Id} {world.Towns[a.Town].Def.Id} skill {a.Skill:0} coins {world.Coins(a)} income {string.Join('/', a.DailyIncome)} inv " +
