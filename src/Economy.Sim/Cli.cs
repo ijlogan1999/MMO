@@ -79,6 +79,7 @@ public static class Cli
             foreach (var g in world.Agents.Where(a => a.Active).GroupBy(a => a.Role).OrderBy(g => g.Key))
                 Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {g.Average(a => world.Coins(a)),7:0}");
             Console.WriteLine($"  role switches {world.RoleSwitches}, items injected {world.ItemsInjected}");
+            Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}");
             if (Arg(args, "--inspect") is string inspect && Enum.TryParse<Role>(inspect, true, out var ir))
                 foreach (var a in world.Agents.Where(a => a.Active && a.Role == ir).Take(8))
                     Console.WriteLine($"    #{a.Id} {world.Towns[a.Town].Def.Id} skill {a.Skill:0} coins {world.Coins(a)} income {string.Join('/', a.DailyIncome)} inv " +

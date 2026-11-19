@@ -10,6 +10,18 @@ public sealed partial class World
     private int _onlineFightersThisHour;
     private readonly List<Agent> _fightersThisHour = new();
 
+    /// <summary>Whether this player can fight at all (everyone but bots and trading groups).</summary>
+    private bool Fights(Agent a) =>
+        a.Role == Role.Fighter || (Config.EveryoneFights && a.Role is not (Role.Bot or Role.Speculator));
+
+    private bool FightsThisHour(Agent a)
+    {
+        if (!Config.EveryoneFights) return false;
+        if (!Fights(a)) return false;
+        double share = a.Role == Role.Fighter ? Config.MainFighterFightShare : Config.FocusFightShare;
+        return _agentRng.Chance(share);
+    }
+
     private void AgentTurn(Agent a)
     {
         // Reprice: take back last hour's unfilled orders and learn from them.
@@ -18,7 +30,13 @@ public sealed partial class World
         double productivity = Eat(a);
         a.OnlineHoursWeek += 1;
 
-        switch (a.Role)
+        if (FightsThisHour(a))
+        {
+            Fight(a, productivity);
+            if (Config.Parties && PartyEligible(a.Role) && _agentRng.Chance(Config.PartyTripChance))
+                JoinPartyPool(a);
+        }
+        else switch (a.Role)
         {
             case Role.Miner:
             case Role.Logger:
@@ -43,7 +61,8 @@ public sealed partial class World
                 HaulerTurn(a);
                 break;
             case Role.Fighter:
-                Fight(a, productivity);
+                if (Config.EveryoneFights) Gather(a, productivity * 0.6); // side gathering
+                else Fight(a, productivity);
                 break;
             case Role.Casual:
                 Gather(a, productivity * 0.6);
@@ -277,6 +296,7 @@ public sealed partial class World
 
     private void GatherFromNode(Agent a, Town town, int good, double amount)
     {
+        if (Config.Parties) amount *= Config.SoloGatherYield;
         amount = Math.Min(amount, town.Stock[good]);
         if (amount <= 0) return;
         town.Stock[good] -= amount;
@@ -429,9 +449,9 @@ public sealed partial class World
     private int KeepAmount(Agent a, int g)
     {
         if (g == Bread) return 6;
-        if (g == Stew) return a.Role == Role.Fighter ? 6 : 3;
-        if (g == Potion && a.Role == Role.Fighter) return 6;
-        if (g == RelicCore && a.Role == Role.Fighter && a.Weapon?.Good.IsMagical == true) return 1;
+        if (g == Stew) return Fights(a) ? 6 : 3;
+        if (g == Potion && Fights(a)) return 6;
+        if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
@@ -485,7 +505,7 @@ public sealed partial class World
         if (a.Inventory[Potion] < 3) PlaceBuy(a, Potion, 4, Math.Max(1, (long)Math.Round(a.Belief[Potion])));
         if (Config.FoodBuffs)
         {
-            double t = a.Skill / 100.0;
+            double t = a.CombatSkill / 100.0;
             a.BuffCredit += Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t;
             if (a.BuffCredit >= 1)
             {
@@ -515,7 +535,7 @@ public sealed partial class World
         if (_agentRng.Chance(Config.RelicCoreDropPerHour * Config.DungeonRunMultiplier * power))
             a.Inventory.Add(RelicCore, 1, Math.Clamp(_agentRng.NextGaussian(55, 15), 1, 100));
 
-        a.Skill = Math.Min(100, a.Skill + Config.SkillGainPerHour);
+        a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour);
         _fightersThisHour.Add(a);
         _onlineFightersThisHour++;
     }

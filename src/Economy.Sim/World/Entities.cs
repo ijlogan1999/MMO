@@ -111,6 +111,10 @@ public sealed class Agent
     public double FoodHours { get; set; }
     public double PotionCredit { get; set; }
     public double BuffCredit { get; set; }
+    /// <summary>Combat level progress, 0-100. Separate from the profession skill.</summary>
+    public double CombatSkill { get; set; }
+    /// <summary>Party role: tank, healer or damage.</summary>
+    public CombatRole CombatRole { get; set; } = CombatRole.Damage;
     public double BuffHours { get; set; }
     /// <summary>Combat power this hour, used to weight contract pay.</summary>
     public double LastPower { get; set; }
@@ -233,6 +237,7 @@ public sealed class Town
         Richness = new double[goods];
         Stock = new double[goods];
         RegenPerHour = new double[goods];
+        DeepStock = new double[goods];
         DepletedUntilHour = new int[goods];
         Markets = new GoodMarket[goods];
     }
@@ -244,7 +249,11 @@ public sealed class Town
     public double[] Richness { get; }
     public double[] Stock { get; }
     public double[] RegenPerHour { get; }
+    /// <summary>Rich materials in the dangerous wilds around the town, reachable only by parties.</summary>
+    public double[] DeepStock { get; }
     public int[] DepletedUntilHour { get; }
     public GoodMarket[] Markets { get; }
     public List<int> Repairers { get; } = new();
 }
+
+public enum CombatRole { Tank, Healer, Damage }

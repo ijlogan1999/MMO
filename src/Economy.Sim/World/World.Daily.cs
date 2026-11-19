@@ -70,7 +70,7 @@ public sealed partial class World
     {
         foreach (var a in Agents)
         {
-            if (!a.Active || a.Role != Role.Fighter) continue;
+            if (!a.Active || !Fights(a)) continue;
             if (!_agentRng.Chance(Config.SubclassSwitchChancePerDay)) continue;
             if (Coins(a) < Config.SubclassSwitchFee * 3) continue;
             Ledger.Transfer(a.Account, Ledger.Treasury, Config.SubclassSwitchFee, Flow.SubclassSwitchFee);

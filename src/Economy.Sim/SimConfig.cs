@@ -88,6 +88,30 @@ public sealed class SimConfig
 
     /// <summary>Quality points a perfect tool adds to gathered goods (a poor one subtracts the same).</summary>
     public double ToolQualityBonus { get; set; } = 10;
+    /// <summary>
+    /// Every player fights (Ian, 2026-11-19); their focus is what they do on
+    /// the side. Share of online hours spent fighting, by focus.
+    /// </summary>
+    public bool EveryoneFights { get; set; } = true;
+    public double MainFighterFightShare { get; set; } = 0.85;
+    public double FocusFightShare { get; set; } = 0.35;
+    // Party trips (Ian, 2026-11-19): tank, healer and 3 damage; gatherers
+    // gather and haulers carry rich materials out of the dangerous wilds.
+    public bool Parties { get; set; } = true;
+    public double TankShare { get; set; } = 0.2;
+    public double HealerShare { get; set; } = 0.2;
+    /// <summary>Chance a gatherer, hauler, fighter or casual spends a fighting hour on a party trip.</summary>
+    public double PartyTripChance { get; set; } = 0.5;
+    /// <summary>Solo gathering near towns yields less than before.</summary>
+    public double SoloGatherYield { get; set; } = 0.7;
+    /// <summary>Regrowth of the dangerous wilds, as a share of the safe nodes' regrowth.</summary>
+    public double DeepRegenShare { get; set; } = 0.6;
+    public double PartyGatherPerHour { get; set; } = 5;
+    public double PartyCarryPerMember { get; set; } = 3;
+    public double PartyCarryPerHauler { get; set; } = 10;
+    public double PartyQualityBonus { get; set; } = 15;
+    public double PartyWipeChanceFull { get; set; } = 0.02;
+    public double PartyWipeChanceMissingRole { get; set; } = 0.12;
     public double FoodPerHour { get; set; } = 0.5;
     public double StewFoodValue { get; set; } = 2.0;
     /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>

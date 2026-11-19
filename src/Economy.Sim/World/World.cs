@@ -122,6 +122,7 @@ public sealed partial class World
                 town.Richness[g] = kv.Value;
                 town.RegenPerHour[g] = kv.Value * Config.NodeRegenPerRichness * scale * town.Def.Size * 5;
                 town.Stock[g] = town.RegenPerHour[g] * Config.NodeStockHours;
+                town.DeepStock[g] = town.RegenPerHour[g] * Config.DeepRegenShare * Config.NodeStockHours;
             }
             for (int g = 0; g < Goods.Count; g++)
                 town.Markets[g] = new GoodMarket(Goods.BasePrice[g], Config.Stabilizer.ReferenceHalfLifeHours, Config.Stabilizer);
@@ -170,6 +171,7 @@ public sealed partial class World
         }
         Shuffle(_turnOrder, _agentRng);
         foreach (int i in _turnOrder) AgentTurn(Agents[i]);
+        ResolveParties();
 
         PayContracts();
         RunStabilizer();
@@ -192,6 +194,8 @@ public sealed partial class World
                 if (town.DepletedUntilHour[g] > Hour) regen *= Config.OverharvestRegenFactor;
                 double cap = town.RegenPerHour[g] * Config.NodeStockHours;
                 town.Stock[g] = Math.Min(cap, town.Stock[g] + regen);
+                double deepRegen = town.RegenPerHour[g] * Config.DeepRegenShare;
+                town.DeepStock[g] = Math.Min(deepRegen * Config.NodeStockHours, town.DeepStock[g] + deepRegen);
             }
         }
     }
@@ -205,12 +209,15 @@ public sealed partial class World
             SessionStart = (int)Math.Round(Math.Clamp(rng.NextGaussian(19, 3), 0, 23)),
             SessionHours = role == Role.Casual ? 1 : rng.NextInt(2, 6),
             Skill = veteran ? rng.NextInt(15, 80) : rng.NextInt(5, 25),
+            CombatSkill = veteran ? rng.NextInt(15, 80) : rng.NextInt(5, 25),
             RepairSkill = role == Role.Repairer ? (veteran ? rng.NextInt(30, 95) : rng.NextInt(10, 40)) : 0,
             Careful = rng.Chance(Config.CarefulShare),
             Member = rng.Chance(Config.MemberShare),
             RenewalDay = rng.NextInt(0, 30),
             FoodHours = 6,
         };
+        double cr = rng.NextDouble();
+        agent.CombatRole = cr < Config.TankShare ? CombatRole.Tank : cr < Config.TankShare + Config.HealerShare ? CombatRole.Healer : CombatRole.Damage;
         if (role == Role.Bot) { agent.SessionStart = 0; agent.SessionHours = 20; agent.Skill = 40; }
         if (role == Role.Speculator) { agent.SessionHours = 4; }
 
@@ -299,7 +306,7 @@ public sealed partial class World
         return items[^1].item;
     }
 
-    private static void Shuffle(List<int> list, SimRandom rng)
+    private static void Shuffle<T>(List<T> list, SimRandom rng)
     {
         for (int i = list.Count - 1; i > 0; i--)
         {

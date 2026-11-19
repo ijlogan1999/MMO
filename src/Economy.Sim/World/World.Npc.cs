@@ -51,6 +51,12 @@ public sealed partial class World
         double moneyPer = active > 0 ? (double)ActiveMoney() / active : Config.TargetMoneyPerPlayer;
         double ratio = Config.TargetMoneyPerPlayer / Math.Max(1.0, moneyPer);
         double scale = Math.Clamp(ratio * ratio, 0.25, 3.0);
+        // Coins that quitting players take with them are gone for good; the
+        // treasury tops players up only while it is above its starting level,
+        // so it does not drain itself refilling them.
+        double seed = (double)Config.TreasurySeedPerAgent * Config.AgentCount;
+        if (scale > 1 && Ledger.TreasuryBalance < seed)
+            scale = Math.Max(Math.Min(1.0, scale), scale * Math.Pow(Ledger.TreasuryBalance / seed, 4));
         double pool = Math.Max(0, sinkPerHour) * Config.ContractShareOfSinks * scale;
         double cap = Math.Max(0, Ledger.TreasuryBalance - NpcCommitted) * Config.ContractMaxTreasurySharePerHour;
         _contractPoolThisHour = (long)Math.Min(pool, cap);
