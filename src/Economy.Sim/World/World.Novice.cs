@@ -62,6 +62,8 @@ public sealed partial class World
             foreach (var (g, n) in _rawScratch)
             {
                 int need = (int)Math.Ceiling(n * qty) - a.Inventory[g];
+                // Hold on to these until they're used (don't resell them next turn).
+                a.NoviceKeep[g] = Math.Max(a.NoviceKeep.GetValueOrDefault(g), (int)Math.Ceiling(n * qty));
                 if (need > 0) PlaceBuy(a, g, need, Math.Max(1, (long)Math.Round(Math.Max(a.Belief[g], m[g].Reference.Value))));
             }
             return 0;
@@ -75,6 +77,7 @@ public sealed partial class World
             TrackGood(g, GoodFlowKind.UsedInCrafts, take);
         }
         a.Inventory.Add(good, can, Config.NoviceQuality);
+        foreach (var g in _rawScratch.Keys) a.NoviceKeep.Remove(g);
         TrackGood(good, GoodFlowKind.Crafted, can);
         NoviceCrafts += can;
         return can;

@@ -121,6 +121,8 @@ public sealed class Agent
     public int TaskUnitsToday { get; set; }
     /// <summary>Crafter starter quest done, and how many first items its NPC will still buy.</summary>
     public bool CraftQuestDone { get; set; }
+    /// <summary>Raw materials held back for novice crafting.</summary>
+    public Dictionary<int, int> NoviceKeep { get; } = new();
     public int CommissionLeft { get; set; }
     /// <summary>Owns one of the town's limited shops (only shop owners sell while offline).</summary>
     public bool HasShop { get; set; }

@@ -502,6 +502,7 @@ public sealed partial class World
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
         if (Roles.IsCrafter(a.Role) && IsInputFor(a, g)) return 30;
+        if (a.NoviceKeep.TryGetValue(g, out int nk)) return nk;
         return 0;
     }
 
