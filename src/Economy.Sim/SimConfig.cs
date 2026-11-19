@@ -34,9 +34,9 @@ public sealed class SimConfig
         [Role.Leatherworker] = 0.03,
         [Role.Alchemist] = 0.02,
         [Role.Carpenter] = 0.02,
-        [Role.Repairer] = 0.05,
+        [Role.Repairer] = 0.0, // no repair profession: crafters repair (Ian, 2026-11-19)
         [Role.Hauler] = 0.05,
-        [Role.Fighter] = 0.24,
+        [Role.Fighter] = 0.29,
         [Role.Casual] = 0.10,
     };
 
@@ -115,7 +115,7 @@ public sealed class SimConfig
     /// <summary>Fighters below this combat level heal with bandages (tailors) instead of potions.</summary>
     public double BandageMaxLevel { get; set; } = 40;
     /// <summary>Extra party carry for each member with a travel pack (leatherworkers); packs wear out per trip.</summary>
-    public double PackCarry { get; set; } = 3;
+    public double PackCarry { get; set; } = 2;
     public double PackUsePerTrip { get; set; } = 0.1;
     /// <summary>Players with more coins than this furnish their homes (carpenters' furniture).</summary>
     public long FurnitureWealth { get; set; } = 6000;
@@ -133,8 +133,25 @@ public sealed class SimConfig
     public bool OfflineSellingNeedsShop { get; set; } = true;
     /// <summary>Job caps: the share a profession can grow to before newcomers stop picking it (crafts uncapped).</summary>
     public bool CapCrafts { get; set; } = false;
-    public double PartyGatherPerHour { get; set; } = 5;
-    public double PartyCarryPerMember { get; set; } = 3;
+
+    // Town delivery tasks and fair parties (Ian, 2026-11-19).
+    public bool DeliveryTasks { get; set; } = true;
+    /// <summary>Share of the contract pool paid as kill bounties to fighters; the rest funds delivery tasks.</summary>
+    public double KillTaskShare { get; set; } = 0.4;
+    /// <summary>Delivery price as a share of the town's reference price, and how far it eases as the budget runs down.</summary>
+    public double TaskPriceShare { get; set; } = 0.85;
+    public double TaskPriceEase { get; set; } = 0.5;
+    /// <summary>Players deliver when the task pays at least this share of what they expect to get from players.</summary>
+    public double TaskAcceptShare { get; set; } = 0.9;
+    public int SoloTaskCapPerDay { get; set; } = 20;
+    public int PartyTaskCapPerMember { get; set; } = 30;
+    /// <summary>Personal loot: haulers carry members' overflow for this share of its value.</summary>
+    public bool PersonalLoot { get; set; } = true;
+    public double HaulFeeShare { get; set; } = 0.12;
+    /// <summary>Hire board: a player tank or healer hired for one trip-hour, split across the party.</summary>
+    public long PlayerHireFee { get; set; } = 150;
+    public double PartyGatherPerHour { get; set; } = 8;
+    public double PartyCarryPerMember { get; set; } = 2;
     public double PartyCarryPerHauler { get; set; } = 10;
     public double PartyQualityBonus { get; set; } = 15;
     public double PartyWipeChanceFull { get; set; } = 0.02;
@@ -250,6 +267,9 @@ public enum Role
 public static class Roles
 {
     public static bool IsGatherer(Role r) => r is Role.Miner or Role.Logger or Role.Hunter or Role.Herbalist or Role.Farmer or Role.Bot;
+    /// <summary>Crafts whose makers also repair gear (smiths, leatherworkers, tailors).</summary>
+    public static bool Repairs(Role r) => r is Role.Smith or Role.Leatherworker or Role.Tailor or Role.Repairer;
+
     public static bool IsCrafter(Role r) => r is Role.Smith or Role.Cook or Role.Tailor or Role.Leatherworker or Role.Alchemist or Role.Carpenter;
 
     public static string? CraftSkill(Role r) => r switch

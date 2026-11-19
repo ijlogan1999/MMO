@@ -273,10 +273,11 @@ public sealed partial class World
                 agent.Armor = Durability.Create(Goods.Defs[Goods["leather_armor"]], q);
                 agent.Inventory.Add(Potion, 3, 40);
                 break;
-            case Role.Repairer:
-                Towns[town].Repairers.Add(agent.Id);
-                agent.RepairPrice = 150;
-                break;
+        }
+        if (Roles.Repairs(role))
+        {
+            Towns[town].Repairers.Add(agent.Id);
+            agent.RepairPrice = 150;
         }
         return agent;
     }

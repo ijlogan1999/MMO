@@ -125,4 +125,28 @@ public class SimRulesTests
         Assert.Contains(Role.Fighter, pay.Keys);
         Assert.All(pay.Values, v => Assert.True(v > 0));
     }
+
+    [Fact]
+    public void TownsBuyRawGoodsThroughDeliveryTasks()
+    {
+        var w = Run();
+        Assert.True(w.TaskUnitsDelivered > 0);
+        Assert.True(w.TaskCoinsPaid > 0);
+        var off = Run(c => c.DeliveryTasks = false);
+        Assert.Equal(0, off.TaskUnitsDelivered);
+    }
+
+    [Fact]
+    public void PartiesHirePlayersBeforeNpcs()
+    {
+        var w = Run();
+        Assert.True(w.PlayersHired > 0);
+    }
+
+    [Fact]
+    public void NoRepairProfession()
+    {
+        var w = Run();
+        Assert.DoesNotContain(w.Agents, a => a.Active && a.Role == Role.Repairer);
+    }
 }

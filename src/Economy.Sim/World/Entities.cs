@@ -112,6 +112,7 @@ public sealed class Agent
     public double PotionCredit { get; set; }
     public double BuffCredit { get; set; }
     public double PackCredit { get; set; }
+    public int TaskUnitsToday { get; set; }
     /// <summary>Owns one of the town's limited shops (only shop owners sell while offline).</summary>
     public bool HasShop { get; set; }
     /// <summary>Combat level progress, 0-100. Separate from the profession skill.</summary>
@@ -256,6 +257,9 @@ public sealed class Town
     /// <summary>Rich materials in the dangerous wilds around the town, reachable only by parties.</summary>
     public double[] DeepStock { get; }
     public double[] DeepRegenPerHour { get; }
+    /// <summary>Coins left in today's delivery-task budget, and what it started at.</summary>
+    public double TaskBudget { get; set; }
+    public double TaskBudgetStart { get; set; }
     public int[] DepletedUntilHour { get; }
     public GoodMarket[] Markets { get; }
     public List<int> Repairers { get; } = new();

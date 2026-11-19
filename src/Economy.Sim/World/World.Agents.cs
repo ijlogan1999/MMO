@@ -39,6 +39,8 @@ public sealed partial class World
                 if (a.Inventory[Pack] == 0 && Coins(a) > 1500)
                     PlaceBuy(a, Pack, 1, Math.Max(1, (long)Math.Round(a.Belief[Pack])));
             }
+            else if (Config.Parties && !PartyEligible(a.Role) && a.CombatRole != CombatRole.Damage)
+                JoinHirePool(a);
         }
         else switch (a.Role)
         {
@@ -57,6 +59,7 @@ public sealed partial class World
             case Role.Alchemist:
             case Role.Carpenter:
                 Craft(a, productivity);
+                if (Roles.Repairs(a.Role)) AdjustRepairPrice(a);
                 break;
             case Role.Repairer:
                 RepairerTurn(a);
@@ -76,6 +79,7 @@ public sealed partial class World
                 break;
         }
 
+        if (a.Role is not (Role.Speculator or Role.Bot)) SoloDeliver(a);
         if (a.Role != Role.Speculator && a.Role != Role.Hauler) SellSurplus(a);
         BuyFood(a);
         // Well-off players furnish their homes (carpenters' furniture).
@@ -186,10 +190,13 @@ public sealed partial class World
         Agent? best = null;
         // Better gear takes more material to repair.
         int units = (int)Math.Ceiling(Config.GearTiers[TierFor(item.Quality)].InputMultiplier);
+        // Repair is a lesser form of making: the craft that makes the item fixes it.
+        string? craft = Goods.RecipesByOutput[g].FirstOrDefault()?.Skill;
         foreach (int id in Towns[owner.Town].Repairers)
         {
             var r = Agents[id];
             if (!r.Active || r.Id == owner.Id) continue;
+            if (r.Role != Role.Repairer && Roles.CraftSkill(r.Role) != craft) continue;
             if (material >= 0 && r.Inventory[material] < units) continue;
             if (best == null || r.RepairPrice < best.RepairPrice) best = r;
         }
@@ -202,7 +209,7 @@ public sealed partial class World
         Ledger.Transfer(owner.Account, Ledger.Treasury, Config.RepairStationFee, Flow.RepairFee);
         if (material >= 0) best.Inventory.Take(material, units);
         best.RepairsToday++;
-        best.RepairSkill = Math.Min(100, best.RepairSkill + Config.SkillGainPerHour * 2);
+        if (best.Role == Role.Repairer) best.RepairSkill = Math.Min(100, best.RepairSkill + Config.SkillGainPerHour * 2);
 
         if (item.IsBroken)
         {
@@ -212,7 +219,7 @@ public sealed partial class World
                 core = owner.Inventory.QualityOf(RelicCore);
                 owner.Inventory.Take(RelicCore, 1);
             }
-            return Durability.RepairBroken(item, (int)best.RepairSkill, core);
+            return Durability.RepairBroken(item, (int)(best.Role == Role.Repairer ? best.RepairSkill : best.Skill), core);
         }
         Durability.Upkeep(item);
         return true;
@@ -464,6 +471,7 @@ public sealed partial class World
         if (g == Furniture) return int.MaxValue / 2;
         if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
+        if (Roles.IsCrafter(a.Role) && g == RepairStockFor(a.Role)) return 4;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
         if (Roles.IsCrafter(a.Role) && IsInputFor(a, g)) return 30;
@@ -480,6 +488,23 @@ public sealed partial class World
     }
 
     // ---------------------------------------------------------------- repairers
+
+    /// <summary>The material a repairing crafter keeps on hand for repairs.</summary>
+    private int RepairStockFor(Role r) => r switch
+    {
+        Role.Smith => Goods["iron_ingot"],
+        Role.Leatherworker => Goods["leather"],
+        Role.Tailor => Goods["cloth"],
+        _ => -1,
+    };
+
+    private void AdjustRepairPrice(Agent a)
+    {
+        int m = RepairStockFor(a.Role);
+        if (m >= 0 && a.Inventory[m] < 4) PlaceBuy(a, m, 4 - a.Inventory[m], Math.Max(1, (long)Math.Round(a.Belief[m])));
+        if (a.RepairsToday > 3) a.RepairPrice = Math.Min(2000, a.RepairPrice + 10);
+        else if (a.RepairsToday == 0 && a.RepairPrice > 40 && a.RepairsToday == 0) a.RepairPrice = Math.Max(40, a.RepairPrice - 2);
+    }
 
     private void RepairerTurn(Agent a)
     {

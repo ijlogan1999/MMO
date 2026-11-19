@@ -22,6 +22,7 @@ public sealed partial class World
         }
 
         if (weekEnd || Day == 0) AssignShops();
+        OpenTaskBudgets();
 
         foreach (var a in Agents)
         {
@@ -210,11 +211,11 @@ public sealed partial class World
             if (role == a.Role) continue;
             share[a.Role] = share.GetValueOrDefault(a.Role) - 1.0 / Math.Max(1, ActiveAgentCount);
             CancelAgentOrders(a, learn: false);
-            if (a.Role == Role.Repairer) Towns[a.Town].Repairers.Remove(a.Id);
+            if (Roles.Repairs(a.Role)) Towns[a.Town].Repairers.Remove(a.Id);
             a.Role = role;
             a.Skill = 15;
             if (GatherGoodsFor(role).Length > 0 || SettleNearFor(role).Length > 0) a.Town = PickTown(role, _agentRng);
-            if (role == Role.Repairer) { Towns[a.Town].Repairers.Add(a.Id); a.RepairPrice = 150; a.RepairSkill = 20; }
+            if (Roles.Repairs(role)) { Towns[a.Town].Repairers.Add(a.Id); a.RepairPrice = 150; }
             a.Tool = null;
             RoleSwitches++;
         }
@@ -277,7 +278,7 @@ public sealed partial class World
     {
         CancelAgentOrders(a, learn: false);
         a.Active = false;
-        if (a.Role == Role.Repairer) Towns[a.Town].Repairers.Remove(a.Id);
+        if (Roles.Repairs(a.Role)) Towns[a.Town].Repairers.Remove(a.Id);
         QuitsToday++;
     }
 

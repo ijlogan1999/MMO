@@ -59,7 +59,7 @@ public sealed partial class World
             scale = Math.Max(Math.Min(1.0, scale), scale * Math.Pow(Ledger.TreasuryBalance / seed, 4));
         double pool = Math.Max(0, sinkPerHour) * Config.ContractShareOfSinks * scale;
         double cap = Math.Max(0, Ledger.TreasuryBalance - NpcCommitted) * Config.ContractMaxTreasurySharePerHour;
-        _contractPoolThisHour = (long)Math.Min(pool, cap);
+        _contractPoolThisHour = SplitTaskPool((long)Math.Min(pool, cap));
     }
 
     public int ActiveAgentCount { get; private set; }

@@ -39,6 +39,7 @@ public sealed partial class World
             if (pool.Count >= 3) FormParties(Towns[town], pool);
             pool.Clear();
         }
+        foreach (var list in _hirePool.Values) list.Clear();
     }
 
     private readonly List<Agent> _party = new(5);
@@ -46,6 +47,36 @@ public sealed partial class World
     public long NpcTanksHired { get; private set; }
     public long NpcHealersHired { get; private set; }
     public long NpcPortersHired { get; private set; }
+    public long PlayersHired { get; private set; }
+    public long HaulFeesPaid { get; private set; }
+
+    /// <summary>Players fighting this hour who are not on a gathering trip but would join one as a paid tank or healer.</summary>
+    private readonly Dictionary<int, List<Agent>> _hirePool = new();
+
+    private void JoinHirePool(Agent a)
+    {
+        if (!_hirePool.TryGetValue(a.Town, out var list)) _hirePool[a.Town] = list = new List<Agent>();
+        list.Add(a);
+    }
+
+    /// <summary>Hire board: a player tank or healer joins for a fee split across the party.</summary>
+    private bool HirePlayer(Town town, List<Agent> party, CombatRole role)
+    {
+        if (!_hirePool.TryGetValue(town.Index, out var list)) return false;
+        int i = list.FindIndex(x => x.CombatRole == role);
+        if (i < 0) return false;
+        long share = (Config.PlayerHireFee + party.Count - 1) / party.Count;
+        foreach (var a in party) if (Coins(a) < share * 5) return false;
+        var hired = list[i];
+        list.RemoveAt(i);
+        foreach (var a in party)
+        {
+            Ledger.Transfer(a.Account, hired.Account, share, Flow.PlayerTrade);
+            hired.TodayIncome += share;
+        }
+        PlayersHired++;
+        return true;
+    }
 
     private void FormParties(Town town, List<Agent> pool)
     {
@@ -73,6 +104,11 @@ public sealed partial class World
             bool healer = _party.Any(a => a.CombatRole == CombatRole.Healer);
             bool hauler = _party.Any(a => a.Role == Role.Hauler);
             bool hireTank = false, hireHealer = false, hirePorter = false;
+            // Hire board first: players are cheaper and stronger than NPCs.
+            if (!tank && HirePlayer(town, _party, CombatRole.Tank)) tank = true;
+            if (!healer && HirePlayer(town, _party, CombatRole.Healer)) healer = true;
+            bool playerTank = tank && !_party.Any(a => a.CombatRole == CombatRole.Tank);
+            bool playerHealer = healer && !_party.Any(a => a.CombatRole == CombatRole.Healer);
             if (Config.HireNpcs)
             {
                 hireTank = !tank && Hire(_party, Config.NpcTankFee);
@@ -82,7 +118,7 @@ public sealed partial class World
                 if (hireHealer) NpcHealersHired++;
                 if (hirePorter) NpcPortersHired++;
             }
-            RunTrip(town, _party, hireTank, hireHealer, hirePorter);
+            RunTrip(town, _party, hireTank || playerTank, hireHealer || playerHealer, hirePorter, npcTank: hireTank, npcHealer: hireHealer);
         }
     }
 
@@ -95,12 +131,12 @@ public sealed partial class World
         return true;
     }
 
-    private void RunTrip(Town town, List<Agent> party, bool npcTank, bool npcHealer, bool npcPorter)
+    private void RunTrip(Town town, List<Agent> party, bool extraTank, bool extraHealer, bool npcPorter, bool npcTank, bool npcHealer)
     {
         PartiesFormed++;
-        bool tank = npcTank || party.Any(a => a.CombatRole == CombatRole.Tank);
-        bool healer = npcHealer || party.Any(a => a.CombatRole == CombatRole.Healer);
-        bool full = tank && healer && party.Count + (npcTank ? 1 : 0) + (npcHealer ? 1 : 0) == 5;
+        bool tank = extraTank || party.Any(a => a.CombatRole == CombatRole.Tank);
+        bool healer = extraHealer || party.Any(a => a.CombatRole == CombatRole.Healer);
+        bool full = tank && healer && party.Count + (extraTank ? 1 : 0) + (extraHealer ? 1 : 0) == 5;
         if (full) PartiesFull++;
 
         double wipe = tank && healer ? Config.PartyWipeChanceFull : Config.PartyWipeChanceMissingRole;
@@ -118,11 +154,22 @@ public sealed partial class World
             return;
         }
 
-        double gather = 0, carry = npcPorter ? Config.PartyCarryPerHauler : 0;
-        foreach (var a in party)
+        double stock = 0;
+        for (int g = 0; g < Goods.Count; g++) stock += town.DeepStock[g];
+        if (stock <= 0) return;
+
+        // Personal loot: each member keeps what they gather, as far as they can
+        // carry it. Haulers (and a hired porter) carry the overflow for a fee.
+        int n = party.Count;
+        var gathered = new double[n];
+        var own = new double[n];
+        double haulCap = npcPorter ? Config.PartyCarryPerHauler : 0, overflow = 0;
+        for (int i = 0; i < n; i++)
         {
-            gather += (IsGatherFocus(a.Role) ? 1.0 : 0.4) * Config.PartyGatherPerHour;
-            carry += a.Role == Role.Hauler ? Config.PartyCarryPerHauler : Config.PartyCarryPerMember;
+            var a = party[i];
+            gathered[i] = (IsGatherFocus(a.Role) ? 1.0 : 0.4) * Config.PartyGatherPerHour;
+            double carry = Config.PartyCarryPerMember;
+            if (a.Role == Role.Hauler) haulCap += Config.PartyCarryPerHauler;
             // Travel packs (leatherworkers) add carrying space and wear out.
             if (a.Inventory[Pack] > 0)
             {
@@ -130,24 +177,70 @@ public sealed partial class World
                 a.PackCredit += Config.PackUsePerTrip;
                 if (a.PackCredit >= 1) { a.PackCredit -= 1; a.Inventory.Take(Pack, 1); }
             }
+            own[i] = Math.Min(gathered[i], carry);
+            overflow += gathered[i] - own[i];
         }
-        double total = Math.Min(gather, carry);
+        double hauled = Math.Min(overflow, haulCap);
+        double haulRatio = overflow > 0 ? hauled / overflow : 0;
+        var carried = new double[n];
+        double total = 0;
+        for (int i = 0; i < n; i++)
+        {
+            carried[i] = (gathered[i] - own[i]) * haulRatio;
+            total += own[i] + carried[i];
+        }
+        if (!Config.PersonalLoot)
+        {
+            // Old rule: everything split evenly.
+            for (int i = 0; i < n; i++) { own[i] = total / n; carried[i] = 0; }
+        }
 
-        double stock = 0;
-        for (int g = 0; g < Goods.Count; g++) stock += town.DeepStock[g];
-        if (stock <= 0) return;
-
+        var fresh = new Dictionary<int, double[]>(n);
+        foreach (var a in party) fresh[a.Id] = new double[Goods.Count];
+        var haulers = party.Where(a => a.Role == Role.Hauler).ToList();
         double saved = _gatherToolBonus;
         _gatherToolBonus = Config.PartyQualityBonus;
+        var fees = new double[n];
         for (int g = 0; g < Goods.Count; g++)
         {
             if (town.DeepStock[g] <= 0) continue;
             double take = Math.Min(town.DeepStock[g], total * town.DeepStock[g] / stock);
             town.DeepStock[g] -= take;
             PartyUnits += (long)take;
-            double each = take / party.Count;
-            foreach (var a in party) AddProduce(a, g, each);
+            double value = town.Markets[g].Reference.Value;
+            for (int i = 0; i < n; i++)
+            {
+                double share = total > 0 ? (own[i] + carried[i]) / total : 0;
+                double units = take * share;
+                AddProduce(party[i], g, units);
+                fresh[party[i].Id][g] += units + 1;
+                if (total > 0) fees[i] += take * carried[i] / total * value * Config.HaulFeeShare;
+            }
         }
         _gatherToolBonus = saved;
+
+        // Pay the haulers for what they carried (a hired NPC porter was paid up front).
+        if (haulers.Count > 0)
+        {
+            double playerHaul = haulCap - (npcPorter ? Config.PartyCarryPerHauler : 0);
+            double playerShare = haulCap > 0 ? playerHaul / haulCap : 0;
+            for (int i = 0; i < n; i++)
+            {
+                long fee = (long)Math.Round(fees[i] * playerShare);
+                if (fee <= 0 || party[i].Role == Role.Hauler) continue;
+                fee = Math.Min(fee, Coins(party[i]));
+                long each = fee / haulers.Count;
+                if (each <= 0) continue;
+                foreach (var h in haulers)
+                {
+                    Ledger.Transfer(party[i].Account, h.Account, each, Flow.PlayerTrade);
+                    h.TodayIncome += each;
+                    party[i].TodayIncome -= each;
+                    HaulFeesPaid += each;
+                }
+            }
+        }
+
+        PartyDeliver(town, party, fresh);
     }
 }
