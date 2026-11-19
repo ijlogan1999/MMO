@@ -237,10 +237,17 @@ public sealed partial class World
         var income = RoleIncome();
         var share = RoleShares();
         return Config.RoleMix
-            .Select(kv => (kv.Key, share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 ? 0.0
+            .Select(kv => (kv.Key, share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 || PlotsFull(kv.Key, share) ? 0.0
                 : kv.Value * Math.Pow(Math.Clamp(income.GetValueOrDefault(kv.Key, 1.0), 0.3, 3.0), Config.JoinerIncomeBias)))
             .ToList();
     }
+
+    /// <summary>
+    /// Each world has a fixed number of farm plots (Ian's rule), so once they
+    /// are all rented nobody new can take up farming.
+    /// </summary>
+    private bool PlotsFull(Role role, Dictionary<Role, double> share) =>
+        role == Role.Farmer && Config.FarmPlotShare > 0 && share.GetValueOrDefault(Role.Farmer) >= Config.FarmPlotShare;
 
     public void Quit(Agent a)
     {

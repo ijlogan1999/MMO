@@ -52,6 +52,8 @@ public sealed class SimConfig
     public long RepairStationFee { get; set; } = 20;
     public long PlotRentPerWeek { get; set; } = 200;
     public int PlotsPerFarmer { get; set; } = 3;
+    /// <summary>World farm plots, as the share of players who can hold a farm (0 = unlimited).</summary>
+    public double FarmPlotShare { get; set; } = 0.10;
     public long ShopUpkeepPerWeek { get; set; } = 600;
     public double KeeperCut { get; set; } = 0.10;
     public double TokenListingFee { get; set; } = 0.02;
