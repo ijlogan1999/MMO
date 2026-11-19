@@ -105,7 +105,34 @@ public sealed class SimConfig
     /// <summary>Solo gathering near towns yields less than before.</summary>
     public double SoloGatherYield { get; set; } = 0.7;
     /// <summary>Regrowth of the dangerous wilds, as a share of the safe nodes' regrowth.</summary>
-    public double DeepRegenShare { get; set; } = 0.6;
+    public double DeepRegenShare { get; set; } = 0.15;
+    /// <summary>Scales all wilds regrowth (patch scenarios).</summary>
+    public double DeepRegenMultiplier { get; set; } = 1.0;
+    /// <summary>Regrowth of rare wilds materials per unit of town wilds richness.</summary>
+    public double RareRegenPerHour { get; set; } = 0.4;
+
+    // Cross-craft uses (Ian, 2026-11-19): widen what each craft is good for.
+    /// <summary>Fighters below this combat level heal with bandages (tailors) instead of potions.</summary>
+    public double BandageMaxLevel { get; set; } = 40;
+    /// <summary>Extra party carry for each member with a travel pack (leatherworkers); packs wear out per trip.</summary>
+    public double PackCarry { get; set; } = 3;
+    public double PackUsePerTrip { get; set; } = 0.1;
+    /// <summary>Players with more coins than this furnish their homes (carpenters' furniture).</summary>
+    public long FurnitureWealth { get; set; } = 6000;
+    public double FurnitureBuysPerDay { get; set; } = 0.15;
+
+    // Stronger mobs (Ian, 2026-11-19): deaths damage gear instead of extra wear.
+    public double MobStrength { get; set; } = 1.0;
+    public double DeathChancePerFightHour { get; set; } = 0.03;
+    /// <summary>Durability lost on death, in hours of normal wear.</summary>
+    public double DeathWearHours { get; set; } = 15;
+
+    // Shops are limited; anyone can take up any craft (Ian, 2026-11-19).
+    public int ShopsPerTownPerCraft { get; set; } = 2;
+    /// <summary>Only shop owners keep listings up while offline; everyone else sells while online.</summary>
+    public bool OfflineSellingNeedsShop { get; set; } = true;
+    /// <summary>Job caps: the share a profession can grow to before newcomers stop picking it (crafts uncapped).</summary>
+    public bool CapCrafts { get; set; } = false;
     public double PartyGatherPerHour { get; set; } = 5;
     public double PartyCarryPerMember { get; set; } = 3;
     public double PartyCarryPerHauler { get; set; } = 10;
@@ -173,9 +200,9 @@ public sealed class SimConfig
         new() { Name = "Common", MinSkill = 0, InputMultiplier = 1.0 },
         new() { Name = "Fine", MinSkill = 25, InputMultiplier = 1.5 },
         new() { Name = "Superior", MinSkill = 50, InputMultiplier = 2.0,
-            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 2 }, ["leatherworking"] = new() { ["herbs"] = 2 } } },
+            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 2 }, ["leatherworking"] = new() { ["herbs"] = 2 }, ["tailoring"] = new() { ["fiber"] = 2 } } },
         new() { Name = "Masterwork", MinSkill = 75, InputMultiplier = 3.0,
-            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 3, ["leather"] = 1 }, ["leatherworking"] = new() { ["herbs"] = 3, ["cloth"] = 1 } } },
+            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 3, ["leather"] = 1, ["ember_slag"] = 1 }, ["leatherworking"] = new() { ["herbs"] = 3, ["cloth"] = 1, ["ice_crystal"] = 1 }, ["tailoring"] = new() { ["ice_crystal"] = 1 } } },
     };
 
     /// <summary>New players get their role's starter kit from a short quest instead of buying it.</summary>

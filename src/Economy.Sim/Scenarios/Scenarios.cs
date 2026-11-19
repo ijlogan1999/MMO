@@ -346,9 +346,9 @@ public sealed class WildsPatch : ScenarioBase
     private double _base;
     public override void OnHour(World.World w)
     {
-        if (AtShockStart(w, ShockStartDay)) { _base = w.Config.DeepRegenShare; w.Config.DeepRegenShare = _base * 0.5; }
-        if (AtShockStart(w, 45)) w.Config.DeepRegenShare = _base * 1.5;
-        if (AtShockStart(w, ShockEndDay)) w.Config.DeepRegenShare = _base;
+        if (AtShockStart(w, ShockStartDay)) { _base = w.Config.DeepRegenMultiplier; w.Config.DeepRegenMultiplier = _base * 0.5; }
+        if (AtShockStart(w, 45)) w.Config.DeepRegenMultiplier = _base * 1.5;
+        if (AtShockStart(w, ShockEndDay)) w.Config.DeepRegenMultiplier = _base;
     }
 }
 

@@ -76,6 +76,8 @@ public sealed class TownDef
     public string Region { get; set; } = "";
     public double Size { get; set; }
     public Dictionary<string, double> Nodes { get; set; } = new();
+    /// <summary>Rare materials in the dangerous wilds around the town (party trips only).</summary>
+    public Dictionary<string, double> Wilds { get; set; } = new();
 }
 
 public sealed class WorldFile

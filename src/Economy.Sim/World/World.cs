@@ -55,6 +55,9 @@ public sealed partial class World
         Bread = Goods["bread"];
         Stew = Goods["stew"];
         Potion = Goods["healing_potion"];
+        Bandage = Goods["bandage"];
+        Pack = Goods["travel_pack"];
+        Furniture = Goods["furniture"];
         RelicCore = Goods["relic_core"];
         TokenIndex = Goods.Count;
 
@@ -90,6 +93,9 @@ public sealed partial class World
     public int Bread { get; }
     public int Stew { get; }
     public int Potion { get; }
+    public int Bandage { get; }
+    public int Pack { get; }
+    public int Furniture { get; }
     public int RelicCore { get; }
 
     /// <summary>Belief slot used for the game-time token.</summary>
@@ -122,8 +128,13 @@ public sealed partial class World
                 town.Richness[g] = kv.Value;
                 town.RegenPerHour[g] = kv.Value * Config.NodeRegenPerRichness * scale * town.Def.Size * 5;
                 town.Stock[g] = town.RegenPerHour[g] * Config.NodeStockHours;
-                town.DeepStock[g] = town.RegenPerHour[g] * Config.DeepRegenShare * Config.NodeStockHours;
+                town.DeepRegenPerHour[g] = town.RegenPerHour[g] * Config.DeepRegenShare;
             }
+            // Rare materials (ember slag, ice crystals) only come from the wilds.
+            foreach (var kv in town.Def.Wilds)
+                town.DeepRegenPerHour[Goods[kv.Key]] += kv.Value * Config.RareRegenPerHour * scale * town.Def.Size * 5;
+            for (int g = 0; g < Goods.Count; g++)
+                town.DeepStock[g] = town.DeepRegenPerHour[g] * Config.NodeStockHours;
             for (int g = 0; g < Goods.Count; g++)
                 town.Markets[g] = new GoodMarket(Goods.BasePrice[g], Config.Stabilizer.ReferenceHalfLifeHours, Config.Stabilizer);
         }
@@ -168,6 +179,11 @@ public sealed partial class World
             if (!a.Active) continue;
             if (a.TravelHoursLeft > 0) { TickTravel(a); continue; }
             if (a.OnlineAt(HourOfDay)) _turnOrder.Add(i);
+            // Without a shop, a player's goods sell only while they are online
+            // to trade them; listings come down when they log off.
+            else if (Config.OfflineSellingNeedsShop && !a.HasShop && a.Orders.Count > 0
+                     && a.Role is not (Role.Bot or Role.Speculator or Role.Hauler))
+                CancelAgentOrders(a, learn: false);
         }
         Shuffle(_turnOrder, _agentRng);
         foreach (int i in _turnOrder) AgentTurn(Agents[i]);
@@ -186,6 +202,12 @@ public sealed partial class World
     private void RegenNodes()
     {
         foreach (var town in Towns)
+            for (int g = 0; g < Goods.Count; g++)
+            {
+                double deep = town.DeepRegenPerHour[g] * Config.DeepRegenMultiplier;
+                if (deep > 0) town.DeepStock[g] = Math.Min(town.DeepRegenPerHour[g] * Config.NodeStockHours, town.DeepStock[g] + deep);
+            }
+        foreach (var town in Towns)
         {
             for (int g = 0; g < Goods.Count; g++)
             {
@@ -194,8 +216,6 @@ public sealed partial class World
                 if (town.DepletedUntilHour[g] > Hour) regen *= Config.OverharvestRegenFactor;
                 double cap = town.RegenPerHour[g] * Config.NodeStockHours;
                 town.Stock[g] = Math.Min(cap, town.Stock[g] + regen);
-                double deepRegen = town.RegenPerHour[g] * Config.DeepRegenShare;
-                town.DeepStock[g] = Math.Min(deepRegen * Config.NodeStockHours, town.DeepStock[g] + deepRegen);
             }
         }
     }

@@ -1,17 +1,122 @@
 {
-  "_note": "Phase 1 world: 3 regions, 5 towns. size = share of the population living there. nodes = how rich the town's surroundings are in each raw good (1.0 = normal). Raw goods with no entry cannot be gathered there.",
-  "regions": ["North", "Heartland", "South"],
-  "towns": [
-    { "id": "ironhold",  "name": "Ironhold",  "region": "North",     "size": 0.20, "nodes": { "iron_ore": 1.6, "coal": 1.6, "timber": 0.8, "hide": 0.6, "meat": 0.6, "herbs": 0.3 } },
-    { "id": "pinewatch", "name": "Pinewatch", "region": "North",     "size": 0.15, "nodes": { "timber": 1.6, "hide": 1.4, "meat": 1.2, "iron_ore": 0.4, "coal": 0.4, "herbs": 0.5 } },
-    { "id": "porttown",  "name": "Port Town", "region": "Heartland", "size": 0.30, "nodes": { "fiber": 0.8, "grain": 0.6, "herbs": 0.6, "meat": 0.6, "timber": 0.4 } },
-    { "id": "riverford", "name": "Riverford", "region": "Heartland", "size": 0.15, "nodes": { "grain": 1.4, "fiber": 1.2, "herbs": 1.0, "meat": 0.8, "hide": 0.4 } },
-    { "id": "goldfield", "name": "Goldfield", "region": "South",     "size": 0.20, "nodes": { "grain": 1.8, "fiber": 1.4, "herbs": 1.6, "hide": 0.6, "meat": 1.0, "timber": 0.4 } }
+  "_note": "Phase 1 world: 3 regions, 5 towns. size = share of the population living there. nodes = how rich the town's surroundings are in each raw good (1.0 = normal). Raw goods with no entry cannot be gathered there. wilds = rare materials in the dangerous zones around the town, reachable only by party trips.",
+  "regions": [
+    "North",
+    "Heartland",
+    "South"
   ],
-  "travelHours": { "sameRegion": 2, "adjacentRegion": 4, "farRegion": 7 },
-  "regionOrder": ["North", "Heartland", "South"],
+  "towns": [
+    {
+      "id": "ironhold",
+      "name": "Ironhold",
+      "region": "North",
+      "size": 0.2,
+      "nodes": {
+        "iron_ore": 1.6,
+        "coal": 1.6,
+        "timber": 0.8,
+        "hide": 0.6,
+        "meat": 0.6,
+        "herbs": 0.3
+      },
+      "wilds": {
+        "ember_slag": 1.4,
+        "ice_crystal": 0.6
+      }
+    },
+    {
+      "id": "pinewatch",
+      "name": "Pinewatch",
+      "region": "North",
+      "size": 0.15,
+      "nodes": {
+        "timber": 1.6,
+        "hide": 1.4,
+        "meat": 1.2,
+        "iron_ore": 0.4,
+        "coal": 0.4,
+        "herbs": 0.5
+      },
+      "wilds": {
+        "ember_slag": 0.6,
+        "ice_crystal": 1.4
+      }
+    },
+    {
+      "id": "porttown",
+      "name": "Port Town",
+      "region": "Heartland",
+      "size": 0.3,
+      "nodes": {
+        "fiber": 0.8,
+        "grain": 0.6,
+        "herbs": 0.6,
+        "meat": 0.6,
+        "timber": 0.4
+      },
+      "wilds": {
+        "ember_slag": 1.0,
+        "ice_crystal": 1.0
+      }
+    },
+    {
+      "id": "riverford",
+      "name": "Riverford",
+      "region": "Heartland",
+      "size": 0.15,
+      "nodes": {
+        "grain": 1.4,
+        "fiber": 1.2,
+        "herbs": 1.0,
+        "meat": 0.8,
+        "hide": 0.4
+      },
+      "wilds": {
+        "ember_slag": 1.0,
+        "ice_crystal": 1.0
+      }
+    },
+    {
+      "id": "goldfield",
+      "name": "Goldfield",
+      "region": "South",
+      "size": 0.2,
+      "nodes": {
+        "grain": 1.8,
+        "fiber": 1.4,
+        "herbs": 1.6,
+        "hide": 0.6,
+        "meat": 1.0,
+        "timber": 0.4
+      },
+      "wilds": {
+        "ember_slag": 1.0,
+        "ice_crystal": 1.0
+      }
+    }
+  ],
+  "travelHours": {
+    "sameRegion": 2,
+    "adjacentRegion": 4,
+    "farRegion": 7
+  },
+  "regionOrder": [
+    "North",
+    "Heartland",
+    "South"
+  ],
   "basePrices": {
     "_note": "Starting reference prices for raw goods and relic cores, in coins. Crafted goods are priced from their recipes.",
-    "iron_ore": 40, "coal": 30, "timber": 40, "grain": 20, "fiber": 30, "herbs": 40, "hide": 60, "meat": 40, "relic_core": 3000
+    "iron_ore": 40,
+    "coal": 30,
+    "timber": 40,
+    "grain": 20,
+    "fiber": 30,
+    "herbs": 40,
+    "hide": 60,
+    "meat": 40,
+    "relic_core": 3000,
+    "ember_slag": 250,
+    "ice_crystal": 250
   }
 }

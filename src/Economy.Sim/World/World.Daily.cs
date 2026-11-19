@@ -21,9 +21,13 @@ public sealed partial class World
                 RoleIncomeWeeks[role] = (RoleIncomeWeeks.GetValueOrDefault(role).sum + ratio, RoleIncomeWeeks.GetValueOrDefault(role).weeks + 1);
         }
 
+        if (weekEnd || Day == 0) AssignShops();
+
         foreach (var a in Agents)
         {
             if (!a.Active) continue;
+            // Furniture bought goes into the player's home for good.
+            FurniturePlaced += a.Inventory.Take(Furniture, a.Inventory[Furniture]);
             a.DailyIncome[dayIndex] = a.TodayIncome;
             a.TodayIncome = 0;
             a.RepairsToday = 0;
@@ -67,7 +71,7 @@ public sealed partial class World
                 long rent = Config.PlotRentPerWeek * Config.PlotsPerFarmer;
                 Ledger.TryTransfer(a.Account, Ledger.Treasury, Math.Min(rent, Coins(a)), Flow.PlotRent, out _);
             }
-            if (a.IsMaster(Config.MasterSkill))
+            if (a.HasShop)
                 Ledger.TryTransfer(a.Account, Ledger.Treasury, Math.Min(Config.ShopUpkeepPerWeek, Coins(a)), Flow.ShopUpkeep, out _);
         }
     }
@@ -243,7 +247,7 @@ public sealed partial class World
         var income = RoleIncome();
         var share = RoleShares();
         return Config.RoleMix
-            .Select(kv => (kv.Key, share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 || PlotsFull(kv.Key, share) ? 0.0
+            .Select(kv => (kv.Key, (share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 && (Config.CapCrafts || !Roles.IsCrafter(kv.Key))) || PlotsFull(kv.Key, share) ? 0.0
                 : kv.Value * Math.Pow(Math.Clamp(income.GetValueOrDefault(kv.Key, 1.0), 0.3, 3.0), Config.JoinerIncomeBias)))
             .ToList();
     }
@@ -254,6 +258,20 @@ public sealed partial class World
     /// </summary>
     private bool PlotsFull(Role role, Dictionary<Role, double> share) =>
         role == Role.Farmer && Config.FarmPlotShare > 0 && share.GetValueOrDefault(Role.Farmer) >= Config.FarmPlotShare;
+
+    public long FurniturePlaced { get; private set; }
+
+    /// <summary>
+    /// Shops are limited: each town has a few per craft, held by its most
+    /// skilled masters. Everyone else sells to other players while online.
+    /// </summary>
+    private void AssignShops()
+    {
+        foreach (var a in Agents) a.HasShop = false;
+        foreach (var g in Agents.Where(a => a.Active && a.IsMaster(Config.MasterSkill)).GroupBy(a => (a.Town, a.Role)))
+            foreach (var a in g.OrderByDescending(a => a.Skill).Take(Config.ShopsPerTownPerCraft))
+                a.HasShop = true;
+    }
 
     public void Quit(Agent a)
     {

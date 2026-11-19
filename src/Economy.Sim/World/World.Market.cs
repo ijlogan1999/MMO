@@ -211,7 +211,7 @@ public sealed partial class World
             long tax = (long)Math.Round(total * TaxRate);
             if (tax > 0) Ledger.Transfer(seller.Account, Ledger.Treasury, tax, Flow.MarketTax);
             if (good != TokenIndex) seller.TodayIncome += total - tax;
-            if (seller.IsMaster(Config.MasterSkill) && !seller.OnlineAt(HourOfDay))
+            if (seller.HasShop && !seller.OnlineAt(HourOfDay))
             {
                 long cut = (long)Math.Round(total * Config.KeeperCut);
                 if (cut > 0) Ledger.Transfer(seller.Account, Ledger.Treasury, cut, Flow.KeeperCut);

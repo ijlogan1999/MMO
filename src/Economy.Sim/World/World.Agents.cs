@@ -34,7 +34,11 @@ public sealed partial class World
         {
             Fight(a, productivity);
             if (Config.Parties && PartyEligible(a.Role) && _agentRng.Chance(Config.PartyTripChance))
+            {
                 JoinPartyPool(a);
+                if (a.Inventory[Pack] == 0 && Coins(a) > 1500)
+                    PlaceBuy(a, Pack, 1, Math.Max(1, (long)Math.Round(a.Belief[Pack])));
+            }
         }
         else switch (a.Role)
         {
@@ -74,6 +78,10 @@ public sealed partial class World
 
         if (a.Role != Role.Speculator && a.Role != Role.Hauler) SellSurplus(a);
         BuyFood(a);
+        // Well-off players furnish their homes (carpenters' furniture).
+        if (a.Role is not (Role.Speculator or Role.Bot) && Coins(a) > Config.FurnitureWealth
+            && _agentRng.Chance(Config.FurnitureBuysPerDay / Math.Max(1, a.SessionHours)))
+            PlaceBuy(a, Furniture, 1, Math.Max(1, (long)Math.Round(a.Belief[Furniture])));
     }
 
     // ---------------------------------------------------------------- needs
@@ -451,6 +459,9 @@ public sealed partial class World
         if (g == Bread) return 6;
         if (g == Stew) return Fights(a) ? 6 : 3;
         if (g == Potion && Fights(a)) return 6;
+        if (g == Bandage && Fights(a)) return 6;
+        if (g == Pack && Fights(a)) return 1;
+        if (g == Furniture) return int.MaxValue / 2;
         if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
@@ -490,19 +501,22 @@ public sealed partial class World
         long coins = Coins(a);
         bool wantRelic = coins > 15000;
         int weaponGood = Goods[wantRelic ? "relic_sword" : "sword"];
-        int armorGood = Goods[coins > 10000 ? "plate_armor" : "leather_armor"];
+        // Healers and casters wear cloth (tailors); others leather, then plate.
+        int armorGood = Goods[a.CombatRole == CombatRole.Healer ? "cloth_armor" : coins > 10000 ? "plate_armor" : "leather_armor"];
 
         var weapon = Maintain(a, a.Weapon, weaponGood, w => a.Weapon = w);
         var armor = Maintain(a, a.Armor, armorGood, x => a.Armor = x);
 
         double power = productivity * (weapon != null ? 1.0 : 0.3) * (armor != null ? 1.0 : 0.7);
+        // Low-level fighters heal with bandages (tailors), later with potions (alchemists).
+        int heal = a.CombatSkill < Config.BandageMaxLevel ? Bandage : Potion;
         a.PotionCredit += Config.PotionsPerFightHour;
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
-            if (a.Inventory.Take(Potion, 1) == 0) power *= 0.7;
+            if (!TakeHealing(a, heal)) power *= 0.7;
         }
-        if (a.Inventory[Potion] < 3) PlaceBuy(a, Potion, 4, Math.Max(1, (long)Math.Round(a.Belief[Potion])));
+        if (a.Inventory[heal] < 3) PlaceBuy(a, heal, 4, Math.Max(1, (long)Math.Round(a.Belief[heal])));
         if (Config.FoodBuffs)
         {
             double t = a.CombatSkill / 100.0;
@@ -529,6 +543,21 @@ public sealed partial class World
         if (weapon != null) Durability.Wear(weapon, Config.WeaponWearPerHour);
         if (armor != null) Durability.Wear(armor, Config.ArmorWearPerHour);
 
+        // Stronger mobs kill more often; a death costs gear durability, a
+        // heal to get back on your feet, and the hour's loot.
+        double deathChance = Config.DeathChancePerFightHour * Config.MobStrength / Math.Max(0.3, power);
+        if (_agentRng.Chance(Math.Min(0.5, deathChance)))
+        {
+            Deaths++;
+            if (weapon != null) Durability.Wear(weapon, (int)Math.Round(Config.WeaponWearPerHour * Config.DeathWearHours));
+            if (armor != null) Durability.Wear(armor, (int)Math.Round(Config.ArmorWearPerHour * Config.DeathWearHours));
+            TakeHealing(a, heal);
+            a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour * 0.5);
+            _fightersThisHour.Add(a);
+            _onlineFightersThisHour++;
+            return;
+        }
+
         // Loot: materials from kills, and now and then a relic core from a dungeon.
         AddLoot(a, Goods["hide"], Config.FighterHidePerHour * power);
         AddLoot(a, Goods["meat"], Config.FighterMeatPerHour * power);
@@ -538,6 +567,16 @@ public sealed partial class World
         a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour);
         _fightersThisHour.Add(a);
         _onlineFightersThisHour++;
+    }
+
+    public long Deaths { get; private set; }
+
+    /// <summary>Uses one heal, falling back to the other kind if out.</summary>
+    private bool TakeHealing(Agent a, int preferred)
+    {
+        if (a.Inventory.Take(preferred, 1) == 1) return true;
+        int other = preferred == Bandage ? Potion : Bandage;
+        return a.Inventory.Take(other, 1) == 1;
     }
 
     private void AddLoot(Agent a, int good, double amount)

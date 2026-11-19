@@ -123,6 +123,13 @@ public sealed partial class World
         {
             gather += (IsGatherFocus(a.Role) ? 1.0 : 0.4) * Config.PartyGatherPerHour;
             carry += a.Role == Role.Hauler ? Config.PartyCarryPerHauler : Config.PartyCarryPerMember;
+            // Travel packs (leatherworkers) add carrying space and wear out.
+            if (a.Inventory[Pack] > 0)
+            {
+                carry += Config.PackCarry;
+                a.PackCredit += Config.PackUsePerTrip;
+                if (a.PackCredit >= 1) { a.PackCredit -= 1; a.Inventory.Take(Pack, 1); }
+            }
         }
         double total = Math.Min(gather, carry);
 

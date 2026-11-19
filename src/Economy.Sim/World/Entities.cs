@@ -111,6 +111,9 @@ public sealed class Agent
     public double FoodHours { get; set; }
     public double PotionCredit { get; set; }
     public double BuffCredit { get; set; }
+    public double PackCredit { get; set; }
+    /// <summary>Owns one of the town's limited shops (only shop owners sell while offline).</summary>
+    public bool HasShop { get; set; }
     /// <summary>Combat level progress, 0-100. Separate from the profession skill.</summary>
     public double CombatSkill { get; set; }
     /// <summary>Party role: tank, healer or damage.</summary>
@@ -238,6 +241,7 @@ public sealed class Town
         Stock = new double[goods];
         RegenPerHour = new double[goods];
         DeepStock = new double[goods];
+        DeepRegenPerHour = new double[goods];
         DepletedUntilHour = new int[goods];
         Markets = new GoodMarket[goods];
     }
@@ -251,6 +255,7 @@ public sealed class Town
     public double[] RegenPerHour { get; }
     /// <summary>Rich materials in the dangerous wilds around the town, reachable only by parties.</summary>
     public double[] DeepStock { get; }
+    public double[] DeepRegenPerHour { get; }
     public int[] DepletedUntilHour { get; }
     public GoodMarket[] Markets { get; }
     public List<int> Repairers { get; } = new();
