@@ -73,6 +73,7 @@ public sealed partial class World
         {
             Ledger.Transfer(a.Account, hired.Account, share, Flow.PlayerTrade);
             hired.TodayIncome += share;
+            Track(hired, IncomeKind.HireFees, share);
         }
         PlayersHired++;
         return true;
@@ -236,6 +237,8 @@ public sealed partial class World
                     Ledger.Transfer(party[i].Account, h.Account, each, Flow.PlayerTrade);
                     h.TodayIncome += each;
                     party[i].TodayIncome -= each;
+                    Track(h, IncomeKind.HaulFeesIn, each);
+                    Track(party[i], IncomeKind.HaulFeesOut, -each);
                     HaulFeesPaid += each;
                 }
             }

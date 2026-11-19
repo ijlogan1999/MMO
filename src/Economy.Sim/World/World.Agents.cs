@@ -206,6 +206,7 @@ public sealed partial class World
         if (Coins(owner) < cost) return false;
         Ledger.Transfer(owner.Account, best.Account, best.RepairPrice, Flow.PlayerTrade);
         best.TodayIncome += best.RepairPrice;
+        Track(best, IncomeKind.Repairs, best.RepairPrice);
         Ledger.Transfer(owner.Account, Ledger.Treasury, Config.RepairStationFee, Flow.RepairFee);
         if (material >= 0) best.Inventory.Take(material, units);
         best.RepairsToday++;
@@ -327,6 +328,7 @@ public sealed partial class World
         if (n <= 0) return;
         double q = Math.Clamp(_agentRng.NextGaussian(30 + 0.6 * a.Skill + _gatherToolBonus, 8), 1, 100);
         a.Inventory.Add(good, n, q);
+        TrackGood(good, GoodFlowKind.Gathered, n);
         RegionProducedHour[Towns[a.Town].Region, good] = Hour;
     }
 
@@ -378,12 +380,14 @@ public sealed partial class World
             {
                 int q = a.Inventory.QualityOf(g);
                 a.Inventory.Take(g, need);
+                TrackGood(g, GoodFlowKind.UsedInCrafts, need);
                 _inputs.Add(new InputQuality(q, need));
                 if (g == RelicCore) coreQuality = q;
             }
             var roll = QualityRules.Roll(recipe, (int)a.Skill, _inputs, QualityRules.SimulatedPerformance((int)a.Skill, _agentRng), _agentRng);
             int quality = Goods.Defs[output2].IsMagical && coreQuality > 0 ? Math.Min(roll.Quality, coreQuality + 20) : roll.Quality;
             a.Inventory.Add(output2, recipe.OutputQuantity, quality);
+            TrackGood(output2, GoodFlowKind.Crafted, recipe.OutputQuantity);
             RegionProducedHour[Towns[a.Town].Region, output2] = Hour;
             a.Skill = Math.Min(100, a.Skill + Config.SkillGainPerHour / Math.Max(1, crafts));
         }
@@ -737,6 +741,7 @@ public sealed partial class World
                 if (each <= 0) continue;
                 if (!Ledger.TryTransfer(Ledger.Treasury, f.Account, each, Flow.TownContract, out _)) break;
                 f.TodayIncome += each;
+                Track(f, IncomeKind.Bounties, each);
             }
         }
         _fightersThisHour.Clear();

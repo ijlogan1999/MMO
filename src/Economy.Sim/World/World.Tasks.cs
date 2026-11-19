@@ -77,6 +77,7 @@ public sealed partial class World
         if (coins <= 0) return;
         if (!Ledger.TryTransfer(Ledger.Treasury, a.Account, coins, Flow.TownContract, out _)) return;
         a.TodayIncome += coins;
+        Track(a, IncomeKind.Tasks, coins);
         TaskCoinsPaid += coins;
     }
 
@@ -96,6 +97,7 @@ public sealed partial class World
             a.Inventory.Take(g, units);
             a.TaskUnitsToday += units;
             TaskUnitsDelivered += units;
+            TrackGood(g, GoodFlowKind.TaskDelivered, units);
             PayTask(a, coins);
         }
     }
@@ -129,6 +131,7 @@ public sealed partial class World
             cap -= units;
             coins += paid;
             TaskUnitsDelivered += units;
+            TrackGood(g, GoodFlowKind.TaskDelivered, units);
             int each = units / party.Count;
             foreach (var a in party) a.TaskUnitsToday += each;
         }

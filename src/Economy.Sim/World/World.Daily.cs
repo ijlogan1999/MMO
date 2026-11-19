@@ -23,6 +23,7 @@ public sealed partial class World
 
         if (weekEnd || Day == 0) AssignShops();
         OpenTaskBudgets();
+        TrackDay();
 
         foreach (var a in Agents)
         {

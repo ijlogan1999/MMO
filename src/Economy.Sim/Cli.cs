@@ -61,6 +61,46 @@ public static class Cli
             return 0;
         }
 
+        if (args.Contains("--diagnose"))
+        {
+            // Pay breakdown by role and where each good ends up, for digging into fair pay.
+            int seeds = int.Parse(Arg(args, "--seeds") ?? "6");
+            bool noTasks = args.Contains("--no-tasks");
+            string dir = outDir ?? "results/diagnose";
+            Directory.CreateDirectory(dir);
+            var results = new System.Collections.Concurrent.ConcurrentBag<object>();
+            Parallel.For(1, seeds + 1, s =>
+            {
+                var cfg = new SimConfig { Seed = (ulong)s, Days = days, AgentCount = agents };
+                if (noTasks) cfg.DeliveryTasks = false;
+                var w = new World.World(cfg, catalog, worldFile, ScenarioCatalog.Get("baseline"));
+                w.Run();
+                var roles = Enum.GetValues<Role>();
+                var kinds = Enum.GetValues<IncomeKind>();
+                var flows = Enum.GetValues<GoodFlowKind>();
+                results.Add(new
+                {
+                    seed = s,
+                    roleIncome = w.AverageRoleIncome().ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+                    roles = roles.ToDictionary(r => r.ToString(), r => new
+                    {
+                        hours = w.RoleHours[(int)r],
+                        agentDays = w.RoleAgentDays[(int)r],
+                        active = w.Agents.Count(a => a.Active && a.Role == r),
+                        parts = kinds.ToDictionary(k => k.ToString(), k => w.IncomeParts[(int)r, (int)k]),
+                    }),
+                    goods = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => flows.ToDictionary(k => k.ToString(), k => w.GoodFlows[g, (int)k])),
+                    prices = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => w.DailyPrices.Select(d => Math.Round(d[g], 1)).ToArray()),
+                    taskUnits = w.TaskUnitsDelivered, taskCoins = w.TaskCoinsPaid, haulFees = w.HaulFeesPaid,
+                });
+                Console.WriteLine($"  seed {s} done");
+            });
+            var file = Path.Combine(dir, noTasks ? "diagnose-notasks.json" : "diagnose.json");
+            File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(results.ToArray()));
+            Console.WriteLine($"Wrote {file}.");
+            return 0;
+        }
+
         if (args.Contains("--sweep"))
         {
             int seeds = int.Parse(Arg(args, "--seeds") ?? "20");

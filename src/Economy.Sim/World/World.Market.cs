@@ -190,7 +190,8 @@ public sealed partial class World
                 Ledger.Transfer(Escrow, Ledger.Treasury, total, Flow.NpcSale);
             }
             ReceiveGoods(buyer, good, f.Quantity, f.Sell.Quality);
-            if (good != TokenIndex && IsBusinessInput(buyer, good)) buyer.TodayIncome -= total;
+            if (good != TokenIndex && IsBusinessInput(buyer, good)) { buyer.TodayIncome -= total; Track(buyer, IncomeKind.InputCosts, -total); TrackGood(good, GoodFlowKind.BoughtAsInput, f.Quantity); }
+            if (good != TokenIndex) TrackGood(good, sellerId >= 0 ? GoodFlowKind.PlayerToPlayer : GoodFlowKind.BoughtFromNpc, f.Quantity);
             // Buyers learn what things cost: belief moves toward the price paid.
             buyer.Belief[good] = Math.Max(1, buyer.Belief[good] + 0.2 * (f.Price - buyer.Belief[good]));
         }
@@ -210,7 +211,12 @@ public sealed partial class World
             var seller = Agents[sellerId];
             long tax = (long)Math.Round(total * TaxRate);
             if (tax > 0) Ledger.Transfer(seller.Account, Ledger.Treasury, tax, Flow.MarketTax);
-            if (good != TokenIndex) seller.TodayIncome += total - tax;
+            if (good != TokenIndex)
+            {
+                seller.TodayIncome += total - tax;
+                Track(seller, buyerId >= 0 ? IncomeKind.SalesToPlayers : IncomeKind.SalesToNpcs, total - tax);
+                if (buyerId < 0) TrackGood(good, GoodFlowKind.SoldToNpc, f.Quantity);
+            }
             if (seller.HasShop && !seller.OnlineAt(HourOfDay))
             {
                 long cut = (long)Math.Round(total * Config.KeeperCut);
