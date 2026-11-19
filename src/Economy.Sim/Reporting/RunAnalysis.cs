@@ -44,6 +44,9 @@ public sealed class RunSummary
     public double NightSpread { get; set; }
     public double EveningSpread { get; set; }
     public long ItemsInjected { get; set; }
+
+    /// <summary>Average pay per hour of each focus vs all players, after warm-up.</summary>
+    public Dictionary<string, double> RoleIncome { get; set; } = new();
 }
 
 /// <summary>Daily series kept for the dashboard (one run per scenario).</summary>
@@ -89,6 +92,7 @@ public static class RunAnalysis
             LedgerBalanced = LedgerBalances(w),
             ItemsInjected = w.ItemsInjected,
             MoneyPerPlayerEnd = m.Days[^1].MoneyPerPlayer,
+            RoleIncome = w.AverageRoleIncome().ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
         };
 
         var late = m.Hours.Where(h => h.Hour >= warm * 24 && double.IsFinite(h.Spread)).ToList();

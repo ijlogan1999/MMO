@@ -1,3 +1,4 @@
+using Economy.Core.Ledger;
 using Economy.Core.Items;
 
 namespace Economy.Sim.World;
@@ -42,6 +43,10 @@ public sealed partial class World
 
     private readonly List<Agent> _party = new(5);
 
+    public long NpcTanksHired { get; private set; }
+    public long NpcHealersHired { get; private set; }
+    public long NpcPortersHired { get; private set; }
+
     private void FormParties(Town town, List<Agent> pool)
     {
         Shuffle(pool, _agentRng);
@@ -54,25 +59,53 @@ public sealed partial class World
         while (tanks.Count + healers.Count + rest.Count >= 3)
         {
             _party.Clear();
-            if (tanks.Count > 0) _party.Add(tanks.Dequeue());
-            if (healers.Count > 0) _party.Add(healers.Dequeue());
-            while (_party.Count < 5 && rest.Count > 0) _party.Add(rest.Dequeue());
-            while (_party.Count < 5 && tanks.Count > 0) _party.Add(tanks.Dequeue());
-            while (_party.Count < 5 && healers.Count > 0) _party.Add(healers.Dequeue());
+            bool hasTank = tanks.Count > 0, hasHealer = healers.Count > 0;
+            if (hasTank) _party.Add(tanks.Dequeue());
+            if (hasHealer) _party.Add(healers.Dequeue());
+            // Leave a slot for each NPC the party will try to hire.
+            int slots = 5 - (Config.HireNpcs && !hasTank ? 1 : 0) - (Config.HireNpcs && !hasHealer ? 1 : 0);
+            while (_party.Count < slots && rest.Count > 0) _party.Add(rest.Dequeue());
+            while (_party.Count < slots && tanks.Count > 0) _party.Add(tanks.Dequeue());
+            while (_party.Count < slots && healers.Count > 0) _party.Add(healers.Dequeue());
             if (_party.Count < 3) break;
-            RunTrip(town, _party);
+
+            bool tank = _party.Any(a => a.CombatRole == CombatRole.Tank);
+            bool healer = _party.Any(a => a.CombatRole == CombatRole.Healer);
+            bool hauler = _party.Any(a => a.Role == Role.Hauler);
+            bool hireTank = false, hireHealer = false, hirePorter = false;
+            if (Config.HireNpcs)
+            {
+                hireTank = !tank && Hire(_party, Config.NpcTankFee);
+                hireHealer = !healer && Hire(_party, Config.NpcHealerFee);
+                hirePorter = !hauler && Hire(_party, Config.NpcPorterFee);
+                if (hireTank) NpcTanksHired++;
+                if (hireHealer) NpcHealersHired++;
+                if (hirePorter) NpcPortersHired++;
+            }
+            RunTrip(town, _party, hireTank, hireHealer, hirePorter);
         }
     }
 
-    private void RunTrip(Town town, List<Agent> party)
+    /// <summary>Splits an NPC's fee across the party; hires only if everyone can easily afford their share.</summary>
+    private bool Hire(List<Agent> party, long fee)
+    {
+        long share = (fee + party.Count - 1) / party.Count;
+        foreach (var a in party) if (Coins(a) < share * 5) return false;
+        foreach (var a in party) Ledger.Transfer(a.Account, Ledger.Treasury, share, Flow.NpcHireFee);
+        return true;
+    }
+
+    private void RunTrip(Town town, List<Agent> party, bool npcTank, bool npcHealer, bool npcPorter)
     {
         PartiesFormed++;
-        bool tank = party.Any(a => a.CombatRole == CombatRole.Tank);
-        bool healer = party.Any(a => a.CombatRole == CombatRole.Healer);
-        bool full = tank && healer && party.Count == 5;
+        bool tank = npcTank || party.Any(a => a.CombatRole == CombatRole.Tank);
+        bool healer = npcHealer || party.Any(a => a.CombatRole == CombatRole.Healer);
+        bool full = tank && healer && party.Count + (npcTank ? 1 : 0) + (npcHealer ? 1 : 0) == 5;
         if (full) PartiesFull++;
 
         double wipe = tank && healer ? Config.PartyWipeChanceFull : Config.PartyWipeChanceMissingRole;
+        if (npcTank) wipe *= Config.NpcWipeFactor;
+        if (npcHealer) wipe *= Config.NpcWipeFactor;
         if (_agentRng.Chance(wipe))
         {
             // Cargo drops on death; gear takes a beating.
@@ -85,7 +118,7 @@ public sealed partial class World
             return;
         }
 
-        double gather = 0, carry = 0;
+        double gather = 0, carry = npcPorter ? Config.PartyCarryPerHauler : 0;
         foreach (var a in party)
         {
             gather += (IsGatherFocus(a.Role) ? 1.0 : 0.4) * Config.PartyGatherPerHour;

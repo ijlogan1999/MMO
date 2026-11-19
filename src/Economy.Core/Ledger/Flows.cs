@@ -60,6 +60,7 @@ namespace Economy.Core.Ledger
         NpcSale,
         TokenListingFee,
         SubclassSwitchFee,
+        NpcHireFee,
 
         // Transfers between players
         PlayerTrade,
@@ -93,6 +94,7 @@ namespace Economy.Core.Ledger
             Flow.NpcSale => FlowDirection.Sink,
             Flow.TokenListingFee => FlowDirection.Sink,
             Flow.SubclassSwitchFee => FlowDirection.Sink,
+            Flow.NpcHireFee => FlowDirection.Sink,
 
             Flow.PlayerTrade => FlowDirection.Transfer,
             Flow.EscrowHold => FlowDirection.Transfer,

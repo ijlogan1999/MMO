@@ -15,6 +15,12 @@ public sealed partial class World
         int dayIndex = Day % 7;
         bool weekEnd = dayIndex == 6;
 
+        if (weekEnd && Day >= Config.WarmupDays)
+        {
+            foreach (var (role, ratio) in RoleIncome())
+                RoleIncomeWeeks[role] = (RoleIncomeWeeks.GetValueOrDefault(role).sum + ratio, RoleIncomeWeeks.GetValueOrDefault(role).weeks + 1);
+        }
+
         foreach (var a in Agents)
         {
             if (!a.Active) continue;
@@ -258,6 +264,12 @@ public sealed partial class World
     }
 
     /// <summary>Each role's average weekly income per online hour, relative to the overall average.</summary>
+    /// <summary>Weekly pay-per-hour ratios (role vs everyone) summed after warm-up, for the fair pay check.</summary>
+    public Dictionary<Role, (double sum, int weeks)> RoleIncomeWeeks { get; } = new();
+
+    public Dictionary<Role, double> AverageRoleIncome() =>
+        RoleIncomeWeeks.ToDictionary(kv => kv.Key, kv => kv.Value.weeks > 0 ? kv.Value.sum / kv.Value.weeks : 1.0);
+
     public Dictionary<Role, double> RoleIncome()
     {
         var sums = new Dictionary<Role, (double income, double hours)>();

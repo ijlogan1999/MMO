@@ -171,7 +171,7 @@ public static class Sweep
         C(1, "Coins balance", "Every coin accounted for, every hour", "all runs", runs, r => r.LedgerBalanced,
             $"{runs.Count(r => r.LedgerBalanced)} of {runs.Count} runs balanced to the coin.");
 
-        C(2, "Shocks recover", "Watched prices back in band within 30 days", "scenarios 2-13, 16", shocks,
+        C(2, "Shocks recover", "Watched prices back in band within 30 days", "scenarios 2-13, 16-20", shocks,
             r => r.RecoveryDays is int d && d <= 30,
             $"Median {Fmt(RunAnalysis.Median(shocks.Where(r => r.RecoveryDays.HasValue).Select(r => (double)r.RecoveryDays!.Value)))} days; {shocks.Count(r => !r.RecoveryDays.HasValue)} runs never settled.");
 
@@ -221,11 +221,23 @@ public static class Sweep
         C(11, "Fast to run", "Each run under 5 minutes", "all runs", runs, r => r.RuntimeSeconds < 300,
             $"Slowest run {runs.Max(r => r.RuntimeSeconds):0.0}s.");
 
+        // Every side focus should be worth doing: none pays under half or over
+        // double the average per hour played.
+        bool Fair(RunSummary r) => r.RoleIncome.Count > 0 && r.RoleIncome.Values.All(v => v >= FairPayLow && v <= FairPayHigh);
+        var roleNames = baseline.SelectMany(r => r.RoleIncome.Keys).Distinct().ToList();
+        var medians = roleNames.ToDictionary(n => n, n => RunAnalysis.Median(baseline.Where(r => r.RoleIncome.ContainsKey(n)).Select(r => r.RoleIncome[n])));
+        var outside = medians.Where(kv => kv.Value < FairPayLow || kv.Value > FairPayHigh).OrderBy(kv => kv.Value)
+            .Select(kv => $"{kv.Key} x{kv.Value:0.00}").ToList();
+        C(12, "Fair pay", "Every focus earns 0.5x-2x the average per hour", "baseline", baseline, Fair,
+            outside.Count == 0 ? "Every focus within range (median)." : "Outside the range (median): " + string.Join(", ", outside) + ".");
+
         // The never-negative half of criterion 5 applies to every run.
         var negative = runs.Count(r => r.TreasuryMin < 0);
         if (negative > 0) list[4].Detail += $" {negative} runs went negative.";
         return list;
     }
+
+    public const double FairPayLow = 0.5, FairPayHigh = 2.0;
 
     private static string Fmt(double x) => double.IsFinite(x) ? x.ToString("0") : "n/a";
 

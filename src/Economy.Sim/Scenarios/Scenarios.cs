@@ -66,6 +66,10 @@ public static class ScenarioCatalog
         new ExploitHunt(),
         new TreasurySqueeze(),
         new CoreSwing(),
+        new HealerShortage(),
+        new HaulersQuit(),
+        new WildsPatch(),
+        new EveryoneSolo(),
     };
 
     public static IScenario Get(string id) =>
@@ -288,13 +292,79 @@ public sealed class CoreSwing : ScenarioBase
     public override int Number => 16;
     public override string Id => "core-swing";
     public override string Name => "Core swing";
-    public override string Shock => "Dungeon runs halve for 30 days, then double for 30 days";
-    public override int ShockEndDay => 90;
+    public override string Shock => "Dungeon runs halve for 15 days, then double for 15 days";
+    public override int ShockEndDay => 60;
     public override IReadOnlyList<string> WatchedGoods => new[] { "relic_core", "relic_sword" };
     public override void OnHour(World.World w)
     {
         if (AtShockStart(w, ShockStartDay)) w.Config.DungeonRunMultiplier = 0.5;
-        if (AtShockStart(w, 60)) w.Config.DungeonRunMultiplier = 2.0;
+        if (AtShockStart(w, 45)) w.Config.DungeonRunMultiplier = 2.0;
         if (AtShockStart(w, ShockEndDay)) w.Config.DungeonRunMultiplier = 1.0;
+    }
+}
+
+/// <summary>Healers get scarce, so few parties have a full lineup.</summary>
+public sealed class HealerShortage : ScenarioBase
+{
+    public override int Number => 17;
+    public override string Id => "healer-shortage";
+    public override string Name => "Healer shortage";
+    public override string Shock => "Four in five healers switch to damage for 20 days";
+    public override int ShockEndDay => 50;
+    public override IReadOnlyList<string> WatchedGoods => new[] { "iron_ore", "timber", "herbs", "hide" };
+    private readonly HashSet<int> _switched = new();
+    public override void OnHour(World.World w)
+    {
+        if (AtShockStart(w, ShockStartDay))
+            foreach (var a in w.Agents)
+                if (a.Active && a.CombatRole == CombatRole.Healer && a.Id % 5 != 0) { a.CombatRole = CombatRole.Damage; _switched.Add(a.Id); }
+        if (AtShockStart(w, ShockEndDay))
+            foreach (int id in _switched) w.Agents[id].CombatRole = CombatRole.Healer;
+    }
+}
+
+/// <summary>Every hauler leaves, so parties can carry little out of the wilds.</summary>
+public sealed class HaulersQuit : ScenarioBase
+{
+    public override int Number => 18;
+    public override string Id => "haulers-quit";
+    public override string Name => "Haulers quit";
+    public override string Shock => "Every hauler quits on day 31";
+    public override IReadOnlyList<string> WatchedGoods => new[] { "iron_ore", "timber", "herbs", "hide" };
+    public override bool ForceQuit(World.World w, Agent a) => w.Day == ShockStartDay && a.Role == Role.Hauler;
+}
+
+/// <summary>A patch nerfs, then buffs, the dangerous wilds.</summary>
+public sealed class WildsPatch : ScenarioBase
+{
+    public override int Number => 19;
+    public override string Id => "wilds-patch";
+    public override string Name => "Wilds patch";
+    public override string Shock => "Dangerous-zone yields halve for 15 days, then rise 50% for 15 days";
+    public override int ShockEndDay => 60;
+    public override IReadOnlyList<string> WatchedGoods => new[] { "iron_ore", "timber", "herbs", "hide" };
+    private double _base;
+    public override void OnHour(World.World w)
+    {
+        if (AtShockStart(w, ShockStartDay)) { _base = w.Config.DeepRegenShare; w.Config.DeepRegenShare = _base * 0.5; }
+        if (AtShockStart(w, 45)) w.Config.DeepRegenShare = _base * 1.5;
+        if (AtShockStart(w, ShockEndDay)) w.Config.DeepRegenShare = _base;
+    }
+}
+
+/// <summary>Players stop grouping for 20 days and everyone gathers alone.</summary>
+public sealed class EveryoneSolo : ScenarioBase
+{
+    public override int Number => 20;
+    public override string Id => "everyone-solo";
+    public override string Name => "Everyone solo";
+    public override string Shock => "No party trips for 20 days";
+    public override int ShockEndDay => 50;
+    public override IReadOnlyList<string> WatchedGoods => new[] { "iron_ore", "timber", "herbs", "hide" };
+    private double _base;
+    public override void OnHour(World.World w)
+    {
+        if (AtShockStart(w, ShockStartDay)) { _base = w.Config.PartyTripChance; w.Config.PartyTripChance = 0; }
+        if (AtShockStart(w, ShockEndDay)) w.Config.PartyTripChance = _base;
     }
 }

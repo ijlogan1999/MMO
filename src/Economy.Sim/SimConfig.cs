@@ -11,7 +11,7 @@ namespace Economy.Sim;
 public sealed class SimConfig
 {
     // Run shape
-    public int Days { get; set; } = 180;
+    public int Days { get; set; } = 90;
     public int WarmupDays { get; set; } = 30;
     public int AgentCount { get; set; } = 2000;
     public ulong Seed { get; set; } = 1;
@@ -112,6 +112,16 @@ public sealed class SimConfig
     public double PartyQualityBonus { get; set; } = 15;
     public double PartyWipeChanceFull { get; set; } = 0.02;
     public double PartyWipeChanceMissingRole { get; set; } = 0.12;
+    /// <summary>
+    /// Parties can hire an NPC tank, healer or porter for a trip-hour when no
+    /// player fills the role (a coin sink). NPCs take no share of the loot.
+    /// </summary>
+    public bool HireNpcs { get; set; } = true;
+    public long NpcTankFee { get; set; } = 250;
+    public long NpcHealerFee { get; set; } = 250;
+    public long NpcPorterFee { get; set; } = 120;
+    /// <summary>NPC fighters are weaker than players: wipe chance multiplier per hired fighter.</summary>
+    public double NpcWipeFactor { get; set; } = 1.5;
     public double FoodPerHour { get; set; } = 0.5;
     public double StewFoodValue { get; set; } = 2.0;
     /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>
