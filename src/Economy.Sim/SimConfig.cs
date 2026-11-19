@@ -84,6 +84,8 @@ public sealed class SimConfig
     /// <summary>Set by the obsolescence scenario: players stop buying bread.</summary>
     public bool BreadObsolete { get; set; }
 
+    /// <summary>Quality points a perfect tool adds to gathered goods (a poor one subtracts the same).</summary>
+    public double ToolQualityBonus { get; set; } = 10;
     public double FoodPerHour { get; set; } = 0.5;
     public double StewFoodValue { get; set; } = 2.0;
     /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>

@@ -209,7 +209,10 @@ public sealed partial class World
             _ => "pickaxe",
         };
         var tool = Maintain(a, a.Tool, Goods[toolGood], t => a.Tool = t);
-        double toolFactor = tool != null ? 0.75 + 0.5 * tool.Quality / 100.0 : Config.NoToolFactor;
+        // Like skill, a better tool raises the quality of what is gathered,
+        // not the amount (Ian, 2026-11-19). Having no tool still slows you down.
+        double toolFactor = tool != null ? 1.0 : Config.NoToolFactor;
+        _gatherToolBonus = tool != null ? Config.ToolQualityBonus * (tool.Quality - 50) / 50.0 : 0;
         // Skill raises the quality of what is gathered, not the amount, so a
         // server full of veterans does not flood the market as everyone levels.
         const double skillFactor = 1.0;
@@ -270,6 +273,8 @@ public sealed partial class World
         return best;
     }
 
+    private double _gatherToolBonus;
+
     private void GatherFromNode(Agent a, Town town, int good, double amount)
     {
         amount = Math.Min(amount, town.Stock[good]);
@@ -285,7 +290,7 @@ public sealed partial class World
     {
         int n = RandomRound(amount, _agentRng);
         if (n <= 0) return;
-        double q = Math.Clamp(_agentRng.NextGaussian(30 + 0.6 * a.Skill, 8), 1, 100);
+        double q = Math.Clamp(_agentRng.NextGaussian(30 + 0.6 * a.Skill + _gatherToolBonus, 8), 1, 100);
         a.Inventory.Add(good, n, q);
         RegionProducedHour[Towns[a.Town].Region, good] = Hour;
     }
