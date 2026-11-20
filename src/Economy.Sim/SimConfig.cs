@@ -137,6 +137,9 @@ public sealed class SimConfig
     public bool CraftersWatchSales { get; set; } = true;
     /// <summary>Count only stock beyond what a crafter keeps for their own use as unsold (fix: alchemists who fight kept 6 potions and never brewed).</summary>
     public bool OwnUseNotUnsold { get; set; } = true;
+    /// <summary>Buyers weigh quality against price: a bid is for standard quality (50); quality 100 is worth 1 + slope, quality 0 worth 1 - slope.</summary>
+    public bool QualityPricing { get; set; } = true;
+    public double QualityPriceSlope { get; set; } = 0.25;
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;

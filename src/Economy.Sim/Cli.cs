@@ -220,6 +220,14 @@ public static class Cli
             var inc = world.RoleIncome();
             foreach (var g in world.Agents.Where(a => a.Active).GroupBy(a => a.Role).OrderBy(g => g.Key))
                 Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {Economy.Core.Currency.Money.Format(g.Average(a => world.Coins(a))),12}");
+            {
+                var cr = world.Agents.Where(a => a.Active && Roles.IsCrafter(a.Role)).OrderBy(a => a.Skill).ToList();
+                if (cr.Count >= 8)
+                {
+                    int qn = cr.Count / 4;
+                    Console.WriteLine($"  crafters' weekly income: least skilled quarter {cr.Take(qn).Average(a => a.DailyIncome.Sum()):0} (skill {cr.Take(qn).Average(a => a.Skill):0}), most skilled quarter {cr.Skip(cr.Count - qn).Average(a => a.DailyIncome.Sum()):0} (skill {cr.Skip(cr.Count - qn).Average(a => a.Skill):0})");
+                }
+            }
             Console.WriteLine($"  role switches {world.RoleSwitches} (blocked by the fee {world.RoleSwitchesBlocked}), items injected {world.ItemsInjected}");
             Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}, hired tanks {world.NpcTanksHired} healers {world.NpcHealersHired} porters {world.NpcPortersHired}, deaths {world.Deaths}, furniture placed {world.FurniturePlaced}, shops {world.Agents.Count(a => a.HasShop)}");
             {

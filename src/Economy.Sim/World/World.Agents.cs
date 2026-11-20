@@ -541,7 +541,7 @@ public sealed partial class World
             // With NPCs buying the excess, list only a sensible amount on the market.
             if (DumpsExcess(g)) sell = Math.Min(sell, Config.NpcBuybackKeep - ListedUnits(a, g));
             if (sell <= 0) continue;
-            long price = Math.Max(1, (long)Math.Round(a.Belief[g] * (0.97 + 0.06 * _agentRng.NextDouble())));
+            long price = Math.Max(1, (long)Math.Round(a.Belief[g] * (0.97 + 0.06 * _agentRng.NextDouble()) * (Config.QualityPricing ? QualityWeight(a.Inventory.QualityOf(g)) : 1.0)));
             if (a.Role == Role.Bot) price = Math.Max(1, (long)(a.Belief[g] * 0.9));
             // A crafter does not sell its own work below what the materials cost now.
             if (Config.CrafterCostFloor && Roles.IsCrafter(a.Role) && MakesItself(a, g)) price = Math.Max(price, (long)Math.Ceiling(MaterialCost(a, g)));

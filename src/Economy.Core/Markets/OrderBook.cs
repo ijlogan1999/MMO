@@ -83,6 +83,20 @@ namespace Economy.Core.Markets
         public long NextSequence() => ++_sequence;
 
         /// <summary>
+        /// Optional: how much a unit of a given quality is worth relative to a
+        /// standard one (1.0). When set, a bid is a price for standard quality:
+        /// it matches a sell of quality q priced up to bid x weight(q), and sells
+        /// are ranked by price per unit of worth, so better goods can ask more
+        /// and still sell. A buyer never pays more than its bid.
+        /// </summary>
+        public Func<int, double>? QualityWeight { get; set; }
+
+        private double Weight(int quality) => QualityWeight == null ? 1.0 : Math.Max(0.05, QualityWeight(quality));
+
+        /// <summary>Price per unit of standard worth.</summary>
+        public double StandardPrice(Order sell) => sell.Price / Weight(sell.Quality);
+
+        /// <summary>
         /// Matches an incoming order against the other side and rests what is
         /// left (unless <paramref name="restRemainder"/> is false, which makes it
         /// fill-or-kill for the remainder). Fills are appended to <paramref name="fills"/>.
@@ -97,8 +111,8 @@ namespace Economy.Core.Markets
                 for (int i = 0; i < _sells.Count && order.Remaining > 0;)
                 {
                     var resting = _sells[i];
-                    if (resting.Price > order.Price) break;
-                    if (resting.Quality < order.Quality || resting.OwnerId == order.OwnerId) { i++; continue; }
+                    if (QualityWeight == null ? resting.Price > order.Price : StandardPrice(resting) > order.Price) break;
+                    if (resting.Quality < order.Quality || resting.OwnerId == order.OwnerId || resting.Price > order.Price) { i++; continue; }
                     int qty = Math.Min(order.Remaining, resting.Remaining);
                     order.Remaining -= qty;
                     resting.Remaining -= qty;
@@ -114,13 +128,21 @@ namespace Economy.Core.Markets
                     var resting = _buys[i];
                     if (resting.Price < order.Price) break;
                     if (order.Quality < resting.Quality || resting.OwnerId == order.OwnerId) { i++; continue; }
+                    // A buyer values this unit at bid x weight(quality), but never pays above the bid.
+                    long price = resting.Price;
+                    if (QualityWeight != null)
+                    {
+                        double worth = resting.Price * Weight(order.Quality);
+                        if (worth < order.Price) { i++; continue; }
+                        price = Math.Min(resting.Price, Math.Max(order.Price, (long)Math.Round(worth)));
+                    }
                     int qty = Math.Min(order.Remaining, resting.Remaining);
                     order.Remaining -= qty;
                     resting.Remaining -= qty;
-                    fills.Add(new Fill(resting, order, resting.Price, qty));
+                    fills.Add(new Fill(resting, order, price, qty));
                     if (resting.Remaining == 0) _buys.RemoveAt(i); else i++;
                 }
-                if (order.Remaining > 0 && restRemainder) Insert(_sells, order, SellBefore);
+                if (order.Remaining > 0 && restRemainder) Insert(_sells, order, SellOrder);
             }
         }
 
@@ -131,7 +153,7 @@ namespace Economy.Core.Markets
         public int Cancel(Order order)
         {
             var list = order.Side == Side.Buy ? _buys : _sells;
-            int i = IndexOf(list, order, order.Side == Side.Buy ? (Func<Order, Order, bool>)BuyBefore : SellBefore);
+            int i = IndexOf(list, order, order.Side == Side.Buy ? (Func<Order, Order, bool>)BuyBefore : SellOrder);
             if (i < 0) return 0;
             list.RemoveAt(i);
             int left = order.Remaining;
@@ -179,6 +201,14 @@ namespace Economy.Core.Markets
 
         private static bool BuyBefore(Order a, Order b) => a.Price > b.Price || (a.Price == b.Price && a.Sequence < b.Sequence);
         private static bool SellBefore(Order a, Order b) => a.Price < b.Price || (a.Price == b.Price && a.Sequence < b.Sequence);
+
+        /// <summary>Sells rank by price, or by price per unit of worth when quality is weighed.</summary>
+        private bool SellOrder(Order a, Order b)
+        {
+            if (QualityWeight == null) return SellBefore(a, b);
+            double pa = StandardPrice(a), pb = StandardPrice(b);
+            return pa < pb || (pa == pb && a.Sequence < b.Sequence);
+        }
 
         /// <summary>
         /// Finds a resting order by binary search: books are sorted by price

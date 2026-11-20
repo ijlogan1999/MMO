@@ -119,6 +119,9 @@ public sealed partial class World
     public int Quiver { get; }
     public int Gauze { get; }
     public int IronOre { get; }
+
+    /// <summary>Worth of a unit of this quality relative to a standard (quality 50) one.</summary>
+    public double QualityWeight(int quality) => Math.Max(0.2, 1 + Config.QualityPriceSlope * (quality - 50) / 50.0);
     public int Coal { get; }
     public int ReagentBag { get; }
     public long HorsesBought { get; private set; }
@@ -166,7 +169,11 @@ public sealed partial class World
             for (int g = 0; g < Goods.Count; g++)
                 town.DeepStock[g] = town.DeepRegenPerHour[g] * Config.NodeStockHours;
             for (int g = 0; g < Goods.Count; g++)
+            {
                 town.Markets[g] = new GoodMarket(Goods.BasePrice[g], Config.Stabilizer.ReferenceHalfLifeHours, Config.Stabilizer);
+                // Quality affects what buyers will pay (Ian, 2026-11-20).
+                if (Config.QualityPricing) town.Markets[g].Book.QualityWeight = q => QualityWeight(q) / (1 + Config.QualityPriceSlope);
+            }
         }
 
         Ledger.Transfer(Ledger.Mint, Ledger.Treasury, Config.TreasurySeedPerAgent * Config.AgentCount, Flow.TreasurySeed);

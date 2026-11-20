@@ -36,6 +36,7 @@ public sealed partial class World
     public int PlaceBuy(Agent a, int good, int qty, long price, int minQuality = 1, bool rest = true)
     {
         if (qty <= 0 || price <= 0) return 0;
+        price = BidCap(good, price);
         long coins = Coins(a);
         // Players save up for gear they need before buying extras.
         if (Config.SaveForGear && (good == Stew || good == Pack || good == Furniture || good == TokenIndex)) coins -= a.GearReserve;
@@ -109,10 +110,23 @@ public sealed partial class World
         if (order.Remaining > 0) a.Orders.Add(new OpenOrder(order, town, good) { PlacedHour = Hour });
     }
 
+    /// <summary>
+    /// With quality pricing, a bid's price is a standard-quality valuation;
+    /// the order carries (and escrows) enough to pay for top quality, and the
+    /// book scales what it pays by the quality actually bought.
+    /// </summary>
+    private long BidCap(int good, long price) =>
+        Config.QualityPricing && good != TokenIndex ? (long)Math.Ceiling(price * (1 + Config.QualityPriceSlope)) : price;
+
+    /// <summary>Best bid as a standard-quality price (undoing the quality headroom).</summary>
+    private long? StandardBid(GoodMarket m) =>
+        m.Book.BestBid is long b ? (Config.QualityPricing ? (long)Math.Floor(b / (1 + Config.QualityPriceSlope)) : b) : null;
+
     /// <summary>An NPC order. Buys are paid by the treasury, which must be able to cover them.</summary>
     public Order? PlaceNpcOrder(int town, int good, Side side, int qty, long price, int quality, int tag, int owner = NpcOwner)
     {
         if (qty <= 0 || price <= 0) return null;
+        if (side == Side.Buy) price = BidCap(good, price);
         if (side == Side.Buy)
         {
             long free = Ledger.TreasuryBalance - NpcCommitted;
@@ -215,7 +229,8 @@ public sealed partial class World
             else TrackSpend(buyer, SpendKind.Token, total);
             if (good != TokenIndex && !IsBusinessInput(buyer, good)) TrackSpend(buyer, SpendOf(good), total);
             // Buyers learn what things cost: belief moves toward the price paid.
-            buyer.Belief[good] = Math.Max(1, buyer.Belief[good] + 0.2 * (f.Price - buyer.Belief[good]));
+            double paidStandard = Config.QualityPricing ? f.Price / QualityWeight(f.Sell.Quality) : f.Price;
+            buyer.Belief[good] = Math.Max(1, buyer.Belief[good] + 0.2 * (paidStandard - buyer.Belief[good]));
         }
         else
         {

@@ -32,6 +32,31 @@ public class OrderBookTests
     }
 
     [Fact]
+    public void QualityWeighsAgainstPrice()
+    {
+        // Worth of a unit: quality 100 counts 1.0, quality 20 counts 0.5.
+        var book = new OrderBook { QualityWeight = q => q >= 100 ? 1.0 : 0.5 };
+        var fills = new List<Fill>();
+        book.Submit(O(book, 1, 1, Side.Sell, 60, 1, quality: 20), fills);  // 120 per unit of worth
+        book.Submit(O(book, 2, 2, Side.Sell, 90, 1, quality: 100), fills); // 90 per unit of worth
+        var buy = O(book, 3, 3, Side.Buy, 100, 1, quality: 1);
+        book.Submit(buy, fills);
+        Assert.Single(fills);
+        Assert.Equal(2, fills[0].Sell.OwnerId); // the better buy, though dearer
+        Assert.Equal(90, fills[0].Price);
+
+        // A poor unit only sells if its price fits what the buyer thinks it's worth.
+        var poorBook = new OrderBook { QualityWeight = q => q >= 100 ? 1.0 : 0.5 };
+        var f2 = new List<Fill>();
+        poorBook.Submit(O(poorBook, 1, 1, Side.Buy, 100, 1, quality: 1), f2);
+        poorBook.Submit(O(poorBook, 2, 2, Side.Sell, 60, 1, quality: 20), f2);
+        Assert.Empty(f2); // worth 50 to this buyer
+        poorBook.Submit(O(poorBook, 3, 3, Side.Sell, 40, 1, quality: 20), f2);
+        Assert.Single(f2);
+        Assert.Equal(50, f2[0].Price); // pays its valuation, never above the bid
+    }
+
+    [Fact]
     public void SkipsOwnOrdersAndLowQuality()
     {
         var book = new OrderBook();

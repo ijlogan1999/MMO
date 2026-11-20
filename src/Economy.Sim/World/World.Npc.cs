@@ -102,7 +102,7 @@ public sealed partial class World
     private MarketSignals Signals(Town town, int g, GoodMarket m)
     {
         double price = m.HourPlayerUnits > 0 ? (double)m.HourPlayerValue / m.HourPlayerUnits : m.LastPrice;
-        var bid = m.Book.BestBid;
+        var bid = StandardBid(m);
         var ask = m.Book.BestAsk;
         double reference = m.Reference.Value;
         double spread = bid.HasValue && ask.HasValue ? Math.Max(0, ask.Value - bid.Value) / reference : double.PositiveInfinity;
@@ -186,7 +186,7 @@ public sealed partial class World
             int qty = RandomRound(perHour(NpcRole.MarketMaker), _npcRng);
             // Just outside the best player prices, so players always trade first.
             long bidPrice = (long)Math.Floor(reference * (1 - band * 0.6));
-            if (m.Book.BestBid is long pb) bidPrice = Math.Min(bidPrice, pb - 1);
+            if (StandardBid(m) is long pb) bidPrice = Math.Min(bidPrice, pb - 1);
             long askPrice = (long)Math.Ceiling(reference * (1 + band * 0.6));
             if (m.Book.BestAsk is long pa) askPrice = Math.Max(askPrice, pa + 1);
             if (!WarehouseFull(m))
