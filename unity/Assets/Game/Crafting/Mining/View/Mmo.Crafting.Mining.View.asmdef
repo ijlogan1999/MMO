@@ -1,0 +1,16 @@
+{
+    "name": "Mmo.Crafting.Mining.View",
+    "rootNamespace": "Mmo.Crafting.Mining.View",
+    "references": [
+        "Mmo.Crafting.Mining.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

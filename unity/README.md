@@ -31,13 +31,40 @@ Scoring follows the Crafting & Gathering Spec:
 
 Recipes are the iron path for level 1–20: Plain Iron Sword (Novice), Iron Shortsword (Apprentice), Iron Longsword (Journeyman).
 
+## Mining minigame
+
+Open `Assets/Game/Scenes/Mining.unity` and press Play.
+
+A knowledge game: no timing, no aiming. The first time, an old miner explains the craft once (the setup screen can replay it). Nothing on screen says which block is ore or what to do next; the results screen explains what happened.
+
+| Step | What you do | Keys |
+|---|---|---|
+| Survey | The face is a wall of blocks split by joints and bedding lines. The seam is one bed of it. Read the surface signs (streaks, stains, lichen, crystals) and tap blocks: ore rings, solid rock thuds, broken rock sounds hollow. Taps are limited (4 at skill 1, 8 at skill 100). | 1 Tap, then click / SPACE |
+| Plan the cut | A block held on both sides and from above is locked. Prying locked ore shatters it, so open the face on barren or loose rock beside or above the ore first. A block with a free side shows a deep shadow along that edge. | |
+| Tool per blow | Blocks come in two sizes: pick for small blocks, wedge for large ones, sledge breaks out rock anywhere but shatters ore. Wrong tool on rock wastes the swing; on ore it shatters it. 10 swings per node. | 2 Pick, 3 Wedge, 4 Sledge |
+| Roof | Every block out loads the roof (more for the top bed and the sledge). Dust and creaks warn, earlier for skilled miners; tap the roof for solid / drummy. A prop (2 in the kit, costs a swing) eases it. Past the limit, each swing risks a fall that buries 40% of the cart and ends the dig. | Tap the roof strip, P prop, E stop |
+| Sort | Keep or toss each piece by colour, lustre and heft. Stained rock mimics ore's colour; iron and copper ore are heavy for their size, coal is light. | click / SPACE, ENTER done |
+
+Sign meanings are rolled per world (the setup screen can start a new world). The miner's journal records, for every sign, how often it sat on ore versus barren rock, and persists between digs.
+
+Scoring:
+
+- Yield = ore pieces kept (crushed count half), out of what the node held
+- Quality = vein grade × (0.5 + 0.5 × whole) × (0.6 + 0.4 × purity); whole = share of ore taken out unbroken, purity = share of kept pieces that are ore
+- Capped by the lower of the pick (worn 60, iron 85, steel 100) and skill (31 at skill 1, 100 at skill 100)
+- Skill never adds swings; it sharpens the senses (more true signs noticed, more taps, earlier roof warnings)
+
 ## Code layout
 
 ```
 Assets/Game/Crafting/Blacksmithing/
   Core/   rules only, no UnityEngine (asmdef with noEngineReferences) -> reusable on the C# server
   View/   ForgeView (placeholder visuals drawn with IMGUI), ForgeAudio (sounds generated in code)
+Assets/Game/Crafting/Mining/
+  Core/   rules only, no UnityEngine
+  View/   MineView (IMGUI), MineAudio (sounds generated in code)
 Assets/Game/Scenes/Blacksmithing.unity
+Assets/Game/Scenes/Mining.unity
 ```
 
-The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` (needs the .NET 8 SDK).
+The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` and `dotnet test tests/Mining.Tests` (needs the .NET 8 SDK).

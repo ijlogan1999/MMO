@@ -4,4 +4,4 @@ An original fantasy MMO built around a player-driven economy, with hidden NPC st
 
 Phase 1 is a headless economy simulation. See [docs/economy-sim.md](docs/economy-sim.md).
 
-The Unity client lives in [unity/](unity/README.md). The first playable piece is the blacksmithing minigame.
+The Unity client lives in [unity/](unity/README.md). Playable so far: the blacksmithing and mining minigames.
