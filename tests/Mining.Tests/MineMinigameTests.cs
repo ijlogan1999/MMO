@@ -207,7 +207,8 @@ public class MineMinigameTests
         var g = new MineMinigame(Setup(OreNodeType.CoalSeam, skill: 100), 7);
         Assert.Equal(RoofSound.Solid, g.TapRoof());
         Assert.Equal(0, g.DustLevel);
-        foreach (var b in g.Blocks.Where(b => b.Row == g.SeamRow - 1).ToList()) g.Work(Tool.Sledge, b.Id);
+        foreach (var b in g.Blocks.Where(b => b.Row == g.SeamRow - 1).ToList())
+            if (g.RoofStress < 6) g.Work(Tool.Sledge, b.Id);
         Assert.True(g.RoofStress >= 6, $"stress {g.RoofStress}");
         Assert.True(g.DustLevel > 0);
         double before = g.RoofStress;

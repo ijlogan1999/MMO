@@ -40,8 +40,8 @@ A knowledge game: no timing, no aiming. The first time, an old miner explains th
 | Step | What you do | Keys |
 |---|---|---|
 | Survey | The face is a wall of blocks split by joints and bedding lines. The seam is one bed of it. Read the surface signs (streaks, stains, lichen, crystals) and tap blocks: ore rings, solid rock thuds, broken rock sounds hollow. Taps are limited (4 at skill 1, 8 at skill 100). | 1 Tap, then click / SPACE |
-| Plan the cut | A block held on both sides and from above is locked. Prying locked ore shatters it, so open the face on barren or loose rock beside or above the ore first. | |
-| Tool per blow | Pick for small blocks, wedge for large ones (3+ wide), sledge breaks out rock anywhere but shatters ore. Wrong tool on rock wastes the swing; on ore it shatters it. 10 swings per node. | 2 Pick, 3 Wedge, 4 Sledge |
+| Plan the cut | A block held on both sides and from above is locked. Prying locked ore shatters it, so open the face on barren or loose rock beside or above the ore first. A block with a free side shows a deep shadow along that edge. | |
+| Tool per blow | Blocks come in two sizes: pick for small blocks, wedge for large ones, sledge breaks out rock anywhere but shatters ore. Wrong tool on rock wastes the swing; on ore it shatters it. 10 swings per node. | 2 Pick, 3 Wedge, 4 Sledge |
 | Roof | Every block out loads the roof (more for the top bed and the sledge). Dust and creaks warn, earlier for skilled miners; tap the roof for solid / drummy. A prop (2 in the kit, costs a swing) eases it. Past the limit, each swing risks a fall that buries 40% of the cart and ends the dig. | Tap the roof strip, P prop, E stop |
 | Sort | Keep or toss each piece by colour, lustre and heft. Stained rock mimics ore's colour; iron and copper ore are heavy for their size, coal is light. | click / SPACE, ENTER done |
 

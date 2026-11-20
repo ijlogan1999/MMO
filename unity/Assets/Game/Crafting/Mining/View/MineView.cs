@@ -632,10 +632,41 @@ namespace Mmo.Crafting.Mining.View
             }
 
             foreach (var s in b.Signs) DrawSign(inner, s, rng);
+            DrawFreeEdges(g, b, inner);
 
             // Chalked tap result.
             if (b.Tapped != TapSound.None)
                 Text(new Rect(inner.x + 4, inner.y + 2, inner.width - 8, 22), b.Tapped.ToString().ToLowerInvariant(), 14, new Color(0.95f, 0.95f, 0.9f, 0.85f));
+        }
+
+        /// <summary>
+        /// Rock that has lost its neighbour shows it: a deep shadow along the open edge, where the block has
+        /// eased away from what held it. A block with no shadow is still held on every side.
+        /// </summary>
+        private static void DrawFreeEdges(MineMinigame g, Block b, Rect inner)
+        {
+            var shadow = new Color(0.03f, 0.025f, 0.02f, 0.85f);
+            var shadowSoft = new Color(0.03f, 0.025f, 0.02f, 0.4f);
+            const float t = 7f;
+            if (b.Col > 0 && !(g.BlockAt(b.Row, b.Col - 1)?.InPlace ?? true))
+            {
+                Fill(new Rect(inner.x, inner.y, t, inner.height), shadow);
+                Fill(new Rect(inner.x + t, inner.y, t, inner.height), shadowSoft);
+            }
+            if (b.End < MineTuning.Columns && !(g.BlockAt(b.Row, b.End)?.InPlace ?? true))
+            {
+                Fill(new Rect(inner.xMax - t, inner.y, t, inner.height), shadow);
+                Fill(new Rect(inner.xMax - 2 * t, inner.y, t, inner.height), shadowSoft);
+            }
+            if (b.Row > 0)
+                for (int c = b.Col; c < b.End; c++)
+                {
+                    if (g.BlockAt(b.Row - 1, c)?.InPlace ?? true) continue;
+                    float x0 = FaceX + c * CellW;
+                    float x1 = Mathf.Max(inner.x, x0), x2 = Mathf.Min(inner.xMax, x0 + CellW);
+                    Fill(new Rect(x1, inner.y, x2 - x1, t), shadow);
+                    Fill(new Rect(x1, inner.y + t, x2 - x1, t), shadowSoft);
+                }
         }
 
         private static void DrawSign(Rect r, Sign s, System.Random rng)

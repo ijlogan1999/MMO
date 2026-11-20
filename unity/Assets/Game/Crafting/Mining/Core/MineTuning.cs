@@ -12,6 +12,7 @@ namespace Mmo.Crafting.Mining
         // The face
         public const int Rows = 5;
         public const int Columns = 12;
+        public const int SmallBlock = 2, LargeBlock = 4; // block widths in columns: two clearly different sizes
         public const int LargeWidth = 3;         // blocks this wide or wider are "large" (a wedge job)
         public const double SeamOreChance = 0.8; // blocks in the seam bed that are ore (the rest are pinch-outs)
         public const double SpillOreChance = 0.15; // ore in the beds either side of the seam

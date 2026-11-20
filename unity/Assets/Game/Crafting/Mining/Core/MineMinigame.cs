@@ -81,8 +81,8 @@ namespace Mmo.Crafting.Mining
                 while (col < MineTuning.Columns)
                 {
                     int left = MineTuning.Columns - col;
-                    int w = left <= 4 ? left : left == 5 ? 2 + _rng.Next(2) : 2 + _rng.Next(3);
-                    if (left - w == 1) w++;
+                    // Two clear sizes: small (a pick job) and large (a wedge job).
+                    int w = left < MineTuning.LargeBlock || _rng.NextDouble() < 0.55 ? MineTuning.SmallBlock : MineTuning.LargeBlock;
                     _blocks.Add(MakeBlock(id++, row, col, w));
                     col += w;
                 }
