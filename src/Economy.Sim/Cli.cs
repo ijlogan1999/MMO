@@ -174,6 +174,7 @@ public static class Cli
             }
             if (w.Day % 10 != 9 && !args.Contains("--verbose")) return;
             var d = w.Metrics.Days[^1];
+            if (args.Contains("--basket")) Console.WriteLine("  basket parts: " + string.Join(" ", Reporting.MetricsRecorder.BasketItems.Select((b, i) => $"{b.id} {d.BasketParts[i]:0}")));
             Console.WriteLine($"day {d.Day + 1,3}: active {d.Active,5}  money/player {d.MoneyPerPlayer,7:0}  treasury {d.Treasury,9}  basket {d.Basket,7:0.0}  kit {d.StarterKitHours,5:0.0}h  token {d.TokenPrice,6:0}  npc {(d.PlayerValue + d.NpcValue > 0 ? 100.0 * d.NpcValue / (d.PlayerValue + d.NpcValue) : 0),5:0.0}%");
         });
         if (args.Contains("--roles"))
@@ -194,6 +195,12 @@ public static class Cli
             {
                 var hl = world.Agents.Where(a => a.Active && a.Role == Role.Hauler).ToList();
                 Console.WriteLine($"  horses: bought {world.HorsesBought}, haulers {hl.Count} (level 21+ {hl.Count(a => World.World.LevelOf(a) >= config.HorseMinLevel)}, with horse {hl.Count(a => a.HasHorse)}, saddled {hl.Count(a => a.HasHorse && a.Saddle != null && a.Saddle.IsUsable)}), mounted trips {world.MountedTrips}");
+            }
+            {
+                var mdays = world.Metrics.Days;
+                int d0 = Math.Min(mdays.Count - 1, config.WarmupDays);
+                Console.WriteLine("  basket paid price (warm-up end -> last day): " + string.Join(", ", Reporting.MetricsRecorder.BasketItems.Select((b, i) =>
+                    $"{b.id} {mdays[d0].BasketParts[i]:0} -> {mdays[^1].BasketParts[i]:0}")));
             }
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
             var lv = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(World.World.LevelOf).ToList();

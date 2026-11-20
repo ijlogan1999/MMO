@@ -187,9 +187,9 @@
     {
       "id": "brew_healing",
       "output": "healing_potion",
-      "qty": 3,
+      "qty": 2,
       "inputs": {
-        "herbs": 3,
+        "herbs": 4,
         "firewood": 1
       },
       "station": "alembic",

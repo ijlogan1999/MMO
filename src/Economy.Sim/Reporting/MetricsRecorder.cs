@@ -30,6 +30,8 @@ public sealed class DayRow
     public long Faucets;
     public long Sinks;
     public double Basket;
+    /// <summary>Price paid for each basket item that day (BasketItems order).</summary>
+    public double[] BasketParts = System.Array.Empty<double>();
     public double StarterKitHours;
 
     /// <summary>Hours to buy the kit at market prices instead (shown for reference when the quest gives it).</summary>
@@ -168,6 +170,7 @@ public sealed class MetricsRecorder
             Faucets = w.Ledger.FaucetTotal - _dayFaucetStart,
             Sinks = w.Ledger.SinkTotal - _daySinkStart,
             Basket = Basket(),
+            BasketParts = BasketItems.Select(b => _basketLast.GetValueOrDefault(_w.Goods[b.id])).ToArray(),
             StarterKitMarketHours = StarterKitHours(),
             StarterKitHours = w.Config.StarterQuest ? w.Config.StarterQuestHours : StarterKitHours(),
             TokenPrice = w.Tokens.LastPrice,

@@ -178,6 +178,8 @@ public sealed class SimConfig
 
     /// <summary>Horses (Ian, 2026-11-20): haulers of HorseMinLevel+ buy a horse from the stable (a coin sink); riding needs a leather saddle, which wears while travelling.</summary>
     public bool Horses { get; set; } = true;
+    /// <summary>Joiners pick professions by the median player's pay, not the average (a few rich shop owners skew it).</summary>
+    public bool JoinByTypicalPay { get; set; } = true;
     /// <summary>Hours of fighting wear a dangerous-zone party trip puts on gear, on top of wipes (Ian, 2026-11-20: gear wears with use, not just death).</summary>
     public double PartyTripWearHours { get; set; } = 0;
     public int HorseMinLevel { get; set; } = 21;

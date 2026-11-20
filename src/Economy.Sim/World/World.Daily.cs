@@ -265,7 +265,7 @@ public sealed partial class World
     /// </summary>
     private List<(Role, double)> JoinMix()
     {
-        var income = RoleIncome();
+        var income = Config.JoinByTypicalPay ? TypicalRoleIncome() : RoleIncome();
         var share = RoleShares();
         return Config.RoleMix
             .Select(kv => (kv.Key, (share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 && (Config.CapCrafts || !Roles.IsCrafter(kv.Key))) || PlotsFull(kv.Key, share) ? 0.0
@@ -308,6 +308,31 @@ public sealed partial class World
 
     public Dictionary<Role, double> AverageRoleIncome() =>
         RoleIncomeWeeks.ToDictionary(kv => kv.Key, kv => kv.Value.weeks > 0 ? kv.Value.sum / kv.Value.weeks : 1.0);
+
+    /// <summary>
+    /// What a typical player in each role earns per hour (the median), relative
+    /// to the typical player overall. New players judge a profession by this,
+    /// not by the few rich shop owners at the top.
+    /// </summary>
+    public Dictionary<Role, double> TypicalRoleIncome()
+    {
+        var per = new Dictionary<Role, List<double>>();
+        var all = new List<double>();
+        foreach (var a in Agents)
+        {
+            if (!a.Active || a.Role is Role.Speculator or Role.Bot) continue;
+            double v = a.DailyIncome.Sum() / Math.Max(1, a.SessionHours * 7);
+            if (!per.TryGetValue(a.Role, out var l)) per[a.Role] = l = new List<double>();
+            l.Add(v);
+            all.Add(v);
+        }
+        static double Med(List<double> l) { l.Sort(); return l.Count == 0 ? 0 : l[l.Count / 2]; }
+        double overall = Med(all);
+        var result = new Dictionary<Role, double>();
+        foreach (var kv in per)
+            result[kv.Key] = overall > 0 ? Math.Max(0.01, Med(kv.Value) / overall) : 1.0;
+        return result;
+    }
 
     public Dictionary<Role, double> RoleIncome()
     {
