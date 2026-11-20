@@ -24,8 +24,16 @@ public class ForgeMinigameTests
                 case ForgeStage.Strike:
                     if (reheat && g.Temperature < ForgeTuning.WorkMin + 0.01) { g.Reheat(); break; }
                     if (!strike) break;
-                    foreach (var n in g.Notes.Where(n => !n.Judged).ToList())
-                        if (Math.Abs(n.Time + timingOffset - g.SongTime) <= Dt / 2) g.Strike(n.Lane);
+                    // Strike the part that most needs work, on the beat; set the hammer down when the shape matches.
+                    int best = -1; double need = 0.4;
+                    for (int lane = 0; lane < 3; lane++)
+                    {
+                        double left = g.Target[lane] - g.Progress[lane];
+                        if (left > need) { need = left; best = lane; }
+                    }
+                    if (best < 0) { g.SetDownHammer(); break; }
+                    double k = Math.Round((g.SongTime - timingOffset) / g.BeatInterval);
+                    if (k >= 0 && Math.Abs(k * g.BeatInterval + timingOffset - g.SongTime) <= Dt / 2) g.Strike((Lane)best);
                     break;
                 case ForgeStage.QuenchChoose:
                     g.ChooseQuench(medium);
@@ -61,7 +69,7 @@ public class ForgeMinigameTests
         var recipe = ForgeRecipe.All.Single(r => r.Id == id);
         var r = Play(Setup(recipe, 50), seed: 1);
         Assert.Equal(recipe.TotalStrikes, r.Perfect);
-        Assert.Equal(0, r.Missed);
+        Assert.Equal(0, r.OffBeat);
         Assert.True(r.Shape > 0.99, $"shape {r.Shape}");
         Assert.True(r.Score > 0.85, $"score {r.Score}");
         Assert.False(r.Botch);
@@ -184,14 +192,42 @@ public class ForgeMinigameTests
     }
 
     [Fact]
-    public void ChartHasEveryStrikeTheOutlineNeeds()
+    public void TrackHasSomeSpareBeats()
     {
         foreach (var recipe in ForgeRecipe.All)
         {
             var g = new ForgeMinigame(Setup(recipe, 50), 9);
-            for (int lane = 0; lane < 3; lane++)
-                Assert.Equal(recipe.StrikesPerLane[lane], g.Notes.Count(n => (int)n.Lane == lane));
+            Assert.True(g.BeatCount > recipe.TotalStrikes);
+            Assert.Equal(g.BeatCount, g.BeatsLeft);
         }
+    }
+
+    [Fact]
+    public void OverworkingAPartHurtsTheShape()
+    {
+        var g = new ForgeMinigame(Setup(ForgeRecipe.PlainIronSword, 50), 11);
+        while (g.Stage == ForgeStage.Heat) { g.Update(Dt); if (g.Temperature >= 0.55) g.PullFromForge(); }
+        // Hammer only the body on every beat.
+        while (g.Stage == ForgeStage.Strike)
+        {
+            g.Update(Dt);
+            double k = Math.Round(g.SongTime / g.BeatInterval);
+            if (k >= 0 && Math.Abs(k * g.BeatInterval - g.SongTime) <= Dt / 2) g.Strike(Lane.Body);
+        }
+        Assert.True(g.Progress[1] > g.Target[1] * 1.5);
+        Assert.True(g.Result.Shape < 0.4, $"shape {g.Result.Shape}");
+    }
+
+    [Fact]
+    public void SecondStrikeOnTheSameBeatIsOffBeat()
+    {
+        var g = new ForgeMinigame(Setup(ForgeRecipe.PlainIronSword, 50), 12);
+        while (g.Stage == ForgeStage.Heat) { g.Update(Dt); if (g.Temperature >= 0.55) g.PullFromForge(); }
+        while (g.SongTime < 0) g.Update(Dt);
+        g.Strike(Lane.Body);
+        g.Strike(Lane.Tip);
+        Assert.Equal(1.0, g.Progress[1]);
+        Assert.Equal(0.0, g.Progress[0]);
     }
 
     [Fact]
@@ -201,7 +237,7 @@ public class ForgeMinigameTests
         foreach (var recipe in ForgeRecipe.All)
         {
             var g = new ForgeMinigame(Setup(recipe, 50), 10);
-            double strikeSeconds = g.Notes.Last().Time + ForgeTuning.LeadInBeats * g.BeatInterval;
+            double strikeSeconds = g.TrackEnd + ForgeTuning.LeadInBeats * g.BeatInterval;
             double heatSeconds = recipe.TargetHeat / ForgeTuning.HeatRatePerSecond;
             Assert.InRange(strikeSeconds + heatSeconds, 10, 90);
         }

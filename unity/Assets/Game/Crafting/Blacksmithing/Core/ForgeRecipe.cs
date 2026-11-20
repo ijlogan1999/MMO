@@ -32,11 +32,9 @@ namespace Mmo.Crafting.Blacksmithing
         public int MethodCap { get; }
         /// <summary>Heat (0..1) the bar should be pulled at. 0.55 = orange, 0.75 = yellow.</summary>
         public double TargetHeat { get; }
-        /// <summary>Strikes the ghost outline needs on Tip, Body and Edge.</summary>
+        /// <summary>Good strikes the ghost outline needs on Tip, Body and Edge. The player is not told these numbers.</summary>
         public int[] StrikesPerLane { get; }
         public double Bpm { get; }
-        /// <summary>Chance a note comes half a beat after the previous one instead of a full beat.</summary>
-        public double HalfBeatChance { get; }
         public bool HasQuench { get; }
         public bool HasFinish { get; }
         public IReadOnlyList<RecipeInput> Inputs { get; }
@@ -45,7 +43,7 @@ namespace Mmo.Crafting.Blacksmithing
         public int TotalStrikes => StrikesPerLane[0] + StrikesPerLane[1] + StrikesPerLane[2];
 
         public ForgeRecipe(string id, string name, SkillRank rank, int requiredSkill, int itemLevel, int methodCap,
-            double targetHeat, int[] strikesPerLane, double bpm, double halfBeatChance, bool hasQuench, bool hasFinish,
+            double targetHeat, int[] strikesPerLane, double bpm, bool hasQuench, bool hasFinish,
             RecipeInput[] inputs, string description)
         {
             Id = id;
@@ -57,7 +55,6 @@ namespace Mmo.Crafting.Blacksmithing
             TargetHeat = targetHeat;
             StrikesPerLane = strikesPerLane;
             Bpm = bpm;
-            HalfBeatChance = halfBeatChance;
             HasQuench = hasQuench;
             HasFinish = hasFinish;
             Inputs = inputs;
@@ -67,7 +64,7 @@ namespace Mmo.Crafting.Blacksmithing
         // Iron path, level band 1-20: every sword in the line keeps using iron.
         public static readonly ForgeRecipe PlainIronSword = new ForgeRecipe(
             "plain_iron_sword", "Plain Iron Sword", SkillRank.Novice, 1, 1, 60,
-            targetHeat: 0.55, strikesPerLane: new[] { 3, 6, 3 }, bpm: 90, halfBeatChance: 0.0,
+            targetHeat: 0.55, strikesPerLane: new[] { 3, 6, 3 }, bpm: 90,
             hasQuench: false, hasFinish: false,
             inputs: new[]
             {
@@ -78,7 +75,7 @@ namespace Mmo.Crafting.Blacksmithing
 
         public static readonly ForgeRecipe IronShortsword = new ForgeRecipe(
             "iron_shortsword", "Iron Shortsword", SkillRank.Apprentice, 20, 8, 80,
-            targetHeat: 0.70, strikesPerLane: new[] { 5, 8, 7 }, bpm: 100, halfBeatChance: 0.10,
+            targetHeat: 0.70, strikesPerLane: new[] { 5, 8, 7 }, bpm: 100,
             hasQuench: false, hasFinish: true,
             inputs: new[]
             {
@@ -89,7 +86,7 @@ namespace Mmo.Crafting.Blacksmithing
 
         public static readonly ForgeRecipe IronLongsword = new ForgeRecipe(
             "iron_longsword", "Iron Longsword", SkillRank.Journeyman, 40, 16, 100,
-            targetHeat: 0.75, strikesPerLane: new[] { 6, 14, 12 }, bpm: 110, halfBeatChance: 0.20,
+            targetHeat: 0.75, strikesPerLane: new[] { 6, 14, 12 }, bpm: 110,
             hasQuench: true, hasFinish: true,
             inputs: new[]
             {

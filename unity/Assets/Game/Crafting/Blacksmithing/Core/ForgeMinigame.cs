@@ -3,19 +3,11 @@ using System.Collections.Generic;
 
 namespace Mmo.Crafting.Blacksmithing
 {
-    /// <summary>One beat marker on the strike track.</summary>
-    public sealed class ForgeNote
-    {
-        public double Time;     // song time in seconds
-        public Lane Lane;
-        public bool Judged;
-        public Judgement Result;
-    }
-
     /// <summary>
     /// The blacksmithing rhythm minigame as a plain state machine (spec, Minigames: Blacksmithing).
     ///  1. Heat: the bar climbs from dull red to white; pull it at the recipe's target colour.
-    ///  2. Strike: markers slide to the hammer; hit the right lane (tip, body, edge) on the beat.
+    ///  2. Strike: a beat plays. On each beat the player may strike the tip, body or edge. Nothing says which part
+    ///     needs work: the player reads the blade against the ghost outline and decides. Overworking a part hurts.
     ///  3. Cooling: the metal cools while you work; below cherry, strikes stop counting. Reheat costs quality after the second.
     ///  4. Quench (Journeyman recipes): pick water, oil or brine, hold for a timed count.
     ///  5. Finish: a short sharpening pass that can add bonus traits.
@@ -38,7 +30,10 @@ namespace Mmo.Crafting.Blacksmithing
         public double BeatInterval { get; }
         public double PerfectWindow { get; }
         public double GoodWindow { get; }
-        public IReadOnlyList<ForgeNote> Notes => _notes;
+        /// <summary>Beats on the strike track (beat k sits at k x BeatInterval).</summary>
+        public int BeatCount { get; }
+        public double TrackEnd => (BeatCount - 1) * BeatInterval;
+        public int BeatsLeft => Math.Max(0, Math.Min(BeatCount, BeatCount - (int)Math.Floor(SongTime / BeatInterval + 0.5)));
         public double[] Progress { get; } = new double[3];
         public int[] Target => Recipe.StrikesPerLane;
 
@@ -57,11 +52,11 @@ namespace Mmo.Crafting.Blacksmithing
         public List<ForgeEvent> Events { get; } = new List<ForgeEvent>();
 
         private readonly Random _rng;
-        private readonly List<ForgeNote> _notes = new List<ForgeNote>();
+        private readonly bool[] _struck;
         private readonly List<double> _pullScores = new List<double>();
         private readonly List<double> _finishScores = new List<double>();
         private readonly List<string> _flaws = new List<string>();
-        private int _perfect, _good, _miss, _offBeat, _cold;
+        private int _perfect, _good, _offBeat, _cold;
         private double _quenchScore = 1.0;
         private double _strikeEndTimer = -1;
         private double _finishPhase;
@@ -74,29 +69,9 @@ namespace Mmo.Crafting.Blacksmithing
             PerfectWindow = ForgeTuning.PerfectWindow(Skill, setup.Hammer);
             GoodWindow = ForgeTuning.GoodWindow(Skill, setup.Hammer);
             FinishSweetWidth = ForgeTuning.FinishSweetWidth(Skill);
-            BuildChart();
+            BeatCount = (int)Math.Ceiling(Recipe.TotalStrikes * ForgeTuning.BeatSlack);
+            _struck = new bool[BeatCount];
             SongTime = -ForgeTuning.LeadInBeats * BeatInterval;
-        }
-
-        private void BuildChart()
-        {
-            var lanes = new List<Lane>();
-            for (int lane = 0; lane < 3; lane++)
-                for (int i = 0; i < Recipe.StrikesPerLane[lane]; i++)
-                    lanes.Add((Lane)lane);
-            // Shuffle so the pattern differs every craft.
-            for (int i = lanes.Count - 1; i > 0; i--)
-            {
-                int j = _rng.Next(i + 1);
-                (lanes[i], lanes[j]) = (lanes[j], lanes[i]);
-            }
-            double t = 0;
-            for (int i = 0; i < lanes.Count; i++)
-            {
-                _notes.Add(new ForgeNote { Time = t, Lane = lanes[i] });
-                bool half = i > 0 && _rng.NextDouble() < Recipe.HalfBeatChance;
-                t += half ? BeatInterval * 0.5 : BeatInterval;
-            }
         }
 
         // ------------------------------------------------------------------ update
@@ -142,33 +117,16 @@ namespace Mmo.Crafting.Blacksmithing
             SongTime += dt;
 
             // Metronome: one event per beat crossed.
-            double lastNote = _notes[_notes.Count - 1].Time;
-            if (SongTime <= lastNote + BeatInterval * 0.5 &&
+            if (SongTime <= TrackEnd + BeatInterval * 0.5 &&
                 Math.Floor(prev / BeatInterval) < Math.Floor(SongTime / BeatInterval))
                 Events.Add(new ForgeEvent(ForgeEventKind.Beat, "beat"));
 
-            // Notes that slid past the hammer are misses.
-            foreach (var n in _notes)
-            {
-                if (n.Judged || n.Time + GoodWindow >= SongTime) continue;
-                n.Judged = true;
-                n.Result = Judgement.Miss;
-                _miss++;
-                Events.Add(new ForgeEvent(ForgeEventKind.Miss, "Miss", Judgement.Miss, n.Lane));
-            }
-
-            if (_strikeEndTimer < 0 && AllNotesJudged()) _strikeEndTimer = ForgeTuning.StrikeEndDelay;
+            if (_strikeEndTimer < 0 && SongTime > TrackEnd + GoodWindow) _strikeEndTimer = ForgeTuning.StrikeEndDelay;
             if (_strikeEndTimer >= 0)
             {
                 _strikeEndTimer -= dt;
                 if (_strikeEndTimer < 0) AfterStrike();
             }
-        }
-
-        private bool AllNotesJudged()
-        {
-            foreach (var n in _notes) if (!n.Judged) return false;
-            return true;
         }
 
         private void SetStage(ForgeStage stage, string message)
@@ -204,50 +162,50 @@ namespace Mmo.Crafting.Blacksmithing
             SetStage(ForgeStage.Heat, Reheats > ForgeTuning.FreeReheats ? "Reheat (costs a little quality)" : "Reheat");
         }
 
-        /// <summary>Strike the anvil in a lane. Judged against the nearest note in that lane.</summary>
+        /// <summary>
+        /// Strike one part of the blade. Timed against the nearest beat; one strike per beat.
+        /// Off the beat (or a second strike on the same beat) dents the blade instead of shaping it.
+        /// </summary>
         public void Strike(Lane lane)
         {
             if (Stage != ForgeStage.Strike) return;
 
-            ForgeNote best = null;
-            double bestErr = double.MaxValue;
-            foreach (var n in _notes)
-            {
-                if (n.Judged || n.Lane != lane) continue;
-                double err = Math.Abs(n.Time - SongTime);
-                if (err <= GoodWindow && err < bestErr) { best = n; bestErr = err; }
-            }
-
-            if (best == null)
+            int k = (int)Math.Round(SongTime / BeatInterval);
+            double err = Math.Abs(SongTime - k * BeatInterval);
+            if (k < 0 || k >= BeatCount || err > GoodWindow || _struck[k])
             {
                 _offBeat++;
                 Events.Add(new ForgeEvent(ForgeEventKind.OffBeat, "Off-beat: dents the blade", Judgement.OffBeat, lane));
                 return;
             }
+            _struck[k] = true;
 
-            best.Judged = true;
             if (Temperature < ForgeTuning.WorkMin)
             {
-                best.Result = Judgement.Cold;
                 _cold++;
-                Events.Add(new ForgeEvent(ForgeEventKind.ColdStrike, "Too cold: reheat!", Judgement.Cold, lane));
+                Events.Add(new ForgeEvent(ForgeEventKind.ColdStrike, "Too cold", Judgement.Cold, lane));
                 return;
             }
 
-            if (bestErr <= PerfectWindow)
+            if (err <= PerfectWindow)
             {
-                best.Result = Judgement.Perfect;
                 _perfect++;
                 Progress[(int)lane] += ForgeTuning.PerfectProgress;
                 Events.Add(new ForgeEvent(ForgeEventKind.Strike, "Perfect", Judgement.Perfect, lane));
             }
             else
             {
-                best.Result = Judgement.Good;
                 _good++;
                 Progress[(int)lane] += ForgeTuning.GoodProgress;
                 Events.Add(new ForgeEvent(ForgeEventKind.Strike, "Good", Judgement.Good, lane));
             }
+        }
+
+        /// <summary>Set the hammer down: the player judges the shape done before the beats run out.</summary>
+        public void SetDownHammer()
+        {
+            if (Stage != ForgeStage.Strike || _strikeEndTimer >= 0) return;
+            AfterStrike();
         }
 
         private void AfterStrike()
@@ -354,13 +312,20 @@ namespace Mmo.Crafting.Blacksmithing
             return inputMean;
         }
 
+        private int CountUnused()
+        {
+            int n = 0;
+            foreach (bool b in _struck) if (!b) n++;
+            return n;
+        }
+
         private void Complete()
         {
             var r = new ForgeResult
             {
                 Perfect = _perfect,
                 Good = _good,
-                Missed = _miss,
+                BeatsUnused = CountUnused(),
                 OffBeat = _offBeat,
                 Cold = _cold,
                 Reheats = Reheats,
@@ -381,7 +346,7 @@ namespace Mmo.Crafting.Blacksmithing
             shape = totalWeight > 0 ? shape / totalWeight : 0;
             r.Shape = ForgeTuning.Clamp01(shape - ForgeTuning.OffBeatDent * _offBeat);
 
-            double attempts = _notes.Count + 0.5 * _offBeat;
+            double attempts = _perfect + _good + _offBeat + _cold;
             r.Accuracy = attempts > 0 ? (_perfect + ForgeTuning.GoodAccuracy * _good) / attempts : 0;
 
             double pullAvg = 0;

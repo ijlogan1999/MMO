@@ -46,7 +46,7 @@ namespace Mmo.Crafting.Blacksmithing
 
         public int Perfect;
         public int Good;
-        public int Missed;
+        public int BeatsUnused;
         public int OffBeat;
         public int Cold;
         public int Reheats;

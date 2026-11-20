@@ -20,6 +20,7 @@ namespace Mmo.Crafting.Blacksmithing
 
         // Strike
         public const double LeadInBeats = 2;
+        public const double BeatSlack = 1.3;        // beats on the track = strikes the shape needs x this
         public const double GoodWindowFactor = 2.2;
         public const double PerfectProgress = 1.0;
         public const double GoodProgress = 0.85;
@@ -144,9 +145,9 @@ namespace Mmo.Crafting.Blacksmithing
 
         public static string QuenchDescription(QuenchMedium m) => m switch
         {
-            QuenchMedium.Water => "Water: hardest blade, short count (1.5 s), real crack risk.",
-            QuenchMedium.Brine => "Brine: middle ground (2.0 s), small crack risk.",
-            _ => "Oil: gentle and safe (3.0 s), a little less hard.",
+            QuenchMedium.Water => "Hardest blade. Short count. Can crack.",
+            QuenchMedium.Brine => "Middle ground. Medium count.",
+            _ => "Gentle and safe, a little softer. Long count.",
         };
 
         public static double FinishSweetWidth(int skill) => Lerp(0.08, 0.18, Skill01(skill));

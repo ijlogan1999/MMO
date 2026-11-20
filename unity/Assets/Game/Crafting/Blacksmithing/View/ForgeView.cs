@@ -9,7 +9,9 @@ namespace Mmo.Crafting.Blacksmithing.View
     /// (coloured rectangles and text), so there are no sprites, prefabs or packages to set up yet.
     /// The rules live in ForgeMinigame (Core); this class only draws and forwards input.
     ///
-    /// Controls: SPACE pull from forge / hold to quench / sharpen. A S D (or J K L) strike Tip, Body, Edge.
+    /// Deliberately unguided: no gauges, markers, zones or timers. The player reads the metal colour, hears the beat
+    /// and judges the blade against the ghost outline. The results screen explains the outcome.
+    /// Controls: SPACE pull from forge / hold to quench / sharpen. A S D (or J K L) strike Tip, Body, Edge. E set hammer down.
     /// R reheat. 1 2 3 pick water, oil, brine. ENTER craft again. ESC back to setup. Mouse works on every button and lane.
     /// </summary>
     public sealed class ForgeView : MonoBehaviour
@@ -27,9 +29,7 @@ namespace Mmo.Crafting.Blacksmithing.View
         private ForgeAudio _audio;
         private int _seed = 1;
         private int _skillBefore;
-        private string _lastPull = "";
         private string _lastQuench = "";
-        private Vector2 _scroll;
 
         private readonly HashSet<KeyCode> _held = new HashSet<KeyCode>();
         private readonly List<Popup> _popups = new List<Popup>();
@@ -42,18 +42,6 @@ namespace Mmo.Crafting.Blacksmithing.View
             public int Lane; // -1 = centre of screen
         }
 
-        // Layout of the strike track.
-        private const float LaneX = 300f, LaneRight = 1240f, HammerX = 420f, PixelsPerSecond = 320f;
-        private static readonly float[] LaneY = { 392f, 452f, 512f };
-        private const float LaneH = 50f;
-        private static readonly string[] LaneNames = { "Tip", "Body", "Edge" };
-        private static readonly string[] LaneKeys = { "A", "S", "D" };
-        private static readonly Color[] LaneColors =
-        {
-            new Color(0.55f, 0.80f, 1.00f),
-            new Color(1.00f, 0.80f, 0.35f),
-            new Color(0.70f, 1.00f, 0.60f),
-        };
 
         private GUIStyle _style;
 
@@ -95,7 +83,7 @@ namespace Mmo.Crafting.Blacksmithing.View
             setup.SkillLevel = _skill;
             _game = new ForgeMinigame(setup, _seed++);
             _popups.Clear();
-            _lastPull = _lastQuench = "";
+            _lastQuench = "";
             _skillBefore = _skill;
             _mode = Mode.Play;
         }
@@ -120,22 +108,6 @@ namespace Mmo.Crafting.Blacksmithing.View
                 _audio.Play(e);
                 switch (e.Kind)
                 {
-                    case ForgeEventKind.Strike:
-                        AddPopup(e.Message, e.Judgement == Judgement.Perfect ? new Color(1f, 0.9f, 0.3f) : new Color(0.7f, 1f, 0.7f), (int)e.Lane);
-                        break;
-                    case ForgeEventKind.Miss:
-                        AddPopup("Miss", new Color(0.7f, 0.7f, 0.7f), (int)e.Lane);
-                        break;
-                    case ForgeEventKind.OffBeat:
-                        AddPopup("Off-beat", new Color(1f, 0.5f, 0.4f), (int)e.Lane);
-                        break;
-                    case ForgeEventKind.ColdStrike:
-                        AddPopup("Too cold", new Color(0.6f, 0.7f, 1f), (int)e.Lane);
-                        break;
-                    case ForgeEventKind.Pulled:
-                        _lastPull = e.Message;
-                        AddPopup(e.Message, Color.white, -1);
-                        break;
                     case ForgeEventKind.Cracked:
                     case ForgeEventKind.Burned:
                     case ForgeEventKind.QuenchCrack:
@@ -143,10 +115,6 @@ namespace Mmo.Crafting.Blacksmithing.View
                         break;
                     case ForgeEventKind.QuenchEnd:
                         _lastQuench = e.Message;
-                        AddPopup(e.Message, Color.white, -1);
-                        break;
-                    case ForgeEventKind.FinishStroke:
-                        AddPopup(e.Message, Color.white, -1);
                         break;
                 }
             }
@@ -200,6 +168,7 @@ namespace Mmo.Crafting.Blacksmithing.View
                     if (key == KeyCode.S || key == KeyCode.K) { _game.Strike(Lane.Body); return true; }
                     if (key == KeyCode.D || key == KeyCode.L) { _game.Strike(Lane.Edge); return true; }
                     if (key == KeyCode.R) { _game.Reheat(); return true; }
+                    if (key == KeyCode.E) { _game.SetDownHammer(); return true; }
                     break;
                 case ForgeStage.QuenchChoose:
                     if (key == KeyCode.Alpha1 || key == KeyCode.Keypad1) { _game.ChooseQuench(QuenchMedium.Water); return true; }
@@ -335,7 +304,7 @@ namespace Mmo.Crafting.Blacksmithing.View
             var recipe = setup.Recipe;
             var steps = "Heat, Strike" + (recipe.HasQuench ? ", Quench" : "") + (recipe.HasFinish ? ", Finish" : "");
             Text(new Rect(40, 290, 360, 150),
-                $"{recipe.Description}\n\n<b>Steps:</b> {steps}\n<b>Strikes:</b> {recipe.TotalStrikes} at {recipe.Bpm:0} BPM\n<b>Needs:</b> {recipe.Rank} ({recipe.RequiredSkill}+)",
+                $"{recipe.Description}\n\n<b>Steps:</b> {steps}\n<b>Tempo:</b> {recipe.Bpm:0} BPM\n<b>Needs:</b> {recipe.Rank} ({recipe.RequiredSkill}+)",
                 15, new Color(0.85f, 0.82f, 0.78f));
 
             // Skill
@@ -343,10 +312,7 @@ namespace Mmo.Crafting.Blacksmithing.View
             Text(new Rect(x, 80, 700, 30), $"Blacksmithing skill: <b>{_skill}</b> ({ForgeTuning.RankFor(_skill)})", 18, Color.white);
             int newSkill = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x, 115, 500, 20), _skill, 1, 100));
             if (newSkill != _skill) { _skill = newSkill; PlayerPrefs.SetInt(SkillPref, _skill); }
-            var pw = ForgeTuning.PerfectWindow(_skill, setup.Hammer) * 1000;
-            Text(new Rect(x, 135, 780, 40),
-                $"Test slider (in game this is your character's skill; crafting raises it). Perfect window ±{pw:0} ms, quality floor {ForgeTuning.SkillFloor(_skill)}.",
-                13, new Color(0.65f, 0.62f, 0.6f));
+            Text(new Rect(x, 135, 780, 40), "Test slider (in game this is your character's skill; crafting raises it).", 13, new Color(0.65f, 0.62f, 0.6f));
             if (_skill < recipe.RequiredSkill)
                 Text(new Rect(x, 160, 780, 24), $"Below this recipe's rank ({recipe.RequiredSkill}). You can still practise it.", 14, new Color(1f, 0.6f, 0.4f));
 
@@ -380,40 +346,33 @@ namespace Mmo.Crafting.Blacksmithing.View
                 Text(new Rect(x + 655, y, 140, 30), $"{ForgeTuning.GradeWord(q)} {q}", 15, GradeColor(q));
             }
 
-            // Quality range preview
-            int mean = ForgeMinigame.ComputeCaps(setup, out int floor, out int ceiling, out string reason);
-            float py = 540;
-            Fill(new Rect(x, py, 780, 72), new Color(0.15f, 0.14f, 0.13f));
-            Text(new Rect(x + 14, py + 8, 760, 60),
-                $"Quality range <b>{floor} – {ceiling}</b>   (inputs average {mean}; ceiling set by <b>{reason}</b>)\n" +
-                "<size=13>Q = floor + (ceiling − floor) × your score, ±0.1 roll. A score under 0.15 is a botch (Q 1–10).</size>",
-                16, Color.white);
-
             if (Button(new Rect(x, 630, 300, 56), "<b>Start forging</b>  <size=13>(Enter)</size>", true)) StartCraft();
             Text(new Rect(x + 320, 630, 470, 60),
-                "Controls: SPACE pull / quench / sharpen · A S D strike tip, body, edge · R reheat · 1 2 3 quench oil · ESC back",
+                "Controls: SPACE pull from the fire, hold to quench, sharpen · A S D strike tip, body, edge on the beat · R reheat · E set the hammer down · 1 2 3 water, oil, brine · ESC leave. Mouse: click the forge, the blade parts, the bucket, the edge.",
                 13, new Color(0.65f, 0.62f, 0.6f));
         }
 
         // ------------------------------------------------------------------ play screen
+        // No prompts, gauges, markers or zones: the player reads the metal, hears the beat and judges the shape.
+        // The results screen explains what happened afterwards.
+
+        private static readonly Rect AnvilRect = new Rect(560, 380, 520, 80);
+        private Rect[] _partRects = new Rect[3];
 
         private void DrawPlay()
         {
             var g = _game;
-            var recipe = g.Recipe;
+            Text(new Rect(30, 14, 900, 40), $"<b>{g.Recipe.Name}</b>", 26, new Color(1f, 0.8f, 0.5f));
+            Text(new Rect(1080, 20, 180, 24), "Esc: leave", 13, new Color(0.5f, 0.47f, 0.45f), TextAnchor.UpperRight);
 
-            Text(new Rect(30, 14, 900, 40), $"<b>{recipe.Name}</b>  <size=16><color=#b9a99a>{recipe.Rank} · skill {g.Skill} · {g.Setup.Station.Name} · {g.Setup.Hammer.Name}</color></size>", 26, new Color(1f, 0.8f, 0.5f));
-            Text(new Rect(30, 50, 1220, 34), Instruction(g), 20, Color.white);
-            if (Button(new Rect(1130, 16, 120, 32), "Back (Esc)")) { _mode = Mode.Setup; return; }
-
-            DrawHeatGauge(g);
-            DrawForgeAndAnvil(g);
+            DrawForge(g);
+            DrawAnvil(g);
 
             switch (g.Stage)
             {
-                case ForgeStage.Heat:
                 case ForgeStage.Strike:
-                    DrawTrack(g);
+                    for (int lane = 0; lane < 3; lane++)
+                        if (Pressed(_partRects[lane])) g.Strike((Lane)lane);
                     break;
                 case ForgeStage.QuenchChoose:
                 case ForgeStage.QuenchHold:
@@ -425,264 +384,150 @@ namespace Mmo.Crafting.Blacksmithing.View
             }
 
             DrawPopups();
-
-            // Footer
-            string reheatNote = g.Reheats <= ForgeTuning.FreeReheats ? $"{ForgeTuning.FreeReheats - g.Reheats} free reheats left" : "each reheat now costs quality";
-            Text(new Rect(30, 680, 1220, 30),
-                $"Reheats: {g.Reheats} ({reheatNote})    {_lastPull}    {_lastQuench}", 14, new Color(0.7f, 0.66f, 0.62f));
         }
 
-        private static string Instruction(ForgeMinigame g)
+        private void DrawForge(ForgeMinigame g)
         {
-            switch (g.Stage)
-            {
-                case ForgeStage.Heat:
-                    return g.IsReheating
-                        ? "Reheating. Press <b>SPACE</b> (or click the forge) to pull it back out at the target colour."
-                        : $"Heat the bar. Press <b>SPACE</b> (or click the forge) when it reaches <b>{ForgeTuning.BandFor(g.Recipe.TargetHeat)}</b>. Too cold cracks it, too hot burns it.";
-                case ForgeStage.Strike:
-                    return g.CanStrike
-                        ? "Strike on the beat: <b>A</b> tip, <b>S</b> body, <b>D</b> edge when a marker reaches the hammer line. <b>R</b> reheats."
-                        : "<color=#9fb6ff><b>Too cold!</b> Strikes don't count. Press <b>R</b> to reheat.</color>";
-                case ForgeStage.QuenchChoose:
-                    return "Quench: press <b>1</b> water, <b>2</b> oil or <b>3</b> brine.";
-                case ForgeStage.QuenchHold:
-                    return "Hold <b>SPACE</b> (or hold the mouse on the bucket) and let go inside the green zone.";
-                case ForgeStage.Finish:
-                    return $"Sharpen: press <b>SPACE</b> when the stone is in the bright zone ({g.FinishStrokesDone + 1}/{ForgeTuning.FinishStrokes}).";
-            }
-            return "";
-        }
-
-        private void DrawHeatGauge(ForgeMinigame g)
-        {
-            var r = new Rect(60, 110, 46, 460);
-            Text(new Rect(30, 86, 120, 24), "Heat", 16, new Color(0.8f, 0.75f, 0.7f));
-            // Gradient, 0 at the bottom, 1.1 at the top.
-            const int steps = 46;
-            for (int i = 0; i < steps; i++)
-            {
-                float t = (i + 0.5f) / steps * 1.1f;
-                float y = r.yMax - (i + 1) * r.height / steps;
-                Fill(new Rect(r.x, y, r.width, r.height / steps + 1), HeatColor(t));
-            }
-            Outline(r, new Color(0.45f, 0.4f, 0.38f));
-
-            float Y(double t) => r.yMax - (float)(t / 1.1) * r.height;
-
-            // Target band and tolerance.
-            double tol = ForgeTuning.HeatTolerance(g.Skill);
-            float yTop = Y(g.Recipe.TargetHeat + tol), yBot = Y(g.Recipe.TargetHeat - tol);
-            Outline(new Rect(r.x - 6, yTop, r.width + 12, yBot - yTop), new Color(0.3f, 1f, 0.4f), 3);
-            Text(new Rect(r.xMax + 8, Y(g.Recipe.TargetHeat) - 10, 120, 20), "target", 13, new Color(0.4f, 1f, 0.5f));
-
-            // Work minimum.
-            Fill(new Rect(r.x - 8, Y(ForgeTuning.WorkMin) - 1, r.width + 16, 2), new Color(0.6f, 0.7f, 1f));
-            Text(new Rect(r.xMax + 8, Y(ForgeTuning.WorkMin) - 10, 140, 20), "too cold", 13, new Color(0.6f, 0.7f, 1f));
-            Text(new Rect(r.xMax + 8, Y(1.0) - 10, 140, 20), "burns", 13, new Color(1f, 0.6f, 0.5f));
-
-            // Current temperature.
-            float cy = Y(Mathf.Min(1.1f, (float)g.Temperature));
-            Fill(new Rect(r.x - 14, cy - 2, r.width + 28, 4), Color.white);
-            Text(new Rect(10, cy - 11, 44, 22), ">", 20, Color.white, TextAnchor.MiddleRight);
-            Text(new Rect(30, r.yMax + 6, 200, 24), g.Band.ToString(), 15, HeatColor(g.Temperature), bold: true);
-        }
-
-        private void DrawForgeAndAnvil(ForgeMinigame g)
-        {
-            // Forge on the left.
-            var forge = new Rect(260, 110, 230, 220);
+            var forge = new Rect(60, 150, 300, 300);
             Fill(forge, new Color(0.18f, 0.15f, 0.14f));
             Outline(forge, new Color(0.35f, 0.3f, 0.28f), 3);
-            var mouth = new Rect(forge.x + 25, forge.y + 60, forge.width - 50, 120);
+            var mouth = new Rect(forge.x + 30, forge.y + 90, forge.width - 60, 150);
             Fill(mouth, new Color(0.05f, 0.03f, 0.03f));
             float flicker = 0.75f + 0.25f * Mathf.PerlinNoise(Time.time * 4f, 0.3f);
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 8; i++)
             {
-                float h = (30 + 50 * Mathf.PerlinNoise(Time.time * 3f + i, i)) * flicker;
-                Fill(new Rect(mouth.x + 8 + i * 28, mouth.yMax - h, 22, h), new Color(1f, 0.35f + 0.1f * i, 0.05f, 0.85f));
+                float h = (40 + 60 * Mathf.PerlinNoise(Time.time * 3f + i, i)) * flicker;
+                Fill(new Rect(mouth.x + 6 + i * 30, mouth.yMax - h, 24, h), new Color(1f, 0.3f + 0.06f * i, 0.05f, 0.85f));
             }
-            Text(new Rect(forge.x, forge.y + 6, forge.width, 26), "FORGE", 15, new Color(0.7f, 0.6f, 0.55f), TextAnchor.MiddleCenter);
-            if (g.Stage == ForgeStage.Heat)
-            {
-                // The bar sits in the fire.
-                Fill(new Rect(mouth.x + 10, mouth.y + 50, mouth.width + 60, 16), HeatColor(g.Temperature));
-                if (Pressed(forge)) g.PullFromForge();
-            }
+            if (g.Stage != ForgeStage.Heat) return;
 
-            // Anvil and blade on the right.
-            var anvil = new Rect(640, 250, 480, 70);
-            Fill(anvil, new Color(0.28f, 0.29f, 0.31f));
-            Fill(new Rect(anvil.x + 120, anvil.yMax, 240, 40), new Color(0.22f, 0.23f, 0.25f));
-            Fill(new Rect(anvil.x + 60, anvil.yMax + 40, 360, 18), new Color(0.2f, 0.21f, 0.22f));
-
-            DrawBlade(g, anvil.x + 20, anvil.y - 6);
+            // The bar in the fire. Its colour is the only heat reading there is.
+            var bar = new Rect(mouth.x + 20, mouth.y + 70, mouth.width + 140, 18);
+            Fill(bar, HeatColor(g.Temperature));
+            if (g.Temperature > 1.0) DrawSparks(bar);
+            if (Pressed(forge) || Pressed(bar)) g.PullFromForge();
         }
 
-        /// <summary>Ghost outline of the target shape, plus the metal as it is now. Each lane reshapes its own part.</summary>
+        private static void DrawSparks(Rect around)
+        {
+            for (int i = 0; i < 14; i++)
+            {
+                float a = Mathf.PerlinNoise(Time.time * 9f + i * 3.1f, i) , b = Mathf.PerlinNoise(i, Time.time * 9f + i);
+                Fill(new Rect(around.x + a * around.width, around.y - 30 + b * (around.height + 60), 3, 3), new Color(1f, 1f, 0.8f));
+            }
+        }
+
+        private void DrawAnvil(ForgeMinigame g)
+        {
+            var a = AnvilRect;
+            // A subtle swell on the beat, like the ring of the anvil. No markers or countdown.
+            float pulse = 0f;
+            if (g.Stage == ForgeStage.Strike && g.SongTime >= -g.BeatInterval * 0.5 && g.SongTime <= g.TrackEnd + g.BeatInterval * 0.5)
+            {
+                double phase = g.SongTime / g.BeatInterval - System.Math.Floor(g.SongTime / g.BeatInterval + 0.5);
+                pulse = Mathf.Clamp01(1f - Mathf.Abs((float)phase) * 4f) * 0.06f;
+            }
+            Fill(a, new Color(0.28f + pulse, 0.29f + pulse, 0.31f + pulse));
+            Fill(new Rect(a.x + 130, a.yMax, 260, 50), new Color(0.22f, 0.23f, 0.25f));
+            Fill(new Rect(a.x + 70, a.yMax + 50, 380, 20), new Color(0.2f, 0.21f, 0.22f));
+
+            if (g.Stage == ForgeStage.Heat) return; // the bar is in the forge
+            DrawBlade(g, a.x + 10, a.y - 6);
+        }
+
+        /// <summary>Ghost outline of the target shape, plus the metal as it is now. Click a part (or A S D) to strike it.</summary>
         private void DrawBlade(ForgeMinigame g, float x, float baseY)
         {
-            Color metal = g.Stage == ForgeStage.Heat || g.Stage == ForgeStage.Strike ? HeatColor(g.Temperature) : new Color(0.72f, 0.74f, 0.78f);
-            if (g.Stage == ForgeStage.Heat && !g.IsReheating) metal = new Color(0.25f, 0.22f, 0.22f); // still in the forge
-            Color ghost = new Color(1f, 1f, 1f, 0.25f);
+            bool hot = g.Stage == ForgeStage.Strike;
+            Color metal = hot ? HeatColor(g.Temperature) : new Color(0.72f, 0.74f, 0.78f);
+            Color ghost = new Color(1f, 1f, 1f, 0.22f);
 
-            float p(int lane) => Mathf.Min(1.25f, (float)(g.Progress[lane] / g.Target[lane]));
-            float tip = p(0), body = p(1), edge = p(2);
+            float P(int lane) => Mathf.Min(1.6f, (float)(g.Progress[lane] / g.Target[lane]));
+            float tip = P(0), body = P(1), edge = P(2);
 
             // Grip and guard (not forged here).
             Fill(new Rect(x, baseY - 26, 60, 14), new Color(0.4f, 0.26f, 0.15f));
             Fill(new Rect(x + 60, baseY - 44, 14, 50), new Color(0.45f, 0.45f, 0.48f));
 
-            float bodyX = x + 74, bodyLen = 260, bodyH = 22;
-            // Ghost target.
-            Outline(new Rect(bodyX, baseY - 30, bodyLen, bodyH), ghost, 1);
-            Outline(new Rect(bodyX, baseY - 8, bodyLen, 6), ghost, 1);
-            for (int i = 0; i < 6; i++) Outline(new Rect(bodyX + bodyLen + i * 12, baseY - 28 + i * 2.6f, 12, bodyH + 2 - i * 5.2f), ghost, 1);
+            float bodyX = x + 74, bodyLen = 300, bodyH = 22;
+            Outline(new Rect(bodyX, baseY - 30, bodyLen, bodyH + 22), ghost, 1);
+            for (int i = 0; i < 6; i++) Outline(new Rect(bodyX + bodyLen + i * 14, baseY - 28 + i * 2.6f, 14, bodyH + 2 - i * 5.2f), ghost, 1);
 
-            // Body: unworked metal is short and thick; worked metal is long and thin.
-            float len = bodyLen * Mathf.Lerp(0.55f, 1f, Mathf.Min(1, body)) * (body > 1.05f ? 1 + (body - 1) * 0.6f : 1);
-            float thick = bodyH * Mathf.Lerp(1.6f, 1f, Mathf.Min(1, body));
+            // Body: unworked metal is short and thick; worked metal is long and thin; overworked runs long and thin.
+            float len = bodyLen * Mathf.Lerp(0.55f, 1f, Mathf.Min(1, body)) * (body > 1f ? 1 + (body - 1) * 0.5f : 1);
+            float thick = bodyH * Mathf.Lerp(1.6f, 1f, Mathf.Min(1, body)) * (body > 1f ? 1 - (body - 1) * 0.6f : 1);
             Fill(new Rect(bodyX, baseY - 8 - thick, len, thick), metal);
-            // Edge: a bright bevel appears along the bottom as it is drawn out.
-            if (edge > 0) Fill(new Rect(bodyX, baseY - 8, len * Mathf.Min(1, edge), 6), Color.Lerp(metal, Color.white, 0.35f));
-            // Tip: tapers as it is worked.
+            // Edge: a bevel is drawn out along the bottom; overworked it goes thin and ragged.
+            float bevel = 6 * Mathf.Min(1, edge) * (edge > 1f ? 1 - (edge - 1) * 0.8f : 1);
+            if (edge > 0) Fill(new Rect(bodyX, baseY - 8, len, Mathf.Max(1, bevel)), Color.Lerp(metal, Color.white, 0.35f));
+            // Tip: tapers as it is worked; overworked it turns into a needle.
             float tipEnd = bodyX + len;
-            int tipSteps = Mathf.RoundToInt(6 * Mathf.Min(1, tip));
+            int tipSteps = Mathf.RoundToInt(6 * Mathf.Min(1, tip)) + (tip > 1f ? Mathf.RoundToInt((tip - 1) * 8) : 0);
             for (int i = 0; i < tipSteps; i++)
-                Fill(new Rect(tipEnd + i * 12, baseY - 8 - thick + i * thick * 0.08f, 12, thick - i * thick * 0.16f), metal);
-
-            // Overworked warnings.
-            for (int lane = 0; lane < 3; lane++)
-                if (p(lane) > 1.05f)
-                    Text(new Rect(x + 120 + lane * 110, baseY - 80, 160, 22), $"{LaneNames[lane]} overworked", 13, new Color(1f, 0.5f, 0.4f));
-
-            // Part progress.
-            for (int lane = 0; lane < 3; lane++)
             {
-                float bx = x + lane * 150, by = baseY + 100;
-                Text(new Rect(bx, by, 140, 20), $"{LaneNames[lane]}  {g.Progress[lane]:0.#}/{g.Target[lane]}", 13, LaneColors[lane]);
-                Fill(new Rect(bx, by + 20, 130, 6), new Color(0.25f, 0.24f, 0.23f));
-                Fill(new Rect(bx, by + 20, 130 * Mathf.Min(1, p(lane)), 6), LaneColors[lane]);
-            }
-        }
-
-        private void DrawTrack(ForgeMinigame g)
-        {
-            bool paused = g.Stage == ForgeStage.Heat;
-            bool cold = g.Stage == ForgeStage.Strike && !g.CanStrike;
-
-            for (int lane = 0; lane < 3; lane++)
-            {
-                var r = new Rect(LaneX, LaneY[lane], LaneRight - LaneX, LaneH);
-                Fill(r, cold ? new Color(0.12f, 0.13f, 0.18f) : new Color(0.15f, 0.14f, 0.13f));
-                var label = new Rect(LaneX, r.y, 100, LaneH);
-                Fill(label, new Color(0.2f, 0.19f, 0.18f));
-                Text(label, $"<b>{LaneKeys[lane]}</b>  {LaneNames[lane]}", 16, LaneColors[lane], TextAnchor.MiddleCenter);
-                if (!paused && Pressed(r)) g.Strike((Lane)lane);
+                float hgt = Mathf.Max(2, thick - i * thick * 0.16f);
+                Fill(new Rect(tipEnd + i * 14, baseY - 8 - thick + (thick - hgt) / 2, 14, hgt), metal);
             }
 
-            // Hit windows at the hammer line.
-            float good = (float)g.GoodWindow * PixelsPerSecond, perfect = (float)g.PerfectWindow * PixelsPerSecond;
-            float top = LaneY[0], height = LaneY[2] + LaneH - LaneY[0];
-            Fill(new Rect(HammerX - good, top, good * 2, height), new Color(1f, 1f, 1f, 0.06f));
-            Fill(new Rect(HammerX - perfect, top, perfect * 2, height), new Color(1f, 0.85f, 0.4f, 0.12f));
-            Fill(new Rect(HammerX - 1.5f, top - 8, 3, height + 16), new Color(1f, 0.85f, 0.5f));
-            Text(new Rect(HammerX - 60, top - 30, 120, 22), "hammer", 13, new Color(1f, 0.85f, 0.5f), TextAnchor.MiddleCenter);
-
-            // Beat grid lines.
-            double beat = g.BeatInterval;
-            double firstBeat = System.Math.Ceiling((g.SongTime - 0.5) / beat) * beat;
-            for (double t = firstBeat; ; t += beat)
-            {
-                float x = HammerX + (float)((t - g.SongTime) * PixelsPerSecond);
-                if (x > LaneRight) break;
-                if (x > LaneX + 100) Fill(new Rect(x, top, 1, height), new Color(1f, 1f, 1f, 0.07f));
-            }
-
-            // Markers.
-            foreach (var n in g.Notes)
-            {
-                if (n.Judged) continue;
-                float x = HammerX + (float)((n.Time - g.SongTime) * PixelsPerSecond);
-                if (x > LaneRight - 10) continue;
-                if (x < LaneX + 100) continue;
-                int lane = (int)n.Lane;
-                var c = LaneColors[lane];
-                if (cold || paused) c = Color.Lerp(c, Color.gray, 0.6f);
-                Fill(new Rect(x - 9, LaneY[lane] + 6, 18, LaneH - 12), c);
-            }
-
-            if (paused && g.IsReheating)
-                Text(new Rect(LaneX, LaneY[1], LaneRight - LaneX, LaneH), "<b>Paused: reheating</b>", 22, Color.white, TextAnchor.MiddleCenter);
-            if (cold)
-                Text(new Rect(LaneX, LaneY[2] + LaneH + 6, LaneRight - LaneX, 30), "<b>Too cold, press R to reheat</b>", 20, new Color(0.65f, 0.75f, 1f), TextAnchor.MiddleCenter);
-            if (g.Stage == ForgeStage.Strike && g.SongTime < 0)
-                Text(new Rect(LaneX, LaneY[0] - 34, LaneRight - LaneX, 30), $"Get ready… {Mathf.CeilToInt((float)(-g.SongTime / beat))}", 20, Color.white, TextAnchor.MiddleCenter);
+            // Click areas for the three parts (mouse play).
+            _partRects[(int)Lane.Body] = new Rect(bodyX, baseY - 50, bodyLen * 0.85f, 36);
+            _partRects[(int)Lane.Edge] = new Rect(bodyX, baseY - 14, bodyLen * 0.85f, 26);
+            _partRects[(int)Lane.Tip] = new Rect(bodyX + bodyLen * 0.85f, baseY - 50, 140, 62);
         }
 
         private void DrawQuench(ForgeMinigame g)
         {
-            var area = new Rect(300, 380, 940, 280);
-            Fill(area, new Color(0.13f, 0.13f, 0.14f));
-
+            var area = new Rect(360, 520, 860, 170);
             if (g.Stage == ForgeStage.QuenchChoose)
             {
                 var media = new[] { QuenchMedium.Water, QuenchMedium.Oil, QuenchMedium.Brine };
                 for (int i = 0; i < 3; i++)
                 {
-                    var r = new Rect(area.x + 20 + i * 305, area.y + 30, 290, 70);
-                    if (Button(r, $"<b>{i + 1}</b>  {media[i]}")) g.ChooseQuench(media[i]);
-                    Text(new Rect(r.x, r.yMax + 8, r.width, 80), ForgeTuning.QuenchDescription(media[i]), 14, new Color(0.8f, 0.78f, 0.75f));
+                    var r = new Rect(area.x + i * 290, area.y, 270, 60);
+                    if (Button(r, $"{i + 1}  {media[i]}")) g.ChooseQuench(media[i]);
+                    Text(new Rect(r.x, r.yMax + 6, r.width, 60), ForgeTuning.QuenchDescription(media[i]), 13, new Color(0.75f, 0.72f, 0.7f));
                 }
                 return;
             }
 
-            double target = ForgeTuning.QuenchTargetSeconds(g.Medium);
-            double tol = ForgeTuning.QuenchTolerance(g.Medium, g.Skill);
-            double max = target * 2;
-            var bar = new Rect(area.x + 30, area.y + 60, area.width - 60, 46);
-            Fill(bar, new Color(0.2f, 0.2f, 0.22f));
-            float X(double s) => bar.x + (float)(System.Math.Min(s, max) / max) * bar.width;
-            Fill(new Rect(X(target - tol), bar.y, X(target + tol) - X(target - tol), bar.height), new Color(0.25f, 0.8f, 0.35f, 0.55f));
-            Fill(new Rect(bar.x, bar.y + 12, X(g.QuenchSeconds) - bar.x, bar.height - 24), new Color(0.75f, 0.85f, 1f));
-            Outline(bar, new Color(0.45f, 0.45f, 0.5f));
-            Text(new Rect(bar.x, bar.y - 30, bar.width, 26), $"{g.Medium}: {g.QuenchSeconds:0.0} s  (aim for {target:0.0} s)", 18, Color.white);
-
-            var bucket = new Rect(area.x + area.width / 2 - 110, area.y + 130, 220, 120);
-            Fill(bucket, g.QuenchHeld ? new Color(0.3f, 0.45f, 0.6f) : new Color(0.22f, 0.3f, 0.38f));
-            Outline(bucket, new Color(0.5f, 0.6f, 0.7f));
-            Text(bucket, g.QuenchHeld ? "<b>in the quench…</b>\nlet go in the green zone" : "<b>hold here</b>\nor hold SPACE", 16, Color.white, TextAnchor.MiddleCenter);
+            // The bucket. No timer and no zone: count it yourself.
+            var bucket = new Rect(area.x + area.width / 2 - 120, area.y, 240, 140);
+            Fill(bucket, g.Medium == QuenchMedium.Oil ? new Color(0.35f, 0.3f, 0.15f) : new Color(0.22f, 0.3f, 0.38f));
+            Outline(bucket, new Color(0.5f, 0.5f, 0.55f));
+            if (g.QuenchHeld)
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    float n = Mathf.PerlinNoise(Time.time * 5f + i, i);
+                    float h = 20 + 60 * n;
+                    Fill(new Rect(bucket.x + 10 + i * 22, bucket.y - h, 14, h), new Color(0.9f, 0.9f, 0.95f, 0.25f));
+                }
+            }
             if (Pressed(bucket)) g.BeginQuench();
         }
 
         private void DrawFinish(ForgeMinigame g)
         {
-            var bar = new Rect(360, 440, 820, 50);
-            Fill(bar, new Color(0.2f, 0.19f, 0.18f));
-            float X(double v) => bar.x + (float)v * bar.width;
-            double c = g.FinishSweetCenter, w = g.FinishSweetWidth;
-            Fill(new Rect(X(c - w), bar.y, X(c + w) - X(c - w), bar.height), new Color(1f, 0.8f, 0.4f, 0.2f));
-            Fill(new Rect(X(c - w / 2), bar.y, X(c + w / 2) - X(c - w / 2), bar.height), new Color(1f, 0.85f, 0.4f, 0.6f));
-            Fill(new Rect(X(g.FinishCursor) - 5, bar.y - 10, 10, bar.height + 20), new Color(0.8f, 0.8f, 0.85f));
-            Outline(bar, new Color(0.45f, 0.42f, 0.4f));
-            Text(new Rect(bar.x, bar.y - 40, bar.width, 30), $"Whetstone  ·  stroke {g.FinishStrokesDone + 1} of {ForgeTuning.FinishStrokes}", 18, Color.white);
-            if (Button(new Rect(bar.x + bar.width / 2 - 100, bar.yMax + 30, 200, 50), "<b>Stroke</b> (SPACE)")) g.FinishStroke();
+            // The blade edge with one dull spot on it. Stroke the stone across the dull spot.
+            var edge = new Rect(360, 560, 820, 26);
+            Fill(edge, new Color(0.62f, 0.64f, 0.68f));
+            float X(double v) => edge.x + (float)v * edge.width;
+            Fill(new Rect(X(g.FinishSweetCenter) - 6, edge.y + 4, 12, edge.height - 8), new Color(0.42f, 0.42f, 0.44f));
+            Fill(new Rect(X(g.FinishCursor) - 18, edge.y - 16, 36, edge.height + 32), new Color(0.35f, 0.3f, 0.26f, 0.85f));
+            if (Pressed(new Rect(edge.x, edge.y - 30, edge.width, edge.height + 60))) g.FinishStroke();
         }
 
         private void DrawPopups()
         {
-            const float life = 0.7f;
+            const float life = 1.8f;
             for (int i = _popups.Count - 1; i >= 0; i--)
             {
                 var p = _popups[i];
                 float age = Time.time - p.Born;
-                if (age > (p.Lane < 0 ? life * 2.5f : life)) { _popups.RemoveAt(i); continue; }
+                if (age > life) { _popups.RemoveAt(i); continue; }
                 var c = p.Color;
-                c.a = 1f - age / (p.Lane < 0 ? life * 2.5f : life);
-                if (p.Lane >= 0)
-                    Text(new Rect(HammerX + 20, LaneY[p.Lane] + 8 - age * 30, 200, 30), $"<b>{p.Text}</b>", 18, c);
-                else
-                    Text(new Rect(260, 340 - age * 20, 900, 34), $"<b>{p.Text}</b>", 22, c, TextAnchor.MiddleCenter);
+                c.a = 1f - age / life;
+                Text(new Rect(260, 300 - age * 20, 900, 34), $"<b>{p.Text}</b>", 22, c, TextAnchor.MiddleCenter);
             }
         }
 
@@ -704,7 +549,9 @@ namespace Mmo.Crafting.Blacksmithing.View
                 (r.Reheats > ForgeTuning.FreeReheats ? $" × {r.Reheats - ForgeTuning.FreeReheats} extra reheat(s)" : "") + "</color></size>\n\n" +
                 $"<b>Quality</b>  floor {r.Floor} + (ceiling {r.Ceiling} − {r.Floor}) × clamp({r.Score:0.00} {(r.Roll >= 0 ? "+" : "−")} {System.Math.Abs(r.Roll):0.00}) = <b>{(r.Botch ? "botch" : r.Quality.ToString())}</b>\n" +
                 $"<size=14><color=#b9a99a>ceiling set by {r.CeilingReason}; inputs average {r.InputMeanQuality}</color></size>\n\n" +
-                $"<b>Strikes</b>  perfect {r.Perfect} · good {r.Good} · missed {r.Missed} · off-beat {r.OffBeat} · cold {r.Cold} · reheats {r.Reheats}\n" +
+                $"<b>Shape</b>  tip {_game.Progress[0]:0.#}/{_game.Target[0]} · body {_game.Progress[1]:0.#}/{_game.Target[1]} · edge {_game.Progress[2]:0.#}/{_game.Target[2]}\n" +
+                $"<b>Strikes</b>  perfect {r.Perfect} · good {r.Good} · off-beat {r.OffBeat} · cold {r.Cold} · beats unused {r.BeatsUnused} · reheats {r.Reheats}\n" +
+                (_game.Recipe.HasQuench ? $"<b>Quench</b>  {_game.Medium}, held {_game.QuenchSeconds:0.0} s (ideal {ForgeTuning.QuenchTargetSeconds(_game.Medium):0.0} s): {_lastQuench}\n" : "") +
                 (_game.Recipe.HasFinish ? $"<b>Finish</b>  {r.FinishScore:0.00}  ·  traits: {traits}\n" : "") +
                 $"<b>Flaws</b>  {flaws}\n\n" +
                 $"<b>Skill</b>  {_skillBefore} → {_skill}" + (r.SkillGain == 0 ? "  <size=14><color=#b9a99a>(no gain: botched, or this recipe is too easy for you)</color></size>" : "");
