@@ -1,0 +1,16 @@
+{
+    "name": "Mmo.Crafting.Blacksmithing.View",
+    "rootNamespace": "Mmo.Crafting.Blacksmithing.View",
+    "references": [
+        "Mmo.Crafting.Blacksmithing.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

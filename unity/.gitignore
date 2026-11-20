@@ -1,0 +1,50 @@
+# Unity generated folders (rebuilt on open; never commit)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE files Unity regenerates
+.vs/
+.vscode/
+.idea/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+/Assets/Plugins/Editor/JetBrains*
+
+# Builds and crash reports
+sysinfo.txt
+*.apk
+*.aab
+*.app
+*.unitypackage
+crashlytics-build.properties
+
+# Addressables build output
+/[Aa]ssets/[Ss]treamingAssets/aa.meta
+/[Aa]ssets/[Ss]treamingAssets/aa/*
+
+.DS_Store
+Thumbs.db
