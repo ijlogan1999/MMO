@@ -62,6 +62,7 @@ public sealed partial class World
         Bark = Goods.Index.TryGetValue("bark", out int bark) ? bark : -1;
         SaddleGood = Goods.Index.TryGetValue("saddle", out int sad) ? sad : -1;
         Quiver = Goods.Index.TryGetValue("quiver", out int qv) ? qv : -1;
+        Gauze = Goods.Index.TryGetValue("gauze", out int gz) ? gz : -1;
         ReagentBag = Goods.Index.TryGetValue("reagent_bag", out int rb) ? rb : -1;
         Roast = Goods.Index.TryGetValue("roast_meat", out int roast) && Config.RoastMeat ? roast : -1;
         Food = Roast >= 0 ? new[] { Bread, Roast, Goods["stew"] } : new[] { Bread, Goods["stew"] };
@@ -114,6 +115,7 @@ public sealed partial class World
     public int Bark { get; }
     public int SaddleGood { get; }
     public int Quiver { get; }
+    public int Gauze { get; }
     public int ReagentBag { get; }
     public long HorsesBought { get; private set; }
     public long MountedTrips { get; private set; }

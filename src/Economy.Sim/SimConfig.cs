@@ -114,6 +114,9 @@ public sealed class SimConfig
     // Cross-craft uses (Ian, 2026-11-19): widen what each craft is good for.
     /// <summary>Fighters below this combat level heal with bandages (tailors) instead of potions.</summary>
     public double BandageMaxLevel { get; set; } = 40;
+    /// <summary>Tailors' gauze (not novice-made) heals as much as GauzeHeals bandages and works up to this combat skill.</summary>
+    public double GauzeMaxLevel { get; set; } = 70;
+    public int GauzeHeals { get; set; } = 2;
     /// <summary>Extra party carry for each member with a travel pack (leatherworkers); packs wear out per trip.</summary>
     public double PackCarry { get; set; } = 3;
     public double PackUsePerTrip { get; set; } = 0.1;
@@ -305,7 +308,7 @@ public sealed class SimConfig
         ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["roast_meat"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
         ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
         ["skinning_knife"] = 0.5, ["sword"] = 3, ["blade_blank"] = 2, ["leather_armor"] = 5, ["plate_armor"] = 15,
-        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["saddle"] = 8, ["quiver"] = 1, ["reagent_bag"] = 1, ["furniture"] = 20,
+        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["saddle"] = 8, ["quiver"] = 1, ["gauze"] = 0.1, ["reagent_bag"] = 1, ["furniture"] = 20,
     };
     public double CargoLossChance { get; set; } = 0.03;
     public double HaulMinMargin { get; set; } = 0.12;

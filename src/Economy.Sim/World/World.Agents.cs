@@ -564,6 +564,7 @@ public sealed partial class World
         if (g == Stew) return Fights(a) ? 6 : 3;
         if (g == Potion && Fights(a)) return 6;
         if (g == Bandage && Fights(a)) return 6;
+        if (g == Gauze && Fights(a)) return 4;
         if (g == Pack && Fights(a)) return 1;
         if (g == Furniture) return int.MaxValue / 2;
         if (g == SaddleGood && a.HasHorse) return 1;
@@ -723,18 +724,20 @@ public sealed partial class World
             if (armor != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.BandOf(Goods.Defs[armorGood].Id) - LevelBands.BandOf(armor.Good.Id)));
         }
         // Low-level fighters heal with bandages (tailors), later with potions (alchemists).
-        int heal = a.CombatSkill < Config.BandageMaxLevel ? Bandage : Potion;
+        int heal = BestHeal(a);
         bool healed = HasHealerThisHour(a);
         if (healed) HealedFightHours++;
         a.PotionCredit += Config.PotionsPerFightHour * (healed ? Config.HealedConsumableFactor : 1.0);
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
-            if (!TakeHealing(a, heal)) power *= 0.7;
+            int used = TakeHealing(a, heal);
+            if (used < 0) power *= 0.7;
+            else if (used == Gauze) a.PotionCredit -= Config.GauzeHeals - 1; // gauze covers more than one heal
         }
         if (a.Inventory[heal] < 3)
         {
-            int want = 4 - TryNoviceMake(a, heal, 4);
+            int want = 4 - (heal == Bandage ? TryNoviceMake(a, heal, 4) : 0);
             if (want > 0) PlaceBuy(a, heal, want, Math.Max(1, (long)Math.Round(a.Belief[heal])));
         }
         if (Config.FoodBuffs)
@@ -793,12 +796,27 @@ public sealed partial class World
 
     public long Deaths { get; private set; }
 
-    /// <summary>Uses one heal, falling back to the other kind if out.</summary>
-    private bool TakeHealing(Agent a, int preferred)
+    /// <summary>Uses one heal, falling back to any other kind on hand. Returns the good used, or -1.</summary>
+    private int TakeHealing(Agent a, int preferred)
     {
-        if (a.Inventory.Take(preferred, 1) == 1) return true;
-        int other = preferred == Bandage ? Potion : Bandage;
-        return a.Inventory.Take(other, 1) == 1;
+        if (a.Inventory.Take(preferred, 1) == 1) return preferred;
+        foreach (int g in new[] { Gauze, Bandage, Potion })
+            if (g >= 0 && g != preferred && a.Inventory.Take(g, 1) == 1) return g;
+        return -1;
+    }
+
+    /// <summary>
+    /// Cheapest heal per use for this player's level: scrap bandages (anyone,
+    /// low levels), tailors' gauze (covers more, mid levels; Ian, 2026-11-20),
+    /// or potions (alchemists, any level).
+    /// </summary>
+    private int BestHeal(Agent a)
+    {
+        int best = Potion;
+        double bestCost = AskOrBelief(a, Potion);
+        if (a.CombatSkill < Config.BandageMaxLevel && AskOrBelief(a, Bandage) < bestCost) { best = Bandage; bestCost = AskOrBelief(a, Bandage); }
+        if (Gauze >= 0 && a.CombatSkill < Config.GauzeMaxLevel && AskOrBelief(a, Gauze) / Config.GauzeHeals < bestCost) best = Gauze;
+        return best;
     }
 
     private void AddLoot(Agent a, int good, double amount)

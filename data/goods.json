@@ -233,6 +233,12 @@
       "use": "Consumable"
     },
     {
+      "id": "gauze",
+      "name": "Gauze",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
       "id": "travel_pack",
       "name": "Travel pack",
       "tier": "Finished",

@@ -356,6 +356,20 @@
       "minutes": 3
     },
     {
+      "id": "fold_gauze",
+      "output": "gauze",
+      "qty": 2,
+      "inputs": {
+        "cloth": 1,
+        "herbs": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 25,
+      "methodCeiling": 90,
+      "minutes": 6
+    },
+    {
       "id": "build_furniture",
       "output": "furniture",
       "qty": 1,

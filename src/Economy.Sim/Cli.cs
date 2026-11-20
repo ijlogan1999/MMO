@@ -24,6 +24,8 @@ public static class Cli
             // instead of spending months drifting there.
             int seeds = int.Parse(Arg(args, "--seeds") ?? "4");
             double calibrateCap = double.Parse(Arg(args, "--cost-cap") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double thinCap = double.Parse(Arg(args, "--thin-cap") ?? "1.3", System.Globalization.CultureInfo.InvariantCulture);
+            double thinUnits = double.Parse(Arg(args, "--thin-units") ?? "1000", System.Globalization.CultureInfo.InvariantCulture);
             var value = new System.Collections.Concurrent.ConcurrentDictionary<string, (double v, double u)>();
             Parallel.For(1, seeds + 1, seed =>
             {
@@ -61,10 +63,14 @@ public static class Cli
                 int g = design[id];
                 double t = traded.TryGetValue(id, out double tp) ? tp : design.BasePrice[g];
                 var r = design.RecipesByOutput[g].FirstOrDefault();
-                if (r != null && depth < 8 && !design.Defs[g].HasDurability && calibrateCap > 0)
+                // Rarely sold goods (Ian, 2026-11-20): a few sales at whatever the one
+                // seller asked say nothing about worth; price them near making cost.
+                bool thin = !value.TryGetValue(id, out var vu) || vu.u < thinUnits;
+                double cap = thin ? thinCap : calibrateCap;
+                if (r != null && depth < 8 && !design.Defs[g].HasDurability && cap > 0)
                 {
                     double cost = (r.Inputs.Sum(i => i.Quantity * (design.Defs[design[i.GoodId]].HasDurability ? MarketCost(i.GoodId) : CappedPrice(i.GoodId, depth + 1))) * 1.25 + r.CraftMinutes * 5) / r.OutputQuantity;
-                    t = Math.Min(t, cost * calibrateCap);
+                    t = Math.Min(t, cost * cap);
                 }
                 return capped[id] = t;
             }
