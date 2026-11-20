@@ -148,7 +148,7 @@ public sealed partial class World
             if (item != null && item.IsUsable)
             {
                 // Outleveled it? Swap in the upgrade if we have it, else get one; the old piece goes up for sale.
-                if (!Config.LevelBands || LevelBands.BandOf(item.Good.Id) >= LevelBands.BandOf(Goods.Defs[goodIfNone].Id)) return item;
+                if (!Config.LevelBands || LevelBands.RankOf(item.Good.Id) >= LevelBands.RankOf(Goods.Defs[goodIfNone].Id)) return item;
                 if (a.Inventory[goodIfNone] > 0)
                 {
                     a.Inventory.Add(Goods[item.Good.Id], 1, item.Quality);
@@ -163,8 +163,10 @@ public sealed partial class World
             }
         }
 
-        // Need a new one: use one already bought, else buy.
+        // Need a new one: use one already bought, make a rough one at novice
+        // level if that's much cheaper, else buy.
         int good = goodIfNone;
+        if (a.Inventory[good] == 0) TryNoviceMake(a, good, 1);
         if (a.Inventory[good] > 0)
         {
             int q = a.Inventory.QualityOf(good);
@@ -593,6 +595,10 @@ public sealed partial class World
     }
 
     /// <summary>Hours fought, by the fighter's profession at the time.</summary>
+    /// <summary>Fight hours between weapon upgrades, for players up to level 20 and above.</summary>
+    public List<double> UpgradeGapsEarly { get; } = new();
+    public List<double> UpgradeGapsLate { get; } = new();
+
     public long[] FightHoursByRole { get; } = new long[Enum.GetValues<Role>().Length];
 
     private void Fight(Agent a, double productivity)
@@ -603,11 +609,11 @@ public sealed partial class World
         int level = LevelOf(a);
         int band = Config.LevelBands ? LevelBands.BandForLevel(level) : 0;
         // Each piece unlocks at its own level inside the band.
-        int swordBand = Config.LevelBands ? LevelBands.WearableBand("sword", level) : 0;
+        string swordId = Config.LevelBands ? LevelBands.WearableId("sword", level) : "sword";
         string armorBase = a.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
         int armorBand = Config.LevelBands ? LevelBands.WearableBand(armorBase, level) : 0;
         bool wantRelic = coins > 15000 && (!Config.LevelBands || level >= LevelBands.MinLevel("relic_sword"));
-        int weaponGood = Goods[wantRelic ? "relic_sword" : LevelBands.Id("sword", swordBand)];
+        int weaponGood = Goods[wantRelic ? "relic_sword" : swordId];
         // Healers and casters wear cloth (tailors); others leather, then plate.
         bool wantPlate = coins > 10000 && (!Config.LevelBands || level >= LevelBands.MinLevel("plate_armor"));
         int armorGood = Goods[a.CombatRole == CombatRole.Healer ? LevelBands.Id(armorBase, armorBand) : wantPlate ? "plate_armor" : LevelBands.Id(armorBase, armorBand)];
@@ -615,6 +621,14 @@ public sealed partial class World
         a.WantArmor = armorGood;
 
         var weapon = Maintain(a, a.Weapon, weaponGood, w => a.Weapon = w);
+        a.FightHoursTotal += 1;
+        if (weapon != null)
+        {
+            int rank = LevelBands.RankOf(weapon.Good.Id);
+            if (a.WeaponRank >= 0 && rank > a.WeaponRank && Tracking)
+                (LevelOf(a) <= LevelBands.LevelsPerBand ? UpgradeGapsEarly : UpgradeGapsLate).Add(a.FightHoursTotal - a.FightHoursAtUpgrade);
+            if (rank != a.WeaponRank) { a.WeaponRank = rank; a.FightHoursAtUpgrade = a.FightHoursTotal; }
+        }
         var armor = Maintain(a, a.Armor, armorGood, x => a.Armor = x);
         a.GearReserve = 0;
         if (weapon == null || weapon.Good.Id != Goods.Defs[weaponGood].Id) a.GearReserve += (long)AskOrBelief(a, weaponGood);
@@ -624,7 +638,7 @@ public sealed partial class World
         // Harder zones as you level: gear from a lower band hits softer and protects less.
         if (Config.LevelBands)
         {
-            if (weapon != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.BandOf(Goods.Defs[weaponGood].Id) - LevelBands.BandOf(weapon.Good.Id)));
+            if (weapon != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.RankOf(Goods.Defs[weaponGood].Id) - LevelBands.RankOf(weapon.Good.Id)) / (double)LevelBands.StepsPerBand);
             if (armor != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.BandOf(Goods.Defs[armorGood].Id) - LevelBands.BandOf(armor.Good.Id)));
         }
         // Low-level fighters heal with bandages (tailors), later with potions (alchemists).

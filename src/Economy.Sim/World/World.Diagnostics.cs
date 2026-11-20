@@ -21,7 +21,7 @@ public sealed partial class World
     /// <summary>Average reference price of each good across towns, per day.</summary>
     public List<double[]> DailyPrices { get; } = new();
 
-    private bool Tracking => Day >= Config.WarmupDays;
+    public bool Tracking => Day >= Config.WarmupDays;
 
     private void Track(Agent a, IncomeKind kind, long coins)
     {

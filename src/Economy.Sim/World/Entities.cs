@@ -125,6 +125,10 @@ public sealed class Agent
     public int WantWeapon { get; set; } = -1;
     /// <summary>Coins set aside for missing or outleveled gear; extras (stew, packs, furniture, tokens) wait until this is covered.</summary>
     public long GearReserve { get; set; }
+    /// <summary>Hours fought in total, and at the last weapon upgrade (for upgrade pacing).</summary>
+    public double FightHoursTotal { get; set; }
+    public double FightHoursAtUpgrade { get; set; }
+    public int WeaponRank { get; set; } = -1;
     public int WantArmor { get; set; } = -1;
     /// <summary>Gear this player has on order, and gear it stopped ordering (no crafter took it).</summary>
     public HashSet<int> WorkOrderGoods { get; } = new();

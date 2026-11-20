@@ -62,9 +62,8 @@ public static class Cli
             // Higher-band gear barely trades in a calm run; price it from its
             // band-1 piece's market price, scaled by how much more its recipe costs.
             foreach (var baseId in LevelBands.BandedGear)
-                for (int b = 1; b < LevelBands.Count; b++)
+                foreach (var bid in design.Defs.Select(d => d.Id).Where(x => x != baseId && (x.StartsWith(baseId + "_b") || x.StartsWith(baseId + "_s"))))
                 {
-                    string bid = LevelBands.Id(baseId, b);
                     if (prices.ContainsKey(bid) || !prices.TryGetValue(baseId, out double basePrice)) continue;
                     prices[bid] = Math.Round(basePrice * MarketCost(bid) / MarketCost(baseId), 1);
                 }
@@ -183,7 +182,7 @@ public static class Cli
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
             var lv = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(World.World.LevelOf).ToList();
             Console.WriteLine($"  levels: band1 {lv.Count(l => l <= 20)}, band2 {lv.Count(l => l is > 20 and <= 40)}, band3 {lv.Count(l => l is > 40 and <= 60)}, band4 {lv.Count(l => l > 60)}; median {lv.OrderBy(l => l).ElementAt(lv.Count / 2)}");
-            foreach (var id in new[] { "iron_ore", "copper_ore", "iron_ingot", "copper_ingot", "alloy_ingot", "sword", "sword_b2", "sword_b3", "sword_b4", "leather_armor", "leather_armor_b2", "leather_armor_b3", "leather_armor_b4" })
+            foreach (var id in new[] { "iron_ore", "copper_ore", "iron_ingot", "copper_ingot", "alloy_ingot", "sword", "sword_s2", "sword_s5", "sword_b2", "sword_b3", "sword_b4", "leather_armor", "leather_armor_b2", "leather_armor_b3", "leather_armor_b4" })
             {
                 int g = world.Goods[id];
                 Console.Write($"  {id} ref {Economy.Core.Currency.Money.Format(world.Towns[0].Markets[g].Reference.Value)} wearing {world.Agents.Count(a => a.Active && (a.Weapon?.Good.Id == id || a.Armor?.Good.Id == id))};");
@@ -191,8 +190,13 @@ public static class Cli
             Console.WriteLine();
             var players = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).ToList();
             int armed = players.Count(a => a.Weapon != null), armored = players.Count(a => a.Armor != null);
-            int upToDate = players.Count(a => a.Weapon != null && LevelBands.BandOf(a.Weapon.Good.Id) >= LevelBands.WearableBand("sword", World.World.LevelOf(a)));
-            var behind = players.Where(a => a.Weapon != null && LevelBands.BandOf(a.Weapon.Good.Id) < LevelBands.WearableBand("sword", World.World.LevelOf(a))).Select(a => world.Coins(a)).OrderBy(c => c).ToList();
+            int upToDate = players.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)));
+            var behind = players.Where(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) < LevelBands.WearableRank("sword", World.World.LevelOf(a))).Select(a => world.Coins(a)).OrderBy(c => c).ToList();
+            {
+                static double Med(List<double> x) => x.Count == 0 ? double.NaN : x.OrderBy(v => v).ElementAt(x.Count / 2);
+                var ranks = players.Where(a => a.Weapon != null && a.Weapon.Good.Id.StartsWith("sword")).GroupBy(a => LevelBands.BandOf(a.Weapon!.Good.Id)).OrderBy(g => g.Key);
+                Console.WriteLine($"  weapon upgrades: {world.UpgradeGapsEarly.Count} at level 1-20 (median {Med(world.UpgradeGapsEarly):0.0} fight hours apart), {world.UpgradeGapsLate.Count} above (median {Med(world.UpgradeGapsLate):0.0}h); swords worn by band " + string.Join(", ", ranks.Select(g => $"b{g.Key + 1} {g.Count()}")));
+            }
             Console.WriteLine($"  gear: {players.Count} players, {armed} with a weapon, {armored} with armor, {upToDate} weapon up to level; behind-on-weapon median coins {(behind.Count > 0 ? behind[behind.Count / 2] : 0)}");
             {
                 int swd = world.Goods["sword"];

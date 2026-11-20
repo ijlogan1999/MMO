@@ -38,6 +38,17 @@ public class LevelBandTests
     }
 
     [Fact]
+    public void SwordsComeInStepsAboutEveryFourLevels()
+    {
+        var mins = Enumerable.Range(0, LevelBands.Count * LevelBands.StepsPerBand).Select(r => LevelBands.MinLevel(LevelBands.StepId("sword", r))).ToList();
+        Assert.Equal(1, mins[0]);
+        for (int i = 1; i < mins.Count; i++) Assert.True(mins[i] > mins[i - 1], $"step {i} should need a higher level");
+        Assert.All(mins.Zip(mins.Skip(1), (a, b) => b - a), gap => Assert.InRange(gap, 2, 7));
+        Assert.Contains(Catalog.RecipesFor("sword_s3").First().Inputs, i => i.GoodId == "iron_ingot" && i.Quantity == 2);
+        Assert.Equal(LevelBands.StepId("sword", 6), LevelBands.WearableId("sword", mins[6]));
+    }
+
+    [Fact]
     public void WearableBandWaitsForEachPiecesOwnLevel()
     {
         int min = LevelBands.MinLevel("sword_b2");

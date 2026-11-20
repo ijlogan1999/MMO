@@ -102,7 +102,7 @@
       "output": "blade_blank",
       "qty": 1,
       "inputs": {
-        "iron_ingot": 2,
+        "iron_ingot": 1,
         "coal": 1
       },
       "station": "forge",

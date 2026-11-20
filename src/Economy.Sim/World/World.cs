@@ -282,7 +282,7 @@ public sealed partial class World
         {
             int lvl = LevelOf(agent);
             string armorBase = agent.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
-            agent.Weapon = Durability.Create(Goods.Defs[Goods[LevelBands.Id("sword", Config.LevelBands ? LevelBands.WearableBand("sword", lvl) : 0)]], q);
+            agent.Weapon = Durability.Create(Goods.Defs[Goods[Config.LevelBands ? LevelBands.WearableId("sword", lvl) : "sword"]], q);
             agent.Armor = Durability.Create(Goods.Defs[Goods[LevelBands.Id(armorBase, Config.LevelBands ? LevelBands.WearableBand(armorBase, lvl) : 0)]], q);
             if (role == Role.Fighter) agent.Inventory.Add(Potion, 3, 40);
         }
