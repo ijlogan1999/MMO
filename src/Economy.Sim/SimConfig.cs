@@ -133,6 +133,8 @@ public sealed class SimConfig
 
     /// <summary>Crafters stop making what is not selling: hold at most this many days of recent sales (at least CraftStockMin units).</summary>
     public bool CraftersWatchSales { get; set; } = true;
+    /// <summary>Count only stock beyond what a crafter keeps for their own use as unsold (fix: alchemists who fight kept 6 potions and never brewed).</summary>
+    public bool OwnUseNotUnsold { get; set; } = true;
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;

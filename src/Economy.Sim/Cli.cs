@@ -194,15 +194,21 @@ public static class Cli
             {
                 var g = w.Agents.Where(a => a.Active && a.Role == watch).ToList();
                 if (g.Count > 0)
-                    Console.WriteLine($"  {watch} day {w.Day + 1}: n {g.Count} coins avg {g.Average(a => w.Coins(a)):0} median {g.Select(a => w.Coins(a)).OrderBy(c => c).ElementAt(g.Count / 2)} skill avg {g.Average(a => a.Skill):0} max {g.Max(a => a.Skill):0} >=60: {g.Count(a => a.Skill >= 60)} new(<10d) {g.Count(a => w.Hour - a.JoinedHour < 240)}");
+                    Console.WriteLine($"  {watch} day {w.Day + 1}: n {g.Count} coins avg {g.Average(a => w.Coins(a)):0} median {g.Select(a => w.Coins(a)).OrderBy(c => c).ElementAt(g.Count / 2)} weekly income shop {g.Where(a => a.HasShop).Select(a => a.DailyIncome.Sum()).DefaultIfEmpty(0).Average():0} ({g.Count(a => a.HasShop)}) others median {g.Where(a => !a.HasShop).Select(a => a.DailyIncome.Sum()).OrderBy(x => x).DefaultIfEmpty(0).ElementAt(Math.Max(0, g.Count(a => !a.HasShop) / 2 - (g.Count(a => !a.HasShop) > 0 ? 0 : 0))):0} skill avg {g.Average(a => a.Skill):0} max {g.Max(a => a.Skill):0} >=60: {g.Count(a => a.Skill >= 60)} new(<10d) {g.Count(a => w.Hour - a.JoinedHour < 240)}");
             }
             if (w.Day % 10 != 9 && !args.Contains("--verbose")) return;
             var d = w.Metrics.Days[^1];
+            if (Arg(args, "--watch-role") is string wr2 && Enum.TryParse<Role>(wr2, true, out var watch2) && w.Day % 30 == 29)
+                foreach (var a in w.Agents.Where(a => a.Active && a.Role == watch2).OrderByDescending(a => w.Coins(a)).Where((a, i) => i < 3 || i % 6 == 0))
+                    Console.WriteLine($"    top: coins {w.Coins(a)} week {a.DailyIncome.Sum()} skill {a.Skill:0} shop {a.HasShop} town {a.Town} inv herbs {a.Inventory[w.Goods["herbs"]]} fw {a.Inventory[w.Goods["firewood"]]} pot {a.Inventory[w.Goods["healing_potion"]]} belief pot {a.Belief[w.Goods["healing_potion"]]:0} herbs {a.Belief[w.Goods["herbs"]]:0} fw {a.Belief[w.Goods["firewood"]]:0} sold " + string.Join(",", Enumerable.Range(0, w.Goods.Count).Where(g => a.SalesPerDay[g] > 0.5).Select(g => $"{w.Goods.Defs[g].Id}:{a.SalesPerDay[g]:0.0}")));
             if (args.Contains("--basket")) Console.WriteLine("  basket parts: " + string.Join(" ", Reporting.MetricsRecorder.BasketItems.Select((b, i) => $"{b.id} {d.BasketParts[i]:0}")));
             Console.WriteLine($"day {d.Day + 1,3}: active {d.Active,5}  money/player {d.MoneyPerPlayer,7:0}  treasury {d.Treasury,9}  basket {d.Basket,7:0.0}  kit {d.StarterKitHours,5:0.0}h  token {d.TokenPrice,6:0}  npc {(d.PlayerValue + d.NpcValue > 0 ? 100.0 * d.NpcValue / (d.PlayerValue + d.NpcValue) : 0),5:0.0}%");
         });
         if (args.Contains("--roles"))
         {
+            if (Arg(args, "--town-prices") is string tp)
+                foreach (var id in tp.Split(','))
+                    Console.WriteLine($"  {id} by town: " + string.Join(" | ", world.Towns.Select(t => $"{t.Def.Id} last {t.Markets[world.Goods[id]].LastPrice} ref {t.Markets[world.Goods[id]].Reference.Value:0} npc {t.Markets[world.Goods[id]].NpcStock}")));
             if (Arg(args, "--trades") is string tg)
                 foreach (var id in tg.Split(','))
                 {

@@ -413,7 +413,8 @@ public sealed partial class World
             if (r.Skill != skill || r.MinSkill > a.Skill) continue;
             int output = Goods[r.OutputGoodId];
             // A real crafter stops making (and buying materials for) what is not selling.
-            if (Config.CraftersWatchSales && a.Inventory[output] >= UnsoldLimit(a, output)) continue;
+            // What they keep for their own use (potions, bandages, meals for fighting) isn't unsold stock.
+            if (Config.CraftersWatchSales && a.Inventory[output] - (Config.OwnUseNotUnsold ? KeepAmount(a, output) : 0) >= UnsoldLimit(a, output)) continue;
             double value = a.Belief[output] * r.OutputQuantity;
             double cost = Config.StationFee;
             foreach (var (g, q) in TieredInputs(r, a.Skill)) cost += InputCost(a, g) * q;
