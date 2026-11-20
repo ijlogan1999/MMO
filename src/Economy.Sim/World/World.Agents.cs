@@ -729,7 +729,8 @@ public sealed partial class World
         int heal = BestHeal(a);
         bool healed = HasHealerThisHour(a);
         if (healed) HealedFightHours++;
-        a.PotionCredit += Config.PotionsPerFightHour * (healed ? Config.HealedConsumableFactor : 1.0);
+        double zoneSupply = 1 + Config.ZoneSupplyPerBand * band;
+        a.PotionCredit += Config.PotionsPerFightHour * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
@@ -745,11 +746,11 @@ public sealed partial class World
         if (Config.FoodBuffs)
         {
             double t = a.CombatSkill / 100.0;
-            a.BuffCredit += (Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t) * (healed ? Config.HealedConsumableFactor : 1.0);
+            a.BuffCredit += (Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t) * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
             if (a.BuffCredit >= 1)
             {
                 a.BuffCredit -= 1;
-                if (a.Inventory.Take(Stew, 1) == 1) a.BuffHours = 1.0 / Math.Max(0.01, Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t);
+                if (a.Inventory.Take(Stew, 1) == 1) a.BuffHours = 1.0 / Math.Max(0.01, (Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t) * zoneSupply);
             }
             if (a.BuffHours > 0) { a.BuffHours -= 1; power *= 1 + Config.BuffPowerBonus; }
             // Keep a few buff meals on hand; stronger fighters keep more.

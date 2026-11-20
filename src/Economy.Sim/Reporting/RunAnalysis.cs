@@ -112,9 +112,12 @@ public static class RunAnalysis
         long t0 = m.Days.First(d => d.Day == warm - 1).Treasury;
         summary.TreasuryDrift = t0 > 0 ? (double)(m.Days[^1].Treasury - t0) / t0 : 0;
 
-        double b0 = Avg(m.Days, warm - 7, warm - 1, d => d.Basket);
+        // Prices are measured from the end of the launch period (Ian, 2026-11-20):
+        // the first weeks' shortages while crafters train up aren't drift.
+        int bStart = Math.Min(Math.Max(warm, w.Config.PriceBaselineDay), w.Config.Days - 7);
+        double b0 = Avg(m.Days, bStart - 7, bStart - 1, d => d.Basket);
         double b1 = Avg(m.Days, w.Config.Days - 7, w.Config.Days - 1, d => d.Basket);
-        double weeks = (w.Config.Days - warm) / 7.0;
+        double weeks = (w.Config.Days - bStart) / 7.0;
         summary.BasketTotalInflation = b0 > 0 ? b1 / b0 - 1 : 0;
         summary.BasketWeeklyInflation = b0 > 0 && b1 > 0 ? Math.Pow(b1 / b0, 1 / weeks) - 1 : 0;
 

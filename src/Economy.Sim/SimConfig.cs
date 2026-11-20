@@ -13,6 +13,8 @@ public sealed class SimConfig
     // Run shape
     public int Days { get; set; } = 90;
     public int WarmupDays { get; set; } = 30;
+    /// <summary>Day the price-steadiness check measures from (the week before it): after the launch shortages.</summary>
+    public int PriceBaselineDay { get; set; } = 60;
     public int AgentCount { get; set; } = 2000;
     public ulong Seed { get; set; } = 1;
     public bool StabilizerEnabled { get; set; } = true;
@@ -183,7 +185,7 @@ public sealed class SimConfig
     /// <summary>Crafters never list their own work below today's material cost, so prices follow inputs.</summary>
     public bool CrafterCostFloor { get; set; } = false;
     /// <summary>Bark gathered per unit of timber felled (used for tanning when the data has bark).</summary>
-    public double BarkPerTimber { get; set; } = 0.5;
+    public double BarkPerTimber { get; set; } = 1.5;
 
     /// <summary>Horses (Ian, 2026-11-20): haulers of HorseMinLevel+ buy a horse from the stable (a coin sink); riding needs a leather saddle, which wears while travelling.</summary>
     public bool Horses { get; set; } = true;
@@ -273,6 +275,8 @@ public sealed class SimConfig
     public int WeaponWearPerHour { get; set; } = 10;
     public int ArmorWearPerHour { get; set; } = 10;
     public double PotionsPerFightHour { get; set; } = 0.2;
+    /// <summary>Harder zones (Ian, 2026-11-20): heals and buff meals used per fight hour rise by this share per level band above the first.</summary>
+    public double ZoneSupplyPerBand { get; set; } = 0;
     public double FighterHidePerHour { get; set; } = 0.4;
     public double FighterMeatPerHour { get; set; } = 0.5;
     public double RelicCoreDropPerHour { get; set; } = 0.015;
