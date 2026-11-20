@@ -209,6 +209,7 @@ public sealed partial class World
                 Ledger.Transfer(Escrow, Ledger.Treasury, total, Flow.NpcSale);
             }
             ReceiveGoods(buyer, good, f.Quantity, f.Sell.Quality);
+            TradeByRole[(good, (int)buyer.Role, sellerId >= 0 ? (int)Agents[sellerId].Role : -1)] = TradeByRole.GetValueOrDefault((good, (int)buyer.Role, sellerId >= 0 ? (int)Agents[sellerId].Role : -1)) + f.Quantity;
             if (good != TokenIndex && IsBusinessInput(buyer, good)) { buyer.TodayIncome -= total; Track(buyer, IncomeKind.InputCosts, -total); TrackGood(good, GoodFlowKind.BoughtAsInput, f.Quantity); }
             if (good != TokenIndex) TrackGood(good, sellerId >= 0 ? GoodFlowKind.PlayerToPlayer : GoodFlowKind.BoughtFromNpc, f.Quantity);
             else TrackSpend(buyer, SpendKind.Token, total);
@@ -275,6 +276,9 @@ public sealed partial class World
     }
 
     /// <summary>True when a purchase is a cost of doing business rather than consumption.</summary>
+    /// <summary>Units traded per (good, buyer role, seller role or -1 for NPC), for diagnostics.</summary>
+    public Dictionary<(int good, int buyer, int seller), long> TradeByRole { get; } = new();
+
     private bool IsBusinessInput(Agent a, int good) => a.Role switch
     {
         Role.Speculator => true,

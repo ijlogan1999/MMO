@@ -20,6 +20,12 @@
       "use": "Material"
     },
     {
+      "id": "bark",
+      "name": "Bark",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
       "id": "grain",
       "name": "Grain",
       "tier": "Raw",

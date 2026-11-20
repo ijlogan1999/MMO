@@ -372,6 +372,8 @@ public sealed partial class World
         if (town.Stock[good] < cap * Config.OverharvestFraction && town.DepletedUntilHour[good] <= Hour)
             town.DepletedUntilHour[good] = Hour + Config.OverharvestDays * 24;
         AddProduce(a, good, amount);
+        // Felling timber also yields bark, which tanners use.
+        if (good == Timber && Bark >= 0 && Config.BarkPerTimber > 0) AddProduce(a, Bark, amount * Config.BarkPerTimber);
     }
 
     private void AddProduce(Agent a, int good, double amount)
@@ -537,6 +539,8 @@ public sealed partial class World
             if (sell <= 0) continue;
             long price = Math.Max(1, (long)Math.Round(a.Belief[g] * (0.97 + 0.06 * _agentRng.NextDouble())));
             if (a.Role == Role.Bot) price = Math.Max(1, (long)(a.Belief[g] * 0.9));
+            // A crafter does not sell its own work below what the materials cost now.
+            if (Config.CrafterCostFloor && Roles.IsCrafter(a.Role) && MakesItself(a, g)) price = Math.Max(price, (long)Math.Ceiling(MaterialCost(a, g)));
             PlaceSell(a, g, sell, price);
         }
     }
@@ -567,9 +571,29 @@ public sealed partial class World
         if (Roles.IsCrafter(a.Role) && g == RepairStockFor(a.Role)) return 4;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
+        // A part the crafter makes itself (tailors' padding, leatherworkers' leather):
+        // keep a few for their own crafts and sell the rest to the trades that need it.
+        if (Config.SellOwnParts && Roles.IsCrafter(a.Role) && IsInputFor(a, g) && MakesItself(a, g)) return Config.OwnPartKeep;
         if (Roles.IsCrafter(a.Role) && IsInputFor(a, g)) return 30;
         if (a.NoviceKeep.TryGetValue(g, out int nk)) return nk;
         return 0;
+    }
+
+    /// <summary>Materials (at today's prices) and station fee for one unit of a good, by the crafter's own recipe.</summary>
+    private double MaterialCost(Agent a, int g)
+    {
+        string skill = Roles.CraftSkill(a.Role)!;
+        var r = Goods.RecipesByOutput[g].FirstOrDefault(x => x.Skill == skill);
+        if (r == null) return 0;
+        double cost = Config.StationFee;
+        foreach (var (i, q) in TieredInputs(r, Math.Min(a.Skill, r.MinSkill))) cost += Math.Max(1, Towns[a.Town].Markets[i].Reference.Value) * q;
+        return cost / r.OutputQuantity;
+    }
+
+    private bool MakesItself(Agent a, int g)
+    {
+        string skill = Roles.CraftSkill(a.Role)!;
+        return Goods.RecipesByOutput[g].Any(r => r.Skill == skill);
     }
 
     private bool IsInputFor(Agent a, int g)

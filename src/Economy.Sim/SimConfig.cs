@@ -167,6 +167,14 @@ public sealed class SimConfig
     public double CrafterQuestValue { get; set; } = 3000;
     public double CraftStockDays { get; set; } = 4;
     public int CraftStockMin { get; set; } = 3;
+
+    /// <summary>Crafters sell the parts they make themselves beyond a few for their own use (tailors' padding goes to leatherworkers).</summary>
+    public bool SellOwnParts { get; set; } = true;
+    public int OwnPartKeep { get; set; } = 6;
+    /// <summary>Crafters never list their own work below today's material cost, so prices follow inputs.</summary>
+    public bool CrafterCostFloor { get; set; } = false;
+    /// <summary>Bark gathered per unit of timber felled (used for tanning when the data has bark).</summary>
+    public double BarkPerTimber { get; set; } = 0.5;
     /// <summary>Weight of today in each player's running average of units sold per day.</summary>
     public double SalesAverageWeight { get; set; } = 0.15;
     public double DeathChancePerFightHour { get; set; } = 0.03;
@@ -274,7 +282,7 @@ public sealed class SimConfig
     public Dictionary<string, double> GoodWeights { get; set; } = new()
     {
         ["iron_ore"] = 2, ["copper_ore"] = 2, ["coal"] = 1.5, ["timber"] = 2, ["hide"] = 1, ["meat"] = 1, ["grain"] = 0.5,
-        ["fiber"] = 0.3, ["herbs"] = 0.2, ["ember_slag"] = 1.5, ["ice_crystal"] = 1, ["relic_core"] = 0.5,
+        ["fiber"] = 0.3, ["herbs"] = 0.2, ["bark"] = 0.3, ["ember_slag"] = 1.5, ["ice_crystal"] = 1, ["relic_core"] = 0.5,
         ["iron_ingot"] = 1, ["plank"] = 1, ["firewood"] = 1, ["flour"] = 0.5, ["cloth"] = 0.3, ["leather"] = 0.5,
         ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["roast_meat"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
         ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
@@ -312,7 +320,7 @@ public sealed class SimConfig
         new() { Name = "Superior", MinSkill = 50, InputMultiplier = 2.0,
             Extra = new() { ["blacksmithing"] = new() { ["coal"] = 2 }, ["leatherworking"] = new() { ["herbs"] = 2 }, ["tailoring"] = new() { ["fiber"] = 2 } } },
         new() { Name = "Masterwork", MinSkill = 75, InputMultiplier = 3.0,
-            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 3, ["leather"] = 1, ["ember_slag"] = 1 }, ["leatherworking"] = new() { ["herbs"] = 3, ["cloth"] = 1, ["ice_crystal"] = 1 }, ["tailoring"] = new() { ["ice_crystal"] = 1 } } },
+            Extra = new() { ["blacksmithing"] = new() { ["coal"] = 3, ["leather"] = 1, ["ember_slag"] = 1 }, ["leatherworking"] = new() { ["bark"] = 3, ["cloth"] = 1, ["ice_crystal"] = 1 }, ["tailoring"] = new() { ["ice_crystal"] = 1 } } },
     };
 
     /// <summary>New players get their role's starter kit from a short quest instead of buying it.</summary>

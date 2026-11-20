@@ -89,7 +89,7 @@
       "qty": 1,
       "inputs": {
         "hide": 2,
-        "herbs": 1
+        "bark": 1
       },
       "station": "tannery",
       "skill": "leatherworking",
@@ -156,10 +156,11 @@
     {
       "id": "roast_meat",
       "output": "roast_meat",
-      "qty": 3,
+      "qty": 6,
       "inputs": {
-        "meat": 2,
-        "firewood": 1
+        "meat": 4,
+        "herbs": 1,
+        "firewood": 2
       },
       "station": "kitchen",
       "skill": "cooking",

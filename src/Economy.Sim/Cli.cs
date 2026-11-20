@@ -178,6 +178,14 @@ public static class Cli
         });
         if (args.Contains("--roles"))
         {
+            if (Arg(args, "--trades") is string tg)
+                foreach (var id in tg.Split(','))
+                {
+                    int gi = world.Goods[id];
+                    var rows = world.TradeByRole.Where(kv => kv.Key.good == gi).OrderByDescending(kv => kv.Value).Take(8)
+                        .Select(kv => $"{(Role)kv.Key.buyer}<-{(kv.Key.seller < 0 ? "NPC" : ((Role)kv.Key.seller).ToString())} {kv.Value}");
+                    Console.WriteLine($"  trades {id}: {string.Join(", ", rows)}");
+                }
             var inc = world.RoleIncome();
             foreach (var g in world.Agents.Where(a => a.Active).GroupBy(a => a.Role).OrderBy(g => g.Key))
                 Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {Economy.Core.Currency.Money.Format(g.Average(a => world.Coins(a))),12}");

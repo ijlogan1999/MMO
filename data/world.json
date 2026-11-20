@@ -121,6 +121,7 @@
     "relic_core": 3000,
     "ember_slag": 250,
     "ice_crystal": 250,
-    "copper_ore": 50
+    "copper_ore": 50,
+    "bark": 15
   }
 }
