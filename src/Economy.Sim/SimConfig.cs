@@ -129,7 +129,11 @@ public sealed class SimConfig
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;
-    public string[] NoviceGoods { get; set; } = { "bread", "bandage", "flour", "firewood", "cloth" };
+    public string[] NoviceGoods { get; set; } = { "bread", "bandage", "flour", "firewood", "cloth",
+        // Rough early swords (Ian, 2026-11-19), and the bottom-tier parts they need.
+        "iron_ingot", "blade_blank", "leather", "plank", "sword", "sword_s2", "sword_s3", "sword_s4", "sword_s5" };
+    /// <summary>Gear is made at novice level whenever buying costs more than this times making it.</summary>
+    public double NoviceGearThreshold { get; set; } = 1.0;
     /// <summary>Novice work: quality, and coins of time cost per craft step (it's slow).</summary>
     public double NoviceQuality { get; set; } = 25;
     public double NoviceTimeCost { get; set; } = 40;
@@ -317,6 +321,11 @@ public sealed class SimConfig
     public bool SaveForGear { get; set; } = true;
     /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>
     public int CopperMinLevel { get; set; } = 21;
+    /// <summary>Healers heal with abilities: fighting with one uses this share of the potions and buff meals.</summary>
+    public bool HealersReduceConsumables { get; set; } = true;
+    public double HealedConsumableFactor { get; set; } = 0.3;
+    /// <summary>Chance a fighter groups up when enough healers are out.</summary>
+    public double GroupFightChance { get; set; } = 0.6;
 
     /// <summary>Hours of play the starter quest takes.</summary>
     public double StarterQuestHours { get; set; } = 1.0;

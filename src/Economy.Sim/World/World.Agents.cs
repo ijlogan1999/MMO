@@ -149,6 +149,7 @@ public sealed partial class World
             {
                 // Outleveled it? Swap in the upgrade if we have it, else get one; the old piece goes up for sale.
                 if (!Config.LevelBands || LevelBands.RankOf(item.Good.Id) >= LevelBands.RankOf(Goods.Defs[goodIfNone].Id)) return item;
+                if (a.Inventory[goodIfNone] == 0) TryNoviceMake(a, goodIfNone, 1);
                 if (a.Inventory[goodIfNone] > 0)
                 {
                     a.Inventory.Add(Goods[item.Good.Id], 1, item.Quality);
@@ -167,6 +168,34 @@ public sealed partial class World
         // level if that's much cheaper, else buy.
         int good = goodIfNone;
         if (a.Inventory[good] == 0) TryNoviceMake(a, good, 1);
+        // Nothing for my level yet? Wear the best older piece I'm carrying meanwhile.
+        if (a.Inventory[good] == 0 && Config.LevelBands)
+        {
+            int fallback = -1, best = -1, want = LevelBands.RankOf(Goods.Defs[good].Id);
+            foreach (int g in Goods.GearLadder(good))
+                if (a.Inventory[g] > 0) { int r = LevelBands.RankOf(Goods.Defs[g].Id); if (r < want && r > best) { best = r; fallback = g; } }
+            if (fallback < 0 && Coins(a) < AskOrBelief(a, good))
+            {
+                // Can't afford the right one: make the best rough piece a novice can, as a stopgap.
+                int top = -1, topRank = -1;
+                foreach (int g in Goods.GearLadder(good))
+                {
+                    int r = LevelBands.RankOf(Goods.Defs[g].Id);
+                    if (r < want && r > topRank && NoviceRecipes.ContainsKey(g)) { top = g; topRank = r; }
+                }
+                if (top >= 0 && TryNoviceMake(a, top, 1) > 0) fallback = top;
+            }
+            if (fallback >= 0)
+            {
+                int q = a.Inventory.QualityOf(fallback);
+                a.Inventory.Take(fallback, 1);
+                var older = Durability.Create(Goods.Defs[fallback], q, Goods.Defs[fallback].IsMagical ? q : null);
+                set(older);
+                // Still want the right one: keep shopping for it.
+                if (!PostWorkOrder(a, good)) PlaceBuy(a, good, 1, Math.Max(1, (long)Math.Round(AskOrBelief(a, good))));
+                return older;
+            }
+        }
         if (a.Inventory[good] > 0)
         {
             int q = a.Inventory.QualityOf(good);
@@ -643,7 +672,9 @@ public sealed partial class World
         }
         // Low-level fighters heal with bandages (tailors), later with potions (alchemists).
         int heal = a.CombatSkill < Config.BandageMaxLevel ? Bandage : Potion;
-        a.PotionCredit += Config.PotionsPerFightHour;
+        bool healed = HasHealerThisHour(a);
+        if (healed) HealedFightHours++;
+        a.PotionCredit += Config.PotionsPerFightHour * (healed ? Config.HealedConsumableFactor : 1.0);
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
@@ -657,7 +688,7 @@ public sealed partial class World
         if (Config.FoodBuffs)
         {
             double t = a.CombatSkill / 100.0;
-            a.BuffCredit += Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t;
+            a.BuffCredit += (Config.BuffFoodPerFightHourMin + (Config.BuffFoodPerFightHourMax - Config.BuffFoodPerFightHourMin) * t) * (healed ? Config.HealedConsumableFactor : 1.0);
             if (a.BuffCredit >= 1)
             {
                 a.BuffCredit -= 1;
@@ -858,7 +889,35 @@ public sealed partial class World
                 Track(f, IncomeKind.Bounties, each);
             }
         }
+        // Healer share of each town's fighters this hour, for next hour's groups.
+        if (_healerShare.Length != Towns.Length) _healerShare = new double[Towns.Length];
+        var fighters = new int[Towns.Length];
+        var healers = new int[Towns.Length];
+        foreach (var f in _fightersThisHour)
+        {
+            fighters[f.Town]++;
+            if (f.CombatRole == CombatRole.Healer) healers[f.Town]++;
+        }
+        for (int t = 0; t < Towns.Length; t++)
+            if (fighters[t] > 0) _healerShare[t] = (double)healers[t] / fighters[t];
         _fightersThisHour.Clear();
         _onlineFightersThisHour = 0;
+    }
+
+    private double[] _healerShare = Array.Empty<double>();
+    public long HealedFightHours { get; private set; }
+
+    /// <summary>
+    /// Healers heal with abilities (Ian, 2026-11-19), so fighting near one costs
+    /// fewer potions and buff meals. Healers heal themselves. Others group with
+    /// a healer more often the more healers are out fighting in town.
+    /// </summary>
+    private bool HasHealerThisHour(Agent a)
+    {
+        if (!Config.HealersReduceConsumables) return false;
+        if (a.CombatRole == CombatRole.Healer) return true;
+        double share = a.Town < _healerShare.Length ? _healerShare[a.Town] : Config.HealerShare;
+        // One healer covers a group of about five.
+        return _agentRng.Chance(Math.Min(1.0, share * 5) * Config.GroupFightChance);
     }
 }

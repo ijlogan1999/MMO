@@ -48,6 +48,20 @@ public sealed class GoodsTable
 
     public int this[string id] => Index[id];
 
+    private Dictionary<int, int[]>? _ladders;
+
+    /// <summary>All goods on the same gear ladder (same base piece, every band and step).</summary>
+    public int[] GearLadder(int good)
+    {
+        _ladders ??= new();
+        if (_ladders.TryGetValue(good, out var l)) return l;
+        string id = Defs[good].Id;
+        string baseId = LevelBands.BandedGear.FirstOrDefault(b => id == b || id.StartsWith(b + "_b") || id.StartsWith(b + "_s")) ?? id;
+        l = Enumerable.Range(0, Count).Where(i => Defs[i].Id == baseId || Defs[i].Id.StartsWith(baseId + "_b") || Defs[i].Id.StartsWith(baseId + "_s")).ToArray();
+        _ladders[good] = l;
+        return l;
+    }
+
     /// <summary>Crafted goods: inputs at base price, a 25% margin, plus labor at half a coin a minute.</summary>
     private double PriceOf(int i, IReadOnlyDictionary<string, double> raw, bool[] done, int depth)
     {

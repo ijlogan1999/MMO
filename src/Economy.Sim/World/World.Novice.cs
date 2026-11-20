@@ -52,7 +52,8 @@ public sealed partial class World
         double steps = CountSteps(good);
         double noviceCost = rawCost + steps * Config.StationFee + Config.NoviceTimeCost * steps;
         double buy = m[good].Book.BestAsk is long ask ? ask : a.Belief[good];
-        if (buy < noviceCost * Config.NoviceMakeThreshold) return 0;
+        double threshold = Goods.Defs[good].HasDurability ? Config.NoviceGearThreshold : Config.NoviceMakeThreshold;
+        if (buy < noviceCost * threshold) return 0;
 
         // Have the raw materials? Make as many as we can; otherwise order them.
         int can = qty;

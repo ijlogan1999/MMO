@@ -215,6 +215,7 @@ public static class Cli
                 var spend = Enum.GetValues<World.SpendKind>().ToDictionary(k => k, k => Enumerable.Range(0, roles).Where(r => (Role)r is not (Role.Bot or Role.Speculator)).Sum(r => (double)world.SpendParts[r, (int)k]));
                 Console.WriteLine($"  per online hour: net income {income / hours:0}c; spend " + string.Join(", ", spend.Select(kv => $"{kv.Key} {kv.Value / hours:0}c ({kv.Value / Math.Max(1, income):P0})")));
             }
+            Console.WriteLine($"  fight hours with a healer {world.HealedFightHours}; novice crafts by good: " + string.Join(", ", new[] { "sword", "sword_s2", "sword_s3", "sword_s4", "sword_s5" }.Select(id => $"{id} {world.GoodFlows[world.Goods[id], (int)World.GoodFlowKind.Crafted]}")));
             Console.WriteLine($"  work orders posted {world.WorkOrdersPosted}, done {world.WorkOrdersDone}, expired {world.WorkOrdersExpired}; novice crafts {world.NoviceCrafts}; crafter quests {world.CrafterQuestsGiven}");
             Console.WriteLine("  order misses: " + string.Join(", ", world.WorkOrderMisses.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key.good}/{kv.Key.why} {kv.Value}")));
             Console.WriteLine($"  NPC buyback {world.BuybackUnits} units for {world.BuybackCoins}; courier jobs posted {world.CourierJobsPosted}, delivered {world.CourierJobsDelivered}, fees {world.CourierFeesPaid}, cargo lost {world.CourierCargoLost}");
