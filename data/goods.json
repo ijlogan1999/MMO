@@ -56,6 +56,24 @@
       "use": "Material"
     },
     {
+      "id": "copper_ore",
+      "name": "Copper ore",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "copper_ingot",
+      "name": "Copper ingot",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "alloy_ingot",
+      "name": "Copper-iron alloy",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
       "id": "plank",
       "name": "Plank",
       "tier": "Intermediate",

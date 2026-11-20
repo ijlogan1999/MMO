@@ -139,6 +139,16 @@ public sealed class SimConfig
     /// <summary>Crafter starter quest: skill floor, and how many first items its materials cover (the NPC buys that many).</summary>
     public bool CrafterStarterQuest { get; set; } = true;
 
+    /// <summary>
+    /// Levels 1-80 in four bands with gear per band (Ian, 2026-11-19). Levels
+    /// per fight hour at level 0 (slows as you level). Each band of gear you are
+    /// behind costs this power factor; each band up pays this much more per kill.
+    /// </summary>
+    public bool LevelBands { get; set; } = true;
+    public double LevelsPerFightHour { get; set; } = 0.8;
+    public double GearGapPenalty { get; set; } = 0.75;
+    public double ZonePayPerBand { get; set; } = 0.5;
+
     /// <summary>What fighters and casual players gather on the side (sharing nodes with the trades).</summary>
     public string[] SideGatherGoods { get; set; } = { "iron_ore", "timber", "herbs" };
 
@@ -212,7 +222,7 @@ public sealed class SimConfig
     public long NpcPorterFee { get; set; } = 120;
     /// <summary>NPC fighters are weaker than players: wipe chance multiplier per hired fighter.</summary>
     public double NpcWipeFactor { get; set; } = 1.5;
-    public double FoodPerHour { get; set; } = 0.5;
+    public double FoodPerHour { get; set; } = 0.25;
     public double StewFoodValue { get; set; } = 2.0;
     /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>
     public double BuffFoodPerFightHourMin { get; set; } = 0.15;
@@ -221,9 +231,9 @@ public sealed class SimConfig
     public double BuffPowerBonus { get; set; } = 0.25;
     public bool FoodBuffs { get; set; } = true;
     public int ToolWearPerHour { get; set; } = 16;
-    public int WeaponWearPerHour { get; set; } = 20;
-    public int ArmorWearPerHour { get; set; } = 14;
-    public double PotionsPerFightHour { get; set; } = 0.4;
+    public int WeaponWearPerHour { get; set; } = 10;
+    public int ArmorWearPerHour { get; set; } = 7;
+    public double PotionsPerFightHour { get; set; } = 0.2;
     public double FighterHidePerHour { get; set; } = 0.4;
     public double FighterMeatPerHour { get; set; } = 0.5;
     public double RelicCoreDropPerHour { get; set; } = 0.015;
@@ -259,7 +269,7 @@ public sealed class SimConfig
     /// <summary>Weight per unit of each good; anything not listed weighs 1.</summary>
     public Dictionary<string, double> GoodWeights { get; set; } = new()
     {
-        ["iron_ore"] = 2, ["coal"] = 1.5, ["timber"] = 2, ["hide"] = 1, ["meat"] = 1, ["grain"] = 0.5,
+        ["iron_ore"] = 2, ["copper_ore"] = 2, ["coal"] = 1.5, ["timber"] = 2, ["hide"] = 1, ["meat"] = 1, ["grain"] = 0.5,
         ["fiber"] = 0.3, ["herbs"] = 0.2, ["ember_slag"] = 1.5, ["ice_crystal"] = 1, ["relic_core"] = 0.5,
         ["iron_ingot"] = 1, ["plank"] = 1, ["firewood"] = 1, ["flour"] = 0.5, ["cloth"] = 0.3, ["leather"] = 0.5,
         ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
@@ -278,6 +288,8 @@ public sealed class SimConfig
     /// <summary>Daily chance that a player earning well below average switches to a better-paid role.</summary>
     public double RoleSwitchChancePerDay { get; set; } = 0.03;
     public double RoleSwitchIncomeRatio { get; set; } = 0.3;
+    /// <summary>Copper paid to retrain into a new profession (50 silver); 0 makes switching free.</summary>
+    public long RoleSwitchFee { get; set; } = 5000;
 
     // Token
     public double TokenInitialPrice { get; set; } = 3000;
@@ -301,6 +313,10 @@ public sealed class SimConfig
 
     /// <summary>New players get their role's starter kit from a short quest instead of buying it.</summary>
     public bool StarterQuest { get; set; } = true;
+    /// <summary>Players set coins aside for missing or outleveled gear before buying extras.</summary>
+    public bool SaveForGear { get; set; } = true;
+    /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>
+    public int CopperMinLevel { get; set; } = 21;
 
     /// <summary>Hours of play the starter quest takes.</summary>
     public double StarterQuestHours { get; set; } = 1.0;

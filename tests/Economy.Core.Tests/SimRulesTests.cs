@@ -75,25 +75,33 @@ public class SimRulesTests
         Assert.Equal(0, w.Ledger.TotalFor(Flow.NpcHireFee));
     }
 
-    /// <summary>Share of active crafters whose combat level has moved (fighting adds fractions to a whole-number start).</summary>
-    private static double CraftersWhoFought(World w)
-    {
-        var crafters = w.Agents.Where(a => a.Active && Roles.IsCrafter(a.Role)).ToList();
-        Assert.NotEmpty(crafters);
-        return (double)crafters.Count(a => a.CombatSkill != Math.Floor(a.CombatSkill)) / crafters.Count;
-    }
+    private static long CrafterFightHours(World w) =>
+        Enum.GetValues<Role>().Where(Roles.IsCrafter).Sum(r => w.FightHoursByRole[(int)r]);
 
     [Fact]
     public void CraftersFightOnTheSide()
     {
-        Assert.True(CraftersWhoFought(Run()) > 0.5);
+        var w = Run();
+        double share = (double)CrafterFightHours(w) / w.FightHoursByRole.Sum();
+        Assert.True(share > 0.1, $"crafters fought {share:P0} of all fight hours");
     }
 
     [Fact]
     public void OnlyMainFightersFightWhenEveryoneFightsIsOff()
     {
-        // A few crafters were fighters who switched trade, so allow a small share.
-        Assert.True(CraftersWhoFought(Run(c => c.EveryoneFights = false)) < 0.1);
+        Assert.Equal(0, CrafterFightHours(Run(c => c.EveryoneFights = false)));
+    }
+
+    [Fact]
+    public void PlayersLevelUpAndGearComesInLevelBands()
+    {
+        var w = Run(days: 30);
+        Assert.Contains(w.Goods.Index.Keys, id => id == "sword_b2");
+        var newcomers = w.Agents.Where(a => a.Active && a.JoinedHour > 24 && w.FightHoursByRole.Sum() > 0).ToList();
+        Assert.Contains(w.Agents, a => a.Active && World.LevelOf(a) > 5 && a.JoinedHour > 0);
+        // Nobody wears gear above their band.
+        Assert.All(w.Agents.Where(a => a.Active && a.Weapon != null), a =>
+            Assert.True(LevelBands.MinLevel(a.Weapon!.Good.Id) <= World.LevelOf(a) || a.Weapon.Good.Id == "relic_sword"));
     }
 
     [Fact]

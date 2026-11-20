@@ -3,6 +3,8 @@ namespace Economy.Sim.World;
 /// <summary>Where each role's money comes from and goes, and where each good ends up (after warm-up).</summary>
 public enum IncomeKind { SalesToPlayers, SalesToNpcs, InputCosts, Repairs, Bounties, Tasks, HireFees, HaulFeesIn, HaulFeesOut }
 
+public enum SpendKind { Food, Healing, Gear, Materials, Token }
+
 public enum GoodFlowKind { Gathered, Crafted, TaskDelivered, PlayerToPlayer, BoughtAsInput, SoldToNpc, BoughtFromNpc, UsedInCrafts }
 
 public sealed partial class World
@@ -24,6 +26,23 @@ public sealed partial class World
     private void Track(Agent a, IncomeKind kind, long coins)
     {
         if (Tracking) IncomeParts[(int)a.Role, (int)kind] += coins;
+    }
+
+    /// <summary>What players spend on for themselves (not business inputs), by kind, per role.</summary>
+    public long[,] SpendParts { get; } = new long[Enum.GetValues<Role>().Length, Enum.GetValues<SpendKind>().Length];
+
+    private void TrackSpend(Agent a, SpendKind kind, long coins)
+    {
+        if (Tracking) SpendParts[(int)a.Role, (int)kind] += coins;
+    }
+
+    private SpendKind SpendOf(int good)
+    {
+        var d = Goods.Defs[good];
+        if (good == Bread || good == Stew || d.Use == Economy.Core.Items.GoodUse.Food) return SpendKind.Food;
+        if (good == Potion || good == Bandage || d.Use == Economy.Core.Items.GoodUse.Consumable) return SpendKind.Healing;
+        if (d.HasDurability) return SpendKind.Gear;
+        return SpendKind.Materials;
     }
 
     private void TrackGood(int good, GoodFlowKind kind, long units)

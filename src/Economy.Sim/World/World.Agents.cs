@@ -145,11 +145,26 @@ public sealed partial class World
                     }
                 }
             }
-            if (item != null && item.IsUsable) return item;
+            if (item != null && item.IsUsable)
+            {
+                // Outleveled it? Swap in the upgrade if we have it, else get one; the old piece goes up for sale.
+                if (!Config.LevelBands || LevelBands.BandOf(item.Good.Id) >= LevelBands.BandOf(Goods.Defs[goodIfNone].Id)) return item;
+                if (a.Inventory[goodIfNone] > 0)
+                {
+                    a.Inventory.Add(Goods[item.Good.Id], 1, item.Quality);
+                    item = null;
+                }
+                else
+                {
+                    if (Coins(a) > AskOrBelief(a, goodIfNone) && !PostWorkOrder(a, goodIfNone))
+                        PlaceBuy(a, goodIfNone, 1, Math.Max(1, (long)Math.Round(AskOrBelief(a, goodIfNone))));
+                    return item;
+                }
+            }
         }
 
         // Need a new one: use one already bought, else buy.
-        int good = item?.Good != null ? Goods[item.Good.Id] : goodIfNone;
+        int good = goodIfNone;
         if (a.Inventory[good] > 0)
         {
             int q = a.Inventory.QualityOf(good);
@@ -233,7 +248,7 @@ public sealed partial class World
 
     // ---------------------------------------------------------------- gathering
 
-    private static readonly string[] MinerGoods = { "iron_ore", "coal" };
+    private static readonly string[] MinerGoods = { "iron_ore", "coal", "copper_ore" };
     private static readonly string[] LoggerGoods = { "timber" };
     private static readonly string[] HerbalistGoods = { "herbs" };
     private static readonly string[] FarmerGoods = { "grain", "fiber", "herbs" };
@@ -288,7 +303,8 @@ public sealed partial class World
             if (a.Role == Role.Bot && a.TargetGood >= 0) GatherFromNode(a, town, a.TargetGood, Config.GatherPerHour * rate);
             else
             {
-                int best = BestByBelief(a, options, g => town.Stock[g] >= 1 && room(g));
+                // Copper lies in harder zones: only players of level 21+ can mine it.
+                int best = BestByBelief(a, options, g => town.Stock[g] >= 1 && room(g) && (g != CopperOre || !Config.LevelBands || LevelOf(a) >= Config.CopperMinLevel));
                 if (best >= 0) GatherFromNode(a, town, best, Config.GatherPerHour * rate);
             }
         }
@@ -500,6 +516,8 @@ public sealed partial class World
         return n;
     }
 
+    private bool IsToolGood(int g) => Goods.Defs[g].Id is "pickaxe" or "woodaxe" or "sickle" or "skinning_knife";
+
     private int KeepAmount(Agent a, int g)
     {
         if (g == Bread) return 6;
@@ -509,7 +527,9 @@ public sealed partial class World
         if (g == Pack && Fights(a)) return 1;
         if (g == Furniture) return int.MaxValue / 2;
         if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
-        if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler) return 1;
+        if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler)
+            // Keep a spare of the gear we need; outgrown gear goes up for sale.
+            return !Config.LevelBands || Goods.Defs[g].Use != Economy.Core.Items.GoodUse.Equipment || IsToolGood(g) || g == a.WantWeapon || g == a.WantArmor ? 1 : 0;
         if (Roles.IsCrafter(a.Role) && g == RepairStockFor(a.Role)) return 4;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
         if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
@@ -561,18 +581,52 @@ public sealed partial class World
 
     // ---------------------------------------------------------------- fighters
 
+    /// <summary>Player level 1-80 from combat progress (0-100).</summary>
+    public static int LevelOf(Agent a) => Math.Clamp(1 + (int)(a.CombatSkill * (LevelBands.MaxLevel - 1) / 100.0), 1, LevelBands.MaxLevel);
+
+    /// <summary>Levels come fast early and slow later: about 35 fight hours to 20, 100 to 40, 300 to 80.</summary>
+    private void GainCombat(Agent a, double share)
+    {
+        if (!Config.LevelBands) { a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour * share); return; }
+        double levels = Config.LevelsPerFightHour * share / (1 + LevelOf(a) / 20.0);
+        a.CombatSkill = Math.Min(100, a.CombatSkill + levels * 100.0 / (LevelBands.MaxLevel - 1));
+    }
+
+    /// <summary>Hours fought, by the fighter's profession at the time.</summary>
+    public long[] FightHoursByRole { get; } = new long[Enum.GetValues<Role>().Length];
+
     private void Fight(Agent a, double productivity)
     {
+        FightHoursByRole[(int)a.Role]++;
         long coins = Coins(a);
-        bool wantRelic = coins > 15000;
-        int weaponGood = Goods[wantRelic ? "relic_sword" : "sword"];
+        // Gear for the player's level band (Ian, 2026-11-19); relic swords and plate are top-band luxuries.
+        int level = LevelOf(a);
+        int band = Config.LevelBands ? LevelBands.BandForLevel(level) : 0;
+        // Each piece unlocks at its own level inside the band.
+        int swordBand = Config.LevelBands ? LevelBands.WearableBand("sword", level) : 0;
+        string armorBase = a.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
+        int armorBand = Config.LevelBands ? LevelBands.WearableBand(armorBase, level) : 0;
+        bool wantRelic = coins > 15000 && (!Config.LevelBands || level >= LevelBands.MinLevel("relic_sword"));
+        int weaponGood = Goods[wantRelic ? "relic_sword" : LevelBands.Id("sword", swordBand)];
         // Healers and casters wear cloth (tailors); others leather, then plate.
-        int armorGood = Goods[a.CombatRole == CombatRole.Healer ? "cloth_armor" : coins > 10000 ? "plate_armor" : "leather_armor"];
+        bool wantPlate = coins > 10000 && (!Config.LevelBands || level >= LevelBands.MinLevel("plate_armor"));
+        int armorGood = Goods[a.CombatRole == CombatRole.Healer ? LevelBands.Id(armorBase, armorBand) : wantPlate ? "plate_armor" : LevelBands.Id(armorBase, armorBand)];
+        a.WantWeapon = weaponGood;
+        a.WantArmor = armorGood;
 
         var weapon = Maintain(a, a.Weapon, weaponGood, w => a.Weapon = w);
         var armor = Maintain(a, a.Armor, armorGood, x => a.Armor = x);
+        a.GearReserve = 0;
+        if (weapon == null || weapon.Good.Id != Goods.Defs[weaponGood].Id) a.GearReserve += (long)AskOrBelief(a, weaponGood);
+        if (armor == null || armor.Good.Id != Goods.Defs[armorGood].Id) a.GearReserve += (long)AskOrBelief(a, armorGood);
 
         double power = productivity * (weapon != null ? 1.0 : 0.3) * (armor != null ? 1.0 : 0.7);
+        // Harder zones as you level: gear from a lower band hits softer and protects less.
+        if (Config.LevelBands)
+        {
+            if (weapon != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.BandOf(Goods.Defs[weaponGood].Id) - LevelBands.BandOf(weapon.Good.Id)));
+            if (armor != null) power *= Math.Pow(Config.GearGapPenalty, Math.Max(0, LevelBands.BandOf(Goods.Defs[armorGood].Id) - LevelBands.BandOf(armor.Good.Id)));
+        }
         // Low-level fighters heal with bandages (tailors), later with potions (alchemists).
         int heal = a.CombatSkill < Config.BandageMaxLevel ? Bandage : Potion;
         a.PotionCredit += Config.PotionsPerFightHour;
@@ -607,7 +661,8 @@ public sealed partial class World
                 if (qty > 0) PlaceBuy(a, Stew, qty, price);
             }
         }
-        a.LastPower = power;
+        // Higher zones pay more per kill (contract share goes by this).
+        a.LastPower = power * (1 + Config.ZonePayPerBand * band);
 
         if (weapon != null) Durability.Wear(weapon, Config.WeaponWearPerHour);
         if (armor != null) Durability.Wear(armor, Config.ArmorWearPerHour);
@@ -621,19 +676,20 @@ public sealed partial class World
             if (weapon != null) Durability.Wear(weapon, (int)Math.Round(Config.WeaponWearPerHour * Config.DeathWearHours));
             if (armor != null) Durability.Wear(armor, (int)Math.Round(Config.ArmorWearPerHour * Config.DeathWearHours));
             TakeHealing(a, heal);
-            a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour * 0.5);
+            GainCombat(a, 0.5);
             _fightersThisHour.Add(a);
             _onlineFightersThisHour++;
             return;
         }
 
         // Loot: materials from kills, and now and then a relic core from a dungeon.
-        AddLoot(a, Goods["hide"], Config.FighterHidePerHour * power);
-        AddLoot(a, Goods["meat"], Config.FighterMeatPerHour * power);
+        double zone = 1 + Config.ZonePayPerBand * band;
+        AddLoot(a, Goods["hide"], Config.FighterHidePerHour * power * zone);
+        AddLoot(a, Goods["meat"], Config.FighterMeatPerHour * power * zone);
         if (_agentRng.Chance(Config.RelicCoreDropPerHour * Config.DungeonRunMultiplier * power))
             a.Inventory.Add(RelicCore, 1, Math.Clamp(_agentRng.NextGaussian(55, 15), 1, 100));
 
-        a.CombatSkill = Math.Min(100, a.CombatSkill + Config.SkillGainPerHour);
+        GainCombat(a, 1.0);
         _fightersThisHour.Add(a);
         _onlineFightersThisHour++;
     }

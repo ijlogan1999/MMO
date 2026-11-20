@@ -17,7 +17,8 @@
         "timber": 0.8,
         "hide": 0.6,
         "meat": 0.6,
-        "herbs": 0.3
+        "herbs": 0.3,
+        "copper_ore": 0.4
       },
       "wilds": {
         "ember_slag": 1.4,
@@ -35,7 +36,8 @@
         "meat": 1.2,
         "iron_ore": 0.4,
         "coal": 0.4,
-        "herbs": 0.5
+        "herbs": 0.5,
+        "copper_ore": 1.2
       },
       "wilds": {
         "ember_slag": 0.6,
@@ -87,7 +89,8 @@
         "herbs": 1.6,
         "hide": 0.6,
         "meat": 1.0,
-        "timber": 0.4
+        "timber": 0.4,
+        "copper_ore": 0.8
       },
       "wilds": {
         "ember_slag": 1.0,
@@ -117,6 +120,7 @@
     "meat": 40,
     "relic_core": 3000,
     "ember_slag": 250,
-    "ice_crystal": 250
+    "ice_crystal": 250,
+    "copper_ore": 50
   }
 }

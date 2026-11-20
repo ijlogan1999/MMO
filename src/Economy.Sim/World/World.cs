@@ -61,6 +61,7 @@ public sealed partial class World
         Stew = Goods["stew"];
         Potion = Goods["healing_potion"];
         Bandage = Goods["bandage"];
+        CopperOre = Goods.Index.TryGetValue("copper_ore", out int cu) ? cu : -1;
         Pack = Goods["travel_pack"];
         Furniture = Goods["furniture"];
         RelicCore = Goods["relic_core"];
@@ -99,6 +100,7 @@ public sealed partial class World
     public int Stew { get; }
     public int Potion { get; }
     public int Bandage { get; }
+    public int CopperOre { get; }
     public int Pack { get; }
     public int Furniture { get; }
     public int RelicCore { get; }
@@ -234,7 +236,7 @@ public sealed partial class World
             SessionStart = (int)Math.Round(Math.Clamp(rng.NextGaussian(19, 3), 0, 23)),
             SessionHours = role == Role.Casual ? 1 : rng.NextInt(2, 6),
             Skill = veteran ? rng.NextInt(15, 80) : rng.NextInt(5, 25),
-            CombatSkill = veteran ? rng.NextInt(15, 80) : rng.NextInt(5, 25),
+            CombatSkill = veteran ? rng.NextInt(15, 80) : Config.LevelBands ? rng.NextInt(0, 2) : rng.NextInt(5, 25),
             RepairSkill = role == Role.Repairer ? (veteran ? rng.NextInt(30, 95) : rng.NextInt(10, 40)) : 0,
             Careful = rng.Chance(Config.CarefulShare),
             Member = rng.Chance(Config.MemberShare),
@@ -273,11 +275,16 @@ public sealed partial class World
             case Role.Herbalist:
             case Role.Farmer:
                 agent.Tool = Durability.Create(Goods.Defs[Goods["sickle"]], q); break;
-            case Role.Fighter:
-                agent.Weapon = Durability.Create(Goods.Defs[Goods["sword"]], q);
-                agent.Armor = Durability.Create(Goods.Defs[Goods["leather_armor"]], q);
-                agent.Inventory.Add(Potion, 3, 40);
-                break;
+        }
+        // Everyone fights (Ian, 2026-11-19), so everyone's kit has a weapon and
+        // armor for their level; main fighters also get a few potions.
+        if (Fights(agent))
+        {
+            int lvl = LevelOf(agent);
+            string armorBase = agent.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
+            agent.Weapon = Durability.Create(Goods.Defs[Goods[LevelBands.Id("sword", Config.LevelBands ? LevelBands.WearableBand("sword", lvl) : 0)]], q);
+            agent.Armor = Durability.Create(Goods.Defs[Goods[LevelBands.Id(armorBase, Config.LevelBands ? LevelBands.WearableBand(armorBase, lvl) : 0)]], q);
+            if (role == Role.Fighter) agent.Inventory.Add(Potion, 3, 40);
         }
         if (Roles.Repairs(role))
         {

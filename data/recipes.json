@@ -16,6 +16,35 @@
       "minutes": 5
     },
     {
+      "id": "smelt_copper",
+      "output": "copper_ingot",
+      "qty": 1,
+      "inputs": {
+        "copper_ore": 2,
+        "coal": 1
+      },
+      "station": "smelter",
+      "skill": "blacksmithing",
+      "minSkill": 20,
+      "methodCeiling": 85,
+      "minutes": 5
+    },
+    {
+      "id": "smelt_alloy",
+      "output": "alloy_ingot",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 1,
+        "copper_ingot": 1,
+        "coal": 1
+      },
+      "station": "smelter",
+      "skill": "blacksmithing",
+      "minSkill": 40,
+      "methodCeiling": 95,
+      "minutes": 8
+    },
+    {
       "id": "saw_planks",
       "output": "plank",
       "qty": 2,
@@ -73,7 +102,7 @@
       "output": "blade_blank",
       "qty": 1,
       "inputs": {
-        "iron_ingot": 3,
+        "iron_ingot": 2,
         "coal": 1
       },
       "station": "forge",
@@ -230,7 +259,7 @@
       "output": "leather_armor",
       "qty": 1,
       "inputs": {
-        "leather": 4,
+        "leather": 3,
         "padding": 1
       },
       "station": "workbench",
@@ -331,7 +360,7 @@
       "output": "cloth_armor",
       "qty": 1,
       "inputs": {
-        "cloth": 5,
+        "cloth": 4,
         "padding": 1
       },
       "station": "loom",

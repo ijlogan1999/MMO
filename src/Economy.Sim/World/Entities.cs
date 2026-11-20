@@ -121,6 +121,11 @@ public sealed class Agent
     public int TaskUnitsToday { get; set; }
     /// <summary>Crafter starter quest done, and how many first items its NPC will still buy.</summary>
     public bool CraftQuestDone { get; set; }
+    /// <summary>The weapon and armor this player wants for its level band.</summary>
+    public int WantWeapon { get; set; } = -1;
+    /// <summary>Coins set aside for missing or outleveled gear; extras (stew, packs, furniture, tokens) wait until this is covered.</summary>
+    public long GearReserve { get; set; }
+    public int WantArmor { get; set; } = -1;
     /// <summary>Gear this player has on order, and gear it stopped ordering (no crafter took it).</summary>
     public HashSet<int> WorkOrderGoods { get; } = new();
     public HashSet<int> WorkOrderGaveUp { get; } = new();

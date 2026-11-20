@@ -219,6 +219,12 @@ public sealed partial class World
             if (!_agentRng.Chance(Config.RoleSwitchChancePerDay)) continue;
             var role = PickWeighted(mix, _agentRng);
             if (role == a.Role) continue;
+            // Retraining is expensive (Ian, 2026-11-19): only players who can pay switch.
+            if (Config.RoleSwitchFee > 0)
+            {
+                if (Coins(a) < Config.RoleSwitchFee) { RoleSwitchesBlocked++; continue; }
+                Ledger.Transfer(a.Account, Ledger.Treasury, Config.RoleSwitchFee, Flow.ProfessionSwitchFee);
+            }
             share[a.Role] = share.GetValueOrDefault(a.Role) - 1.0 / Math.Max(1, ActiveAgentCount);
             CancelAgentOrders(a, learn: false);
             if (Roles.Repairs(a.Role)) Towns[a.Town].Repairers.Remove(a.Id);
@@ -233,6 +239,7 @@ public sealed partial class World
     }
 
     public int RoleSwitches { get; private set; }
+    public int RoleSwitchesBlocked { get; private set; }
 
     /// <summary>Share of active players in each role.</summary>
     private Dictionary<Role, double> RoleShares()

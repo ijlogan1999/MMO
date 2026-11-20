@@ -38,13 +38,37 @@ public static class Cli
             var design = new World.GoodsTable(catalog, worldFile.RawPrices());
             // Gear trades rarely, so a handful of sales to rich players can set an
             // absurd price nobody else can pay. Keep gear within reach of its recipe cost.
-            double Clamp(string id, double traded)
+            // Gear's anchor is what its materials cost at today's market prices
+            // plus the crafter's time, not the design price list, which runs far
+            // above where raw materials actually trade.
+            var traded = value.Where(kv => kv.Value.u >= 5).ToDictionary(kv => kv.Key, kv => kv.Value.v / kv.Value.u);
+            double MarketCost(string id, int depth = 0)
+            {
+                int g = design[id];
+                var r = design.RecipesByOutput[g].FirstOrDefault();
+                if (r == null || depth > 6) return traded.TryGetValue(id, out double t) ? t : design.BasePrice[g];
+                double inputs = r.Inputs.Sum(i => i.Quantity * (!design.Defs[design[i.GoodId]].HasDurability && traded.TryGetValue(i.GoodId, out double p) ? p : MarketCost(i.GoodId, depth + 1)));
+                return (inputs * 1.25 + r.CraftMinutes * 5) / r.OutputQuantity;
+            }
+            double Clamp(string id, double tradedPrice)
             {
                 double d = design.BasePrice[design[id]];
-                return design.Defs[design[id]].HasDurability ? Math.Clamp(traded, d * 0.5, d * 1.5) : Math.Max(traded, d * 0.25);
+                if (!design.Defs[design[id]].HasDurability) return Math.Max(tradedPrice, d * 0.25);
+                double m = MarketCost(id);
+                return Math.Clamp(tradedPrice, m * 0.8, m * 1.5);
             }
             var prices = value.Where(kv => kv.Value.u >= 5).OrderBy(kv => kv.Key)
                 .ToDictionary(kv => kv.Key, kv => Math.Round(Clamp(kv.Key, kv.Value.v / kv.Value.u), 1));
+            // Higher-band gear barely trades in a calm run; price it from its
+            // band-1 piece's market price, scaled by how much more its recipe costs.
+            foreach (var baseId in LevelBands.BandedGear)
+                for (int b = 1; b < LevelBands.Count; b++)
+                {
+                    string bid = LevelBands.Id(baseId, b);
+                    if (prices.ContainsKey(bid) || !prices.TryGetValue(baseId, out double basePrice)) continue;
+                    prices[bid] = Math.Round(basePrice * MarketCost(bid) / MarketCost(baseId), 1);
+                }
+            prices = prices.OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => kv.Value);
             var path = Path.Combine(dataDir, WorldFile.StartPricesFile);
             File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(prices, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
             foreach (var kv in prices) Console.WriteLine($"  {kv.Key,-16} {kv.Value,9:0.0}");
@@ -153,10 +177,40 @@ public static class Cli
         {
             var inc = world.RoleIncome();
             foreach (var g in world.Agents.Where(a => a.Active).GroupBy(a => a.Role).OrderBy(g => g.Key))
-                Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {g.Average(a => world.Coins(a)),7:0}");
-            Console.WriteLine($"  role switches {world.RoleSwitches}, items injected {world.ItemsInjected}");
+                Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {Economy.Core.Currency.Money.Format(g.Average(a => world.Coins(a))),12}");
+            Console.WriteLine($"  role switches {world.RoleSwitches} (blocked by the fee {world.RoleSwitchesBlocked}), items injected {world.ItemsInjected}");
             Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}, hired tanks {world.NpcTanksHired} healers {world.NpcHealersHired} porters {world.NpcPortersHired}, deaths {world.Deaths}, furniture placed {world.FurniturePlaced}, shops {world.Agents.Count(a => a.HasShop)}");
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
+            var lv = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(World.World.LevelOf).ToList();
+            Console.WriteLine($"  levels: band1 {lv.Count(l => l <= 20)}, band2 {lv.Count(l => l is > 20 and <= 40)}, band3 {lv.Count(l => l is > 40 and <= 60)}, band4 {lv.Count(l => l > 60)}; median {lv.OrderBy(l => l).ElementAt(lv.Count / 2)}");
+            foreach (var id in new[] { "iron_ore", "copper_ore", "iron_ingot", "copper_ingot", "alloy_ingot", "sword", "sword_b2", "sword_b3", "sword_b4", "leather_armor", "leather_armor_b2", "leather_armor_b3", "leather_armor_b4" })
+            {
+                int g = world.Goods[id];
+                Console.Write($"  {id} ref {Economy.Core.Currency.Money.Format(world.Towns[0].Markets[g].Reference.Value)} wearing {world.Agents.Count(a => a.Active && (a.Weapon?.Good.Id == id || a.Armor?.Good.Id == id))};");
+            }
+            Console.WriteLine();
+            var players = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).ToList();
+            int armed = players.Count(a => a.Weapon != null), armored = players.Count(a => a.Armor != null);
+            int upToDate = players.Count(a => a.Weapon != null && LevelBands.BandOf(a.Weapon.Good.Id) >= LevelBands.WearableBand("sword", World.World.LevelOf(a)));
+            var behind = players.Where(a => a.Weapon != null && LevelBands.BandOf(a.Weapon.Good.Id) < LevelBands.WearableBand("sword", World.World.LevelOf(a))).Select(a => world.Coins(a)).OrderBy(c => c).ToList();
+            Console.WriteLine($"  gear: {players.Count} players, {armed} with a weapon, {armored} with armor, {upToDate} weapon up to level; behind-on-weapon median coins {(behind.Count > 0 ? behind[behind.Count / 2] : 0)}");
+            {
+                int swd = world.Goods["sword"];
+                double swRef = world.Towns[0].Markets[swd].Reference.Value;
+                var unarmed = players.Where(a => a.Weapon == null).ToList();
+                var coinsU = unarmed.Select(a => world.Coins(a)).OrderBy(c => c).ToList();
+                Console.WriteLine($"  unarmed {unarmed.Count}: can afford a sword {coinsU.Count(c => c >= swRef)}, median coins {(coinsU.Count > 0 ? coinsU[coinsU.Count / 2] : 0)}, with sword in bag {unarmed.Count(a => a.Inventory[swd] > 0)}; swords held by smiths {world.Agents.Where(a => a.Role == Role.Smith).Sum(a => a.Inventory[swd])}; smiths {world.Agents.Count(a => a.Role == Role.Smith && a.Active)} (skill 35+ for level-21 swords: {world.Agents.Count(a => a.Role == Role.Smith && a.Active && a.Skill >= 35)}, 50+: {world.Agents.Count(a => a.Role == Role.Smith && a.Active && a.Skill >= 50)})");
+            }
+            {
+                // Income vs what players spend on themselves, per online hour, all roles.
+                int roles = Enum.GetValues<Role>().Length;
+                double hours = Enumerable.Range(0, roles).Where(r => (Role)r is not (Role.Bot or Role.Speculator)).Sum(r => (double)world.RoleHours[r]);
+                double income = 0;
+                for (int r = 0; r < roles; r++) if ((Role)r is not (Role.Bot or Role.Speculator))
+                    foreach (var k in Enum.GetValues<World.IncomeKind>()) income += world.IncomeParts[r, (int)k];
+                var spend = Enum.GetValues<World.SpendKind>().ToDictionary(k => k, k => Enumerable.Range(0, roles).Where(r => (Role)r is not (Role.Bot or Role.Speculator)).Sum(r => (double)world.SpendParts[r, (int)k]));
+                Console.WriteLine($"  per online hour: net income {income / hours:0}c; spend " + string.Join(", ", spend.Select(kv => $"{kv.Key} {kv.Value / hours:0}c ({kv.Value / Math.Max(1, income):P0})")));
+            }
             Console.WriteLine($"  work orders posted {world.WorkOrdersPosted}, done {world.WorkOrdersDone}, expired {world.WorkOrdersExpired}; novice crafts {world.NoviceCrafts}; crafter quests {world.CrafterQuestsGiven}");
             Console.WriteLine("  order misses: " + string.Join(", ", world.WorkOrderMisses.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key.good}/{kv.Key.why} {kv.Value}")));
             Console.WriteLine($"  NPC buyback {world.BuybackUnits} units for {world.BuybackCoins}; courier jobs posted {world.CourierJobsPosted}, delivered {world.CourierJobsDelivered}, fees {world.CourierFeesPaid}, cargo lost {world.CourierCargoLost}");

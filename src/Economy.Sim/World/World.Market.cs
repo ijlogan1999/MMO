@@ -37,6 +37,8 @@ public sealed partial class World
     {
         if (qty <= 0 || price <= 0) return 0;
         long coins = Coins(a);
+        // Players save up for gear they need before buying extras.
+        if (Config.SaveForGear && (good == Stew || good == Pack || good == Furniture || good == TokenIndex)) coins -= a.GearReserve;
         if (coins < price) return 0;
         qty = (int)Math.Min(qty, coins / price);
         if (qty <= 0) return 0;
@@ -209,6 +211,8 @@ public sealed partial class World
             ReceiveGoods(buyer, good, f.Quantity, f.Sell.Quality);
             if (good != TokenIndex && IsBusinessInput(buyer, good)) { buyer.TodayIncome -= total; Track(buyer, IncomeKind.InputCosts, -total); TrackGood(good, GoodFlowKind.BoughtAsInput, f.Quantity); }
             if (good != TokenIndex) TrackGood(good, sellerId >= 0 ? GoodFlowKind.PlayerToPlayer : GoodFlowKind.BoughtFromNpc, f.Quantity);
+            else TrackSpend(buyer, SpendKind.Token, total);
+            if (good != TokenIndex && !IsBusinessInput(buyer, good)) TrackSpend(buyer, SpendOf(good), total);
             // Buyers learn what things cost: belief moves toward the price paid.
             buyer.Belief[good] = Math.Max(1, buyer.Belief[good] + 0.2 * (f.Price - buyer.Belief[good]));
         }
