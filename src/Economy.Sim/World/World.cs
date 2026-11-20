@@ -278,7 +278,7 @@ public sealed partial class World
         }
         // Everyone fights (Ian, 2026-11-19), so everyone's kit has a weapon and
         // armor for their level; main fighters also get a few potions.
-        if (Fights(agent))
+        if (Config.StarterGearForAll ? Fights(agent) : role == Role.Fighter)
         {
             int lvl = LevelOf(agent);
             string armorBase = agent.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";

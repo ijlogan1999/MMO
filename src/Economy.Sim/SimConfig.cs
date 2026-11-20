@@ -319,6 +319,8 @@ public sealed class SimConfig
     public bool StarterQuest { get; set; } = true;
     /// <summary>Players set coins aside for missing or outleveled gear before buying extras.</summary>
     public bool SaveForGear { get; set; } = true;
+    /// <summary>Everyone's starter kit has a weapon and armor (off: only main fighters).</summary>
+    public bool StarterGearForAll { get; set; } = true;
     /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>
     public int CopperMinLevel { get; set; } = 21;
     /// <summary>Healers heal with abilities: fighting with one uses this share of the potions and buff meals.</summary>

@@ -127,6 +127,10 @@ public static class Cli
                     goods = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => flows.ToDictionary(k => k.ToString(), k => w.GoodFlows[g, (int)k])),
                     prices = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => w.DailyPrices.Select(d => Math.Round(d[g], 1)).ToArray()),
                     taskUnits = w.TaskUnitsDelivered, taskCoins = w.TaskCoinsPaid, haulFees = w.HaulFeesPaid,
+                    armedShare = w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator) && a.Weapon != null) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator))),
+                    upgradeGapEarly = w.UpgradeGapsEarly.Count == 0 ? -1 : w.UpgradeGapsEarly.OrderBy(v => v).ElementAt(w.UpgradeGapsEarly.Count / 2),
+                    upgradesEarly = w.UpgradeGapsEarly.Count,
+                    medianCoins = w.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(a => w.Coins(a)).OrderBy(c => c).ElementAt(w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)) / 2),
                     buybackUnits = w.BuybackUnits, buybackCoins = w.BuybackCoins, courierPosted = w.CourierJobsPosted, courierDelivered = w.CourierJobsDelivered, courierFees = w.CourierFeesPaid,
                 });
                 Console.WriteLine($"  seed {s} done");
