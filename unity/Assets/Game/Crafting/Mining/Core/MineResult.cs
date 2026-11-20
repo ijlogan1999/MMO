@@ -1,27 +1,40 @@
+using System.Collections.Generic;
+
 namespace Mmo.Crafting.Mining
 {
     /// <summary>What came out of the node, with every number that went into it so the player can see why.</summary>
     public sealed class MineResult
     {
-        public int NodeSize;
-        public int Clean;
-        public int Missed;
-        public int Crushed;
-        public int Left;
-        public int Fractures;
+        // The dig
+        public int OreBlocks;
+        public int OreFreed;      // ore blocks taken out whole
+        public int OreShattered;  // ore blocks crushed
+        public int RockRemoved;
+        public int WastedSwings;
+        public int SwingsUsed;
+        public int TapsUsed;
+        public int PropsUsed;
+        public bool Collapsed;
+        public int PiecesBuried;
 
-        /// <summary>Distance from the miner's mark to the seam's centre line, in seam half-widths (0 = dead on).</summary>
-        public double MarkOffset;
-        /// <summary>Average ore share of the chunks the miner split cleanly (how well the face was read).</summary>
-        public double Read;
-        /// <summary>Ore actually split out, as a share of the node (yield score).</summary>
-        public double YieldScore;
-        /// <summary>Clean splits / (clean splits + fractures): how cleanly the rock broke (quality score).</summary>
-        public double BreakScore;
-        /// <summary>Overall score for skill gain: yield score x break score.</summary>
-        public double Score;
+        // The sort
+        public int OreKept;
+        public int CrushedKept;
+        public int WasteKept;
+        public int OreTossed;
+        public int WasteTossed;
 
-        // Yield = node size x yield score.  Quality = vein grade x (0.5 + 0.5 x break score), capped.
+        /// <summary>Ore pieces the whole node held.</summary>
+        public int NodeOre;
+        /// <summary>Kept ore, crushed ore counting half.</summary>
+        public double OreTaken;
+        public double YieldScore;  // OreTaken / NodeOre
+        public double BreakScore;  // clean ore / all ore taken out
+        public double Purity;      // kept ore / everything kept
+        public double SortScore;   // right keep/toss calls / pieces sorted
+        public double Score;       // yield x break x purity (for skill gain)
+
+        // Yield = ore taken.  Quality = vein grade x (0.5 + 0.5 x break) x (0.6 + 0.4 x purity), capped.
         public int Yield;
         public int VeinGrade;
         public int RawQuality;
@@ -32,5 +45,7 @@ namespace Mmo.Crafting.Mining
         public string ItemName;
 
         public int SkillGain;
+        /// <summary>What the dig taught the journal: one line per sign seen on this face.</summary>
+        public readonly List<string> Learned = new List<string>();
     }
 }

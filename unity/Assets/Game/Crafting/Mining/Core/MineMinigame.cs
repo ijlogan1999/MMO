@@ -4,16 +4,17 @@ using System.Collections.Generic;
 namespace Mmo.Crafting.Mining
 {
     /// <summary>
-    /// The mining "read and strike" minigame as a plain state machine (spec, Minigames: Mining).
-    ///  1. Read the face: the rock shows streaks, flecks and cracks. Nothing says where the seam runs. The miner marks
-    ///     where to start; the rock then splits along its grain from that spot, so a mark on the seam keeps every chunk
-    ///     in the ore, and a mark beside it splits barren rock however cleanly it is worked.
-    ///  2. Strike: one weak point at a time, a hairline crack opens briefly. A blow on it while open splits the chunk off
-    ///     cleanly. A blow anywhere else fractures the rock, crushing the chunk in front of it (lower quality, the node
-    ///     used up faster). A crack left alone closes again and that chunk stays in the rock.
-    ///  3. Skill and pick quality keep the cracks open longer and give more reach.
-    /// Yield = node size x yield score; quality = vein grade x (0.5 + 0.5 x break score), capped by pick and skill.
-    /// Drive it with Update(dt) and the input methods. It never touches UnityEngine.
+    /// The mining minigame as a turn-based knowledge game (no timing, no aiming).
+    ///
+    /// The face is a wall of blocks split by visible joints and bedding planes. The seam is one bed of it; nothing
+    /// marks it except surface signs (which sign means which ore is rolled per world) and how a block rings when tapped.
+    ///
+    ///  1. Survey: look at the signs, tap blocks (ring = ore, thud = solid rock, hollow = loose) and the roof.
+    ///  2. Plan the cut: a block held on both sides and from above is locked. Prying locked ore shatters it, so open
+    ///     the face first on barren or loose rock, then take the ore out once it has a free side or a free top.
+    ///  3. Tool per blow: pick for small blocks, wedge for large ones, sledge to smash rock (never ore).
+    ///  4. Roof: every block out widens the opening; dust and creaks warn; a prop eases it; past the limit it can fall.
+    ///  5. Sort: keep or toss each piece in the cart by colour, lustre and heft.
     /// </summary>
     public sealed class MineMinigame
     {
@@ -21,217 +22,345 @@ namespace Mmo.Crafting.Mining
         public OreNodeType Node => Setup.Node;
         public int Skill => Setup.SkillLevel;
 
-        public MineStage Stage { get; private set; } = MineStage.Read;
-        public Seam Seam { get; }
-        public double MarkX { get; private set; }
-        public double MarkY { get; private set; }
+        public MineStage Stage { get; private set; } = MineStage.Dig;
+        public IReadOnlyList<Block> Blocks => _blocks;
+        public int SeamRow { get; }
+        public Sign TrueSign { get; }
 
-        public IReadOnlyList<WeakPoint> Points => _points;
-        /// <summary>Index of the weak point the rock is on now (== Points.Count when finished).</summary>
-        public int Current { get; private set; }
-        public WeakPoint CurrentPoint => Current < _points.Count ? _points[Current] : null;
-        /// <summary>Seconds the current weak point has been open (0 while the rock is settling).</summary>
-        public double OpenFor { get; private set; }
-        public double OpenSeconds { get; }
-        public double HitRadius { get; }
-        public int Fractures { get; private set; }
-        /// <summary>Where each fracture landed, for drawing the crushed rock.</summary>
-        public List<(double X, double Y)> FractureMarks { get; } = new List<(double, double)>();
+        public int SwingsLeft { get; private set; } = MineTuning.Swings;
+        public int TapsLeft { get; private set; }
+        public int PropsLeft { get; private set; } = MineTuning.Props;
+        public int PropsSet => MineTuning.Props - PropsLeft;
+        /// <summary>Hidden roof stress. The view only shows it through dust and creaks (see DustLevel).</summary>
+        public double RoofStress { get; private set; }
+        public bool Collapsed { get; private set; }
+        /// <summary>What the miner last heard from the roof, if they tapped it.</summary>
+        public RoofSound? LastRoofTap { get; private set; }
+
+        /// <summary>0 until the miner would notice anything, rising to 1 as the roof nears its limit and beyond.</summary>
+        public double DustLevel
+        {
+            get
+            {
+                double notice = MineTuning.NoticeAt(Skill);
+                if (RoofStress < notice) return 0;
+                return MineTuning.Clamp01(0.25 + (RoofStress - notice) / (MineTuning.SafeStress + 3 - notice));
+            }
+        }
+
+        /// <summary>Pieces in the cart (Sort stage works on these).</summary>
+        public IReadOnlyList<Piece> Cart => _cart;
 
         public MineResult Result { get; private set; }
 
-        /// <summary>Things that happened since the last time the caller cleared it (for sounds and dust).</summary>
         public List<MineEvent> Events { get; } = new List<MineEvent>();
 
         private readonly Random _rng;
-        private readonly List<WeakPoint> _points = new List<WeakPoint>();
-        private double _wait;        // time left before the current point opens
-        private double _recovery;    // time left before the pick can swing again
+        private readonly List<Block> _blocks = new List<Block>();
+        private readonly List<Piece> _cart = new List<Piece>();
+        private int _wasted, _swingsUsed, _tapsUsed, _buried;
 
         public MineMinigame(MineSetup setup, int seed)
         {
             Setup = setup ?? throw new ArgumentNullException(nameof(setup));
             _rng = new Random(seed);
-            OpenSeconds = MineTuning.OpenSeconds(Skill, setup.Pick, setup.Node);
-            HitRadius = MineTuning.HitRadius(Skill, setup.Pick);
-
-            double sx = 0.3 + _rng.NextDouble() * 0.4;
-            double sy = MineTuning.FaceHeight * (0.25 + _rng.NextDouble() * 0.5);
-            double angle = (_rng.NextDouble() * 2 - 1) * MineTuning.MaxSeamTilt;
-            Seam = new Seam(sx, sy, angle, MineTuning.SeamHalfWidth(setup.Node, Skill));
+            TapsLeft = MineTuning.Taps(Skill);
+            TrueSign = SignTable.TrueSign(setup.WorldSeed, setup.Node.Ore);
+            SeamRow = 1 + _rng.Next(MineTuning.Rows - 2); // never the top or bottom bed
+            BuildFace();
         }
 
-        public static bool InsideFace(double x, double y) =>
-            x >= 0 && x <= 1 && y >= 0 && y <= MineTuning.FaceHeight;
+        // ------------------------------------------------------------------ the face
 
-        private static bool InsideMargin(double x, double y) =>
-            x >= MineTuning.Margin && x <= 1 - MineTuning.Margin &&
-            y >= MineTuning.Margin && y <= MineTuning.FaceHeight - MineTuning.Margin;
-
-        // ------------------------------------------------------------------ update
-
-        public void Update(double dt)
+        private void BuildFace()
         {
-            if (dt <= 0 || Stage != MineStage.Strike) return;
-            if (_recovery > 0) _recovery -= dt;
-
-            var p = CurrentPoint;
-            if (p == null) { Complete(); return; }
-
-            if (p.State == PointState.Waiting)
+            int id = 0;
+            for (int row = 0; row < MineTuning.Rows; row++)
             {
-                _wait -= dt;
-                if (_wait <= 0)
+                int col = 0;
+                while (col < MineTuning.Columns)
                 {
-                    p.State = PointState.Showing;
-                    OpenFor = 0;
-                    Events.Add(new MineEvent(MineEventKind.Opened, "creak", p.X, p.Y));
+                    int left = MineTuning.Columns - col;
+                    int w = left <= 4 ? left : left == 5 ? 2 + _rng.Next(2) : 2 + _rng.Next(3);
+                    if (left - w == 1) w++;
+                    _blocks.Add(MakeBlock(id++, row, col, w));
+                    col += w;
                 }
             }
-            else if (p.State == PointState.Showing)
+
+            // Every face holds at least three ore blocks.
+            int ore = 0;
+            foreach (var b in _blocks) if (b.Kind == BlockKind.Ore) ore++;
+            for (int i = 0; i < _blocks.Count && ore < 3; i++)
             {
-                OpenFor += dt;
-                if (OpenFor >= OpenSeconds)
-                {
-                    p.State = PointState.Missed;
-                    Events.Add(new MineEvent(MineEventKind.Closed, "The crack closes", p.X, p.Y));
-                    Advance();
-                }
+                var b = _blocks[i];
+                if (b.Row != SeamRow || b.Kind == BlockKind.Ore) continue;
+                _blocks[i] = MakeBlock(b.Id, b.Row, b.Col, b.Width, BlockKind.Ore);
+                ore++;
             }
         }
 
-        private void Advance()
+        private Block MakeBlock(int id, int row, int col, int width, BlockKind? force = null)
         {
-            Current++;
-            OpenFor = 0;
-            _wait = MineTuning.PauseMin + _rng.NextDouble() * (MineTuning.PauseMax - MineTuning.PauseMin);
-            if (Current >= _points.Count) Complete();
+            BlockKind kind;
+            if (force.HasValue) kind = force.Value;
+            else if (row == SeamRow) kind = _rng.NextDouble() < MineTuning.SeamOreChance ? BlockKind.Ore : BlockKind.Solid;
+            else if (Math.Abs(row - SeamRow) == 1 && _rng.NextDouble() < MineTuning.SpillOreChance) kind = BlockKind.Ore;
+            else kind = _rng.NextDouble() < MineTuning.LooseChance ? BlockKind.Loose : BlockKind.Solid;
+
+            var signs = new List<Sign>();
+            if (kind == BlockKind.Ore)
+            {
+                if (_rng.NextDouble() < MineTuning.SignSeen(Skill)) signs.Add(TrueSign);
+                if (_rng.NextDouble() < MineTuning.DecoyOnOre) signs.Add(Decoy());
+            }
+            else
+            {
+                if (_rng.NextDouble() < MineTuning.TrueSignOnRock) signs.Add(TrueSign);
+                if (_rng.NextDouble() < MineTuning.DecoyOnRock) signs.Add(Decoy());
+            }
+
+            var pieces = new List<Piece>();
+            if (kind == BlockKind.Ore)
+            {
+                int n = width >= MineTuning.LargeWidth ? MineTuning.LargePieces : MineTuning.SmallPieces;
+                double share = MineTuning.OreShare(Setup.VeinGrade);
+                for (int i = 0; i < n; i++) pieces.Add(_rng.NextDouble() < share ? OrePiece() : WastePiece());
+            }
+            return new Block(id, row, col, width, kind, signs, pieces);
+        }
+
+        private Sign Decoy()
+        {
+            Sign s;
+            do s = SignTable.AllSigns[_rng.Next(SignTable.AllSigns.Length)]; while (s == TrueSign);
+            return s;
+        }
+
+        // Real-world tells: iron and copper ores are heavy for their size, coal is light; waste rock is ordinary.
+        private Piece OrePiece()
+        {
+            double shape = _rng.NextDouble();
+            switch (Node.Ore)
+            {
+                case OreKind.Iron:
+                    return new Piece(true, _rng.NextDouble() < 0.6 ? PieceColour.Rust : PieceColour.DarkGrey,
+                        _rng.NextDouble() < 0.5 ? Lustre.Metallic : Lustre.Dull, Heft.Heavy, shape);
+                case OreKind.Coal:
+                    return new Piece(true, PieceColour.Black,
+                        _rng.NextDouble() < 0.6 ? Lustre.Glassy : Lustre.Dull, Heft.Light, shape);
+                default:
+                    return new Piece(true, _rng.NextDouble() < 0.6 ? PieceColour.GreenBlue : PieceColour.Brass,
+                        _rng.NextDouble() < 0.5 ? Lustre.Metallic : Lustre.Dull, Heft.Heavy, shape);
+            }
+        }
+
+        private Piece WastePiece()
+        {
+            double shape = _rng.NextDouble(), r = _rng.NextDouble();
+            if (r < 0.4) // plain country rock
+                return new Piece(false, _rng.NextDouble() < 0.5 ? PieceColour.Grey : PieceColour.Brown, Lustre.Dull, Heft.Ordinary, shape);
+            if (r < 0.75) // rock stained the ore's colour: the classic fool
+            {
+                var c = Node.Ore == OreKind.Iron ? PieceColour.Rust : Node.Ore == OreKind.Coal ? PieceColour.Black : PieceColour.GreenBlue;
+                return new Piece(false, c, Lustre.Dull, Heft.Ordinary, shape);
+            }
+            return new Piece(false, PieceColour.White, Lustre.Glassy, Heft.Ordinary, shape); // quartz
+        }
+
+        public Block BlockAt(int row, int col)
+        {
+            foreach (var b in _blocks)
+                if (b.Row == row && col >= b.Col && col < b.End) return b;
+            return null;
+        }
+
+        public Block BlockById(int id) => id >= 0 && id < _blocks.Count ? _blocks[id] : null;
+
+        /// <summary>
+        /// Held on the left, the right and from above. The side walls and the roof count as holding.
+        /// A locked block can't be pried out; ore pried while locked shatters.
+        /// </summary>
+        public bool IsLocked(Block b)
+        {
+            bool leftHeld = b.Col == 0 || (BlockAt(b.Row, b.Col - 1)?.InPlace ?? false);
+            bool rightHeld = b.End >= MineTuning.Columns || (BlockAt(b.Row, b.End)?.InPlace ?? false);
+            bool topHeld = b.Row == 0;
+            if (!topHeld)
+            {
+                bool open = false;
+                for (int c = b.Col; c < b.End; c++)
+                    if (!(BlockAt(b.Row - 1, c)?.InPlace ?? true)) { open = true; break; }
+                topHeld = !open;
+            }
+            return leftHeld && rightHeld && topHeld;
         }
 
         // ------------------------------------------------------------------ inputs
 
-        /// <summary>Read stage: choose where to start working the face. The rock splits from here along its grain.</summary>
-        public void Mark(double x, double y)
+        /// <summary>Tap a block with the back of the pick. Free of swings, but the miner only has so many taps in them.</summary>
+        public TapSound Tap(int blockId)
         {
-            if (Stage != MineStage.Read || !InsideFace(x, y)) return;
-            MarkX = Math.Max(MineTuning.Margin, Math.Min(1 - MineTuning.Margin, x));
-            MarkY = Math.Max(MineTuning.Margin, Math.Min(MineTuning.FaceHeight - MineTuning.Margin, y));
-            BuildWeakPoints();
-            Current = 0;
-            _wait = MineTuning.LeadIn;
-            Stage = MineStage.Strike;
-            Events.Add(new MineEvent(MineEventKind.Marked, "Marked", MarkX, MarkY));
-            Events.Add(new MineEvent(MineEventKind.StageChanged, "Strike"));
+            var b = BlockById(blockId);
+            if (Stage != MineStage.Dig || b == null || !b.InPlace || TapsLeft <= 0) return TapSound.None;
+            if (b.Tapped != TapSound.None) return b.Tapped;
+            TapsLeft--;
+            _tapsUsed++;
+            b.Tapped = b.Kind switch
+            {
+                BlockKind.Ore => TapSound.Ring,
+                BlockKind.Loose => TapSound.Hollow,
+                _ => TapSound.Thud,
+            };
+            Events.Add(new MineEvent(MineEventKind.Tapped, b.Tapped.ToString().ToLowerInvariant(), b.Id));
+            return b.Tapped;
         }
 
-        /// <summary>
-        /// Swing the pick at a spot on the face. On the open crack: a clean split. Anywhere else (or while the rock is
-        /// still settling): a fracture that crushes the chunk in front of it.
-        /// </summary>
-        public void Swing(double x, double y)
+        /// <summary>Tap the roof: solid, drummy or very drummy.</summary>
+        public RoofSound? TapRoof()
         {
-            if (Stage != MineStage.Strike || _recovery > 0 || !InsideFace(x, y)) return;
-            var p = CurrentPoint;
-            if (p == null) return;
-            _recovery = MineTuning.SwingRecovery;
+            if (Stage != MineStage.Dig || TapsLeft <= 0) return null;
+            TapsLeft--;
+            _tapsUsed++;
+            LastRoofTap = MineTuning.RoofSoundFor(RoofStress);
+            Events.Add(new MineEvent(MineEventKind.RoofTapped, LastRoofTap.ToString()));
+            return LastRoofTap;
+        }
 
-            double d = Math.Sqrt((x - p.X) * (x - p.X) + (y - p.Y) * (y - p.Y));
-            if (p.State == PointState.Showing && d <= HitRadius)
+        /// <summary>Work a block with the pick, wedge or sledge. Costs one swing whatever happens.</summary>
+        public void Work(Tool tool, int blockId)
+        {
+            if (tool == Tool.Tap) { Tap(blockId); return; }
+            var b = BlockById(blockId);
+            if (Stage != MineStage.Dig || b == null || !b.InPlace || SwingsLeft <= 0) return;
+            SwingsLeft--;
+            _swingsUsed++;
+
+            bool locked = IsLocked(b);
+            bool ore = b.Kind == BlockKind.Ore;
+
+            if (tool == Tool.Sledge)
             {
-                p.State = PointState.Clean;
-                Events.Add(new MineEvent(MineEventKind.Clean, "Clean split", p.X, p.Y));
+                RoofStress += MineTuning.SledgeStress;
+                if (ore) Take(b, BlockState.Crushed, MineEventKind.Shattered, "The sledge shatters the ore");
+                else Take(b, BlockState.Removed, MineEventKind.Smashed, "The rock breaks out");
+            }
+            else if (b.Kind == BlockKind.Loose)
+            {
+                Take(b, BlockState.Removed, MineEventKind.Pried, "The loose rock comes away");
+            }
+            else if (locked)
+            {
+                if (ore) Take(b, BlockState.Crushed, MineEventKind.Shattered, "Held tight, the ore shatters");
+                else Waste(b, "The rock is held fast");
             }
             else
             {
-                Fractures++;
-                FractureMarks.Add((x, y));
-                p.State = PointState.Crushed;
-                Events.Add(new MineEvent(MineEventKind.Fracture, "The rock fractures", x, y));
+                bool rightTool = tool == Tool.Wedge ? b.IsLarge : !b.IsLarge;
+                if (ore)
+                {
+                    if (rightTool) Take(b, BlockState.Clean, MineEventKind.Freed, "The ore comes out whole");
+                    else Take(b, BlockState.Crushed, MineEventKind.Shattered,
+                        tool == Tool.Wedge ? "The wedge splits it to pieces" : "Too big to pry: you hack it apart");
+                }
+                else if (rightTool) Take(b, BlockState.Removed, MineEventKind.Pried, "The rock comes out");
+                else Waste(b, tool == Tool.Wedge ? "Too small for the wedge to bite" : "Too big to pry");
             }
-            Advance();
+
+            AfterSwing();
         }
 
-        /// <summary>Stop early. The weak points not yet reached stay in the node for the next miner.</summary>
-        public void StepBack()
+        /// <summary>Set a timber prop. Costs a swing and eases the roof.</summary>
+        public void Prop()
         {
-            if (Stage != MineStage.Strike) return;
-            for (int i = Current; i < _points.Count; i++) _points[i].State = PointState.Left;
-            Current = _points.Count;
+            if (Stage != MineStage.Dig || PropsLeft <= 0 || SwingsLeft <= 0) return;
+            PropsLeft--;
+            SwingsLeft--;
+            _swingsUsed++;
+            RoofStress = Math.Max(0, RoofStress - MineTuning.PropRelief);
+            Events.Add(new MineEvent(MineEventKind.Propped, "Prop set"));
+            AfterSwing();
+        }
+
+        /// <summary>Stop digging and sort the cart.</summary>
+        public void FinishDigging()
+        {
+            if (Stage != MineStage.Dig) return;
+            Stage = MineStage.Sort;
+            Events.Add(new MineEvent(MineEventKind.StageChanged, "Sort"));
+        }
+
+        /// <summary>Sort stage: flip a piece between keep and toss.</summary>
+        public void ToggleKeep(int index)
+        {
+            if (Stage != MineStage.Sort || index < 0 || index >= _cart.Count) return;
+            _cart[index].Keep = !_cart[index].Keep;
+        }
+
+        public void SetKeep(int index, bool keep)
+        {
+            if (Stage != MineStage.Sort || index < 0 || index >= _cart.Count) return;
+            _cart[index].Keep = keep;
+        }
+
+        public void FinishSorting()
+        {
+            if (Stage != MineStage.Sort) return;
             Complete();
         }
 
-        // ------------------------------------------------------------------ weak points
+        // ------------------------------------------------------------------ internals
 
-        /// <summary>
-        /// Lays out one weak point per swing of the node, starting at the mark and spreading both ways along the
-        /// grain (parallel to the seam), with a little wander. Points never leave the face.
-        /// </summary>
-        private void BuildWeakPoints()
+        private void Take(Block b, BlockState state, MineEventKind kind, string message)
         {
-            _points.Clear();
-            double gx = Seam.DirX, gy = Seam.DirY;   // grain direction
-            double ax = -gy, ay = gx;                 // across the grain
-
-            var ends = new[] { (X: MarkX, Y: MarkY), (X: MarkX, Y: MarkY) };
-            bool[] blocked = new bool[2];
-            int side = _rng.Next(2);
-            Add(MarkX, MarkY);
-
-            int guard = 0;
-            while (_points.Count < Setup.NodeSize && guard++ < 500)
+            b.State = state;
+            RoofStress += MineTuning.RemoveStress + (b.Row == 0 ? MineTuning.TopRowStress : 0);
+            if (state == BlockState.Clean || state == BlockState.Crushed)
             {
-                if (_rng.NextDouble() > MineTuning.KeepDirection) side = 1 - side;
-                if (blocked[side]) side = 1 - side;
-
-                double sign = side == 0 ? 1 : -1;
-                double step = MineTuning.StepMin + _rng.NextDouble() * (MineTuning.StepMax - MineTuning.StepMin);
-                double jitter = (_rng.NextDouble() * 2 - 1) * MineTuning.StepJitter;
-                double dx = sign * (gx * Math.Cos(jitter) - gy * Math.Sin(jitter));
-                double dy = sign * (gx * Math.Sin(jitter) + gy * Math.Cos(jitter));
-                double drift = (_rng.NextDouble() * 2 - 1) * MineTuning.DriftAcross;
-                double nx = ends[side].X + dx * step + ax * drift;
-                double ny = ends[side].Y + dy * step + ay * drift;
-
-                if (!InsideMargin(nx, ny))
+                foreach (var p in b.Pieces)
                 {
-                    blocked[side] = true;
-                    if (blocked[0] && blocked[1])
-                    {
-                        // Both ends reached the edge of the face: work a second row just across the grain.
-                        var from = _points[_rng.Next(_points.Count)];
-                        double off = (_rng.Next(2) == 0 ? 1 : -1) * (MineTuning.StepMin + _rng.NextDouble() * 0.03);
-                        double rx = from.X + ax * off, ry = from.Y + ay * off;
-                        if (InsideMargin(rx, ry) && !TooClose(rx, ry)) Add(rx, ry);
-                    }
-                    continue;
+                    if (state == BlockState.Crushed) p.Crushed = true;
+                    _cart.Add(p);
                 }
-                if (TooClose(nx, ny)) continue;
-                ends[side] = (nx, ny);
-                Add(nx, ny);
             }
-
-            // Last resort for tiny faces: fill anywhere inside the margin.
-            while (_points.Count < Setup.NodeSize)
-            {
-                double rx = MineTuning.Margin + _rng.NextDouble() * (1 - 2 * MineTuning.Margin);
-                double ry = MineTuning.Margin + _rng.NextDouble() * (MineTuning.FaceHeight - 2 * MineTuning.Margin);
-                Add(rx, ry);
-            }
+            Events.Add(new MineEvent(kind, message, b.Id));
         }
 
-        private bool TooClose(double x, double y)
+        private void Waste(Block b, string message)
         {
-            foreach (var p in _points)
-                if ((p.X - x) * (p.X - x) + (p.Y - y) * (p.Y - y) < MineTuning.StepMin * MineTuning.StepMin * 0.5)
-                    return true;
-            return false;
+            _wasted++;
+            Events.Add(new MineEvent(MineEventKind.Bounced, message, b.Id));
         }
 
-        private void Add(double x, double y) => _points.Add(new WeakPoint(x, y, Seam.OreContentAt(x, y)));
+        private double _lastCreak;
+
+        private void AfterSwing()
+        {
+            if (DustLevel > 0 && RoofStress > _lastCreak)
+            {
+                _lastCreak = RoofStress;
+                Events.Add(new MineEvent(MineEventKind.Creak, "The roof creaks"));
+            }
+
+            if (RoofStress > MineTuning.SafeStress &&
+                _rng.NextDouble() < (RoofStress - MineTuning.SafeStress) * MineTuning.CollapsePerStress)
+            {
+                Collapsed = true;
+                int bury = (int)Math.Round(_cart.Count * MineTuning.CollapseLoss);
+                for (int i = 0; i < bury && _cart.Count > 0; i++) _cart.RemoveAt(_rng.Next(_cart.Count));
+                _buried = bury;
+                Events.Add(new MineEvent(MineEventKind.Collapse, "The roof comes in! You scramble clear with what's in the cart."));
+                Stage = MineStage.Sort;
+                Events.Add(new MineEvent(MineEventKind.StageChanged, "Sort"));
+                return;
+            }
+
+            if (SwingsLeft <= 0) FinishDigging();
+        }
 
         // ------------------------------------------------------------------ scoring
 
-        /// <summary>Quality cap before mining: the lower of the pick's cap and what the miner's skill can bring out.</summary>
+        /// <summary>Quality cap: the lower of the pick's cap and what the miner's skill can bring out.</summary>
         public static int ComputeCeiling(MineSetup setup, out string reason)
         {
             int skillCap = MineTuning.SkillCap(setup.SkillLevel);
@@ -242,35 +371,53 @@ namespace Mmo.Crafting.Mining
 
         private void Complete()
         {
-            if (Stage == MineStage.Done) return;
             var r = new MineResult
             {
-                NodeSize = Setup.NodeSize,
-                Fractures = Fractures,
                 VeinGrade = Setup.VeinGrade,
-                MarkOffset = Seam.DistanceTo(MarkX, MarkY) / Seam.HalfWidth,
+                WastedSwings = _wasted,
+                SwingsUsed = _swingsUsed,
+                TapsUsed = _tapsUsed,
+                PropsUsed = PropsSet,
+                Collapsed = Collapsed,
+                PiecesBuried = _buried,
             };
 
-            double ore = 0;
-            foreach (var p in _points)
+            int cleanOre = 0, allOre = 0;
+            foreach (var b in _blocks)
             {
-                switch (p.State)
+                if (b.Kind == BlockKind.Ore)
                 {
-                    case PointState.Clean: r.Clean++; ore += p.OreContent; break;
-                    case PointState.Missed: r.Missed++; break;
-                    case PointState.Crushed: r.Crushed++; break;
-                    case PointState.Left: r.Left++; break;
+                    r.OreBlocks++;
+                    foreach (var p in b.Pieces) if (p.IsOre) r.NodeOre++;
+                    if (b.State == BlockState.Clean) r.OreFreed++;
+                    if (b.State == BlockState.Crushed) r.OreShattered++;
+                    if (b.State != BlockState.InPlace)
+                        foreach (var p in b.Pieces) if (p.IsOre) { allOre++; if (b.State == BlockState.Clean) cleanOre++; }
                 }
+                else if (b.State == BlockState.Removed) r.RockRemoved++;
             }
 
-            r.Read = r.Clean > 0 ? ore / r.Clean : 0;
-            r.YieldScore = Setup.NodeSize > 0 ? ore / Setup.NodeSize : 0;
-            r.BreakScore = r.Clean > 0 ? r.Clean / (r.Clean + MineTuning.CrushPerFracture * Fractures) : 0;
-            r.Score = r.YieldScore * r.BreakScore;
-            r.Yield = (int)Math.Round(Setup.NodeSize * r.YieldScore);
+            int right = 0;
+            foreach (var p in _cart)
+            {
+                if (p.IsOre && p.Keep) { if (p.Crushed) r.CrushedKept++; else r.OreKept++; }
+                else if (p.IsOre) r.OreTossed++;
+                else if (p.Keep) r.WasteKept++;
+                else r.WasteTossed++;
+                if (p.IsOre == p.Keep) right++;
+            }
+            r.SortScore = _cart.Count > 0 ? right / (double)_cart.Count : 0;
+
+            r.OreTaken = r.OreKept + 0.5 * r.CrushedKept;
+            r.Yield = (int)Math.Round(r.OreTaken);
+            r.YieldScore = r.NodeOre > 0 ? r.OreTaken / r.NodeOre : 0;
+            r.BreakScore = allOre > 0 ? cleanOre / (double)allOre : 0;
+            int kept = r.OreKept + r.CrushedKept + r.WasteKept;
+            r.Purity = kept > 0 ? (r.OreKept + r.CrushedKept) / (double)kept : 0;
+            r.Score = r.YieldScore * r.BreakScore * r.Purity;
 
             r.Ceiling = ComputeCeiling(Setup, out r.CeilingReason);
-            r.RawQuality = (int)Math.Round(Setup.VeinGrade * (0.5 + 0.5 * r.BreakScore));
+            r.RawQuality = (int)Math.Round(Setup.VeinGrade * (0.5 + 0.5 * r.BreakScore) * (0.6 + 0.4 * r.Purity));
             if (r.Yield > 0)
             {
                 r.Quality = Math.Max(1, Math.Min(r.Ceiling, r.RawQuality));
@@ -281,12 +428,22 @@ namespace Mmo.Crafting.Mining
             {
                 r.Quality = 0;
                 r.Grade = "";
-                r.ItemName = "Only rubble";
+                r.ItemName = "Nothing worth carrying";
             }
 
-            // Skill only grows from nodes that still challenge you.
+            // What the face taught: each sign seen, and how often it sat on ore here.
+            var tally = new Dictionary<Sign, (int Ore, int Rock)>();
+            foreach (var b in _blocks)
+                foreach (var s in b.Signs)
+                {
+                    tally.TryGetValue(s, out var v);
+                    tally[s] = b.Kind == BlockKind.Ore ? (v.Ore + 1, v.Rock) : (v.Ore, v.Rock + 1);
+                }
+            foreach (var kv in tally)
+                r.Learned.Add($"{SignTable.Describe(kv.Key)}: on ore {kv.Value.Ore}, on barren rock {kv.Value.Rock}");
+
             if (r.Yield > 0 && Skill < 100 && Skill < Node.RequiredSkill + 30)
-                r.SkillGain = r.Score >= 0.6 ? 2 : 1;
+                r.SkillGain = r.Score >= 0.5 ? 2 : 1;
 
             Result = r;
             Stage = MineStage.Done;

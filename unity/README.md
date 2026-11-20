@@ -35,22 +35,24 @@ Recipes are the iron path for level 1–20: Plain Iron Sword (Novice), Iron Shor
 
 Open `Assets/Game/Scenes/Mining.unity` and press Play.
 
-The first time, an old miner explains the craft once (the setup screen can replay it). After that there is no help beyond a keys bar: no seam marker, no target circles, no timers.
+A knowledge game: no timing, no aiming. The first time, an old miner explains the craft once (the setup screen can replay it). Nothing on screen says which block is ore or what to do next; the results screen explains what happened.
 
 | Step | What you do | Keys |
 |---|---|---|
-| Read the face | The rock shows streaks, flecks of ore and cracks. Most flecks and the cracks that run alongside cluster on the seam; some are strays. Chalk where to start. The rock splits along its grain from there, so starting on the seam keeps every chunk in the ore. | Mouse or WASD / arrows to move, click or SPACE to mark |
-| Strike | One at a time, a hairline crack opens with grit trickling out, then closes. Hit it while open for a clean split. A blow anywhere else, or before the rock is ready, fractures it and crushes that chunk. A crack left alone closes and that chunk stays in the rock. | Mouse or WASD / arrows to aim, click or SPACE to swing |
-| Step back | Stop early; the rest stays in the node. | E |
+| Survey | The face is a wall of blocks split by joints and bedding lines. The seam is one bed of it. Read the surface signs (streaks, stains, lichen, crystals) and tap blocks: ore rings, solid rock thuds, broken rock sounds hollow. Taps are limited (4 at skill 1, 8 at skill 100). | 1 Tap, then click / SPACE |
+| Plan the cut | A block held on both sides and from above is locked. Prying locked ore shatters it, so open the face on barren or loose rock beside or above the ore first. | |
+| Tool per blow | Pick for small blocks, wedge for large ones (3+ wide), sledge breaks out rock anywhere but shatters ore. Wrong tool on rock wastes the swing; on ore it shatters it. 10 swings per node. | 2 Pick, 3 Wedge, 4 Sledge |
+| Roof | Every block out loads the roof (more for the top bed and the sledge). Dust and creaks warn, earlier for skilled miners; tap the roof for solid / drummy. A prop (2 in the kit, costs a swing) eases it. Past the limit, each swing risks a fall that buries 40% of the cart and ends the dig. | Tap the roof strip, P prop, E stop |
+| Sort | Keep or toss each piece by colour, lustre and heft. Stained rock mimics ore's colour; iron and copper ore are heavy for their size, coal is light. | click / SPACE, ENTER done |
 
-Scoring follows the spec:
+Sign meanings are rolled per world (the setup screen can start a new world). The miner's journal records, for every sign, how often it sat on ore versus barren rock, and persists between digs.
 
-- Yield = node size × yield score, where yield score = ore in the clean chunks ÷ node size (a chunk on the seam is all ore, one well beside it is a trace)
-- Quality = vein grade × (0.5 + 0.5 × clean breaks), clean breaks = clean splits ÷ (clean splits + fractures)
+Scoring:
+
+- Yield = ore pieces kept (crushed count half), out of what the node held
+- Quality = vein grade × (0.5 + 0.5 × whole) × (0.6 + 0.4 × purity); whole = share of ore taken out unbroken, purity = share of kept pieces that are ore
 - Capped by the lower of the pick (worn 60, iron 85, steel 100) and skill (31 at skill 1, 100 at skill 100)
-- Skill keeps each crack open from 1.8 s (skill 1) to 3.2 s (skill 100) and gives more reach; better picks add a little more of both; hard rock (iron) closes faster, soft rock (coal) slower
-
-Nodes: iron seam and coal seam (skill 1+), copper seam (skill 20+, thin). Vein grade and node size are test sliders on the setup screen; in game they are hidden and rolled per node.
+- Skill never adds swings; it sharpens the senses (more true signs noticed, more taps, earlier roof warnings)
 
 ## Code layout
 
@@ -60,7 +62,7 @@ Assets/Game/Crafting/Blacksmithing/
   View/   ForgeView (placeholder visuals drawn with IMGUI), ForgeAudio (sounds generated in code)
 Assets/Game/Crafting/Mining/
   Core/   rules only, no UnityEngine
-  View/   MineView (IMGUI plus one generated rock-face texture), MineAudio (sounds generated in code)
+  View/   MineView (IMGUI), MineAudio (sounds generated in code)
 Assets/Game/Scenes/Blacksmithing.unity
 Assets/Game/Scenes/Mining.unity
 ```

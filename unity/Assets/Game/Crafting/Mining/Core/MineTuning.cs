@@ -4,32 +4,34 @@ namespace Mmo.Crafting.Mining
 {
     /// <summary>
     /// Every tunable number of the mining minigame in one place.
-    /// Skill and pick widen the windows; they never change the game.
+    /// Mining is a knowledge game: no timing or aiming. Skill sharpens the miner's senses (more signs seen, more
+    /// taps, earlier roof warnings) and raises the quality cap; it never adds swings.
     /// </summary>
     public static class MineTuning
     {
-        // The rock face, in face units (1 across).
-        public const double FaceHeight = 0.6;
-        public const double Margin = 0.06;            // weak points stay this far inside the edge
+        // The face
+        public const int Rows = 5;
+        public const int Columns = 12;
+        public const int LargeWidth = 3;         // blocks this wide or wider are "large" (a wedge job)
+        public const double SeamOreChance = 0.8; // blocks in the seam bed that are ore (the rest are pinch-outs)
+        public const double SpillOreChance = 0.15; // ore in the beds either side of the seam
+        public const double LooseChance = 0.25;  // broken blocks outside the seam
 
-        // Seam
-        public const double SeamFade = 2.5;           // ore fades to a trace this many half-widths outside the band
-        public const double StrayOre = 0.10;          // even barren rock holds a trace
-        public const double MaxSeamTilt = 0.6;        // radians (~35 degrees) either way from level
+        // Work
+        public const int Swings = 10;            // pick, wedge, sledge and props each cost one
+        public const int Props = 2;              // timber props in the kit
 
-        // Weak points: a walk from the miner's mark, following the grain of the rock (parallel to the seam).
-        public const double StepMin = 0.075, StepMax = 0.11;
-        public const double StepJitter = 0.35;        // radians off the grain per step
-        public const double DriftAcross = 0.012;      // small sideways wander per step
-        public const double KeepDirection = 0.75;     // chance the walk keeps going the same way along the grain
+        // Roof
+        public const double RemoveStress = 1;    // every block taken out widens the opening
+        public const double TopRowStress = 1;    // extra for blocks right under the roof
+        public const double SledgeStress = 1;    // extra for the sledge's shock
+        public const double PropRelief = 4;
+        public const double SafeStress = 8;      // above this, every swing risks a fall
+        public const double CollapsePerStress = 0.08;
+        public const double CollapseLoss = 0.4;  // share of the cart buried when the roof comes in
 
-        // Timing
-        public const double LeadIn = 1.0;             // pause after marking before the first crack opens
-        public const double PauseMin = 0.55, PauseMax = 1.15; // rock settles between weak points
-        public const double SwingRecovery = 0.22;     // a pick can't swing faster than this
-
-        // Quality
-        public const double CrushPerFracture = 1.0;   // fractures count fully against how cleanly the rock split
+        // Pieces
+        public const int SmallPieces = 3, LargePieces = 5;
 
         public static double Clamp01(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -38,16 +40,24 @@ namespace Mmo.Crafting.Mining
         /// <summary>Skill 1..100 mapped to 0..1.</summary>
         public static double Skill01(int skill) => Clamp01((skill - 1) / 99.0);
 
-        /// <summary>How long a weak point stays open: 1.8 s at skill 1, 3.2 s at 100, times pick and rock.
-        /// (The spec's 0.6-1.5 s felt far too fast in play, Ian 2026-11-20.)</summary>
-        public static double OpenSeconds(int skill, Pick pick, OreNodeType node) =>
-            Lerp(1.8, 3.2, Skill01(skill)) * pick.WindowMultiplier * node.Softness;
+        /// <summary>Taps the miner bothers with before the face is "read": 4 at skill 1, 8 at skill 100.</summary>
+        public static int Taps(int skill) => 4 + (int)Math.Round(4 * Skill01(skill));
 
-        /// <summary>How close to a weak point a blow must land to split it (face units).</summary>
-        public static double HitRadius(int skill, Pick pick) => Lerp(0.032, 0.055, Skill01(skill)) * pick.ReachMultiplier;
+        /// <summary>Chance an ore block's true sign is noticed at all: 55% at skill 1, 95% at skill 100.</summary>
+        public static double SignSeen(int skill) => Lerp(0.55, 0.95, Skill01(skill));
 
-        /// <summary>A practised eye follows a seam a little further: the band counts as slightly wider.</summary>
-        public static double SeamHalfWidth(OreNodeType node, int skill) => node.BaseSeamHalfWidth * Lerp(1.0, 1.4, Skill01(skill));
+        public const double DecoyOnOre = 0.15;    // ore blocks can carry a misleading sign too
+        public const double DecoyOnRock = 0.20;   // barren blocks with some other sign
+        public const double TrueSignOnRock = 0.06; // and, rarely, the true sign where there's no ore
+
+        /// <summary>Roof stress at which a miner first notices dust and creaks: 7 at skill 1, 4 at skill 100.</summary>
+        public static double NoticeAt(int skill) => Lerp(7, 4, Skill01(skill));
+
+        public static RoofSound RoofSoundFor(double stress) =>
+            stress < 5 ? RoofSound.Solid : stress < SafeStress ? RoofSound.Drummy : RoofSound.VeryDrummy;
+
+        /// <summary>Share of an ore block's pieces that are really ore, from the vein grade.</summary>
+        public static double OreShare(int veinGrade) => 0.6 + 0.35 * Clamp01(veinGrade / 100.0);
 
         public static SkillRank RankFor(int skill)
         {
@@ -70,5 +80,31 @@ namespace Mmo.Crafting.Mining
             if (quality >= 21) return "Rough";
             return "Torn";
         }
+
+        public static string Describe(PieceColour c) => c switch
+        {
+            PieceColour.Rust => "rust-brown",
+            PieceColour.DarkGrey => "dark grey",
+            PieceColour.Black => "black",
+            PieceColour.GreenBlue => "green-blue",
+            PieceColour.Brass => "brassy yellow",
+            PieceColour.Grey => "grey",
+            PieceColour.Brown => "brown",
+            _ => "white",
+        };
+
+        public static string Describe(Lustre l) => l switch
+        {
+            Lustre.Metallic => "metallic",
+            Lustre.Glassy => "glassy",
+            _ => "dull",
+        };
+
+        public static string Describe(Heft h) => h switch
+        {
+            Heft.Heavy => "heavy for its size",
+            Heft.Light => "light for its size",
+            _ => "about what you'd expect",
+        };
     }
 }

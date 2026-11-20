@@ -7,7 +7,7 @@ namespace Mmo.Crafting.Mining.View
     {
         private const int Rate = 44100;
         private AudioSource _source;
-        private AudioClip _creak, _split, _crunch, _settle, _chalk;
+        private AudioClip _ring, _thud, _hollow, _split, _crunch, _bounce, _smash, _creak, _collapse, _prop;
 
         private void Awake()
         {
@@ -18,22 +18,24 @@ namespace Mmo.Crafting.Mining.View
             var noise = new System.Random(11);
             float N() => (float)noise.NextDouble() * 2 - 1;
 
-            // A low groan with a fine trickle of grit: the rock settling and a crack opening.
-            _creak = Make("creak", 0.45f, t =>
-                Mathf.Sin(2 * Mathf.PI * (70 + 40 * t) * t) * Mathf.Sin(Mathf.PI * t / 0.45f) * 0.22f +
-                N() * (noise.NextDouble() < 0.02 ? 0.25f : 0.01f));
-            // Pick bites, then the chunk lets go and tumbles.
+            // Taps: ore rings bright, sound rock thuds, broken rock sounds hollow.
+            _ring = Make("ring", 0.5f, t => (Mathf.Sin(2 * Mathf.PI * 1250 * t) + 0.6f * Mathf.Sin(2 * Mathf.PI * 2710 * t)) * Mathf.Exp(-t * 9) * 0.25f);
+            _thud = Make("thud", 0.18f, t => Mathf.Sin(2 * Mathf.PI * 140 * t) * Mathf.Exp(-t * 30) * 0.5f + N() * Mathf.Exp(-t * 80) * 0.15f);
+            _hollow = Make("hollow", 0.3f, t => Mathf.Sin(2 * Mathf.PI * 320 * t) * Mathf.Sin(2 * Mathf.PI * 7 * t + 1) * Mathf.Exp(-t * 12) * 0.4f + N() * Mathf.Exp(-t * 40) * 0.1f);
+            // A clean split: bite, then the block lets go and tumbles.
             _split = Make("split", 0.7f, t =>
-                N() * Mathf.Exp(-t * 40) * 0.7f +
-                Mathf.Sin(2 * Mathf.PI * 1900 * t) * Mathf.Exp(-t * 50) * 0.25f +
+                N() * Mathf.Exp(-t * 40) * 0.6f +
                 Mathf.Sin(2 * Mathf.PI * 85 * t) * Mathf.Exp(-t * 6) * 0.35f * Mathf.Clamp01((t - 0.05f) * 30));
-            // A dull blow and a long grind of crushed rock.
             _crunch = Make("crunch", 0.55f, t =>
                 Mathf.Sin(2 * Mathf.PI * 120 * t) * Mathf.Exp(-t * 20) * 0.45f +
                 N() * Mathf.Exp(-t * 5) * 0.3f * (0.6f + 0.4f * Mathf.Sin(2 * Mathf.PI * 30 * t)));
-            // Grit settling as the crack closes.
-            _settle = Make("settle", 0.35f, t => N() * Mathf.Sin(Mathf.PI * t / 0.35f) * 0.06f);
-            _chalk = Make("chalk", 0.12f, t => N() * Mathf.Sin(Mathf.PI * t / 0.12f) * 0.12f);
+            _bounce = Make("bounce", 0.3f, t => Mathf.Sin(2 * Mathf.PI * 1900 * t) * Mathf.Exp(-t * 35) * 0.3f + Mathf.Sin(2 * Mathf.PI * 160 * t) * Mathf.Exp(-t * 25) * 0.3f);
+            _smash = Make("smash", 0.8f, t => Mathf.Sin(2 * Mathf.PI * 70 * t) * Mathf.Exp(-t * 8) * 0.5f + N() * Mathf.Exp(-t * 4) * 0.35f);
+            _creak = Make("creak", 0.9f, t =>
+                Mathf.Sin(2 * Mathf.PI * (55 + 30 * t) * t) * Mathf.Sin(Mathf.PI * t / 0.9f) * 0.3f +
+                N() * (noise.NextDouble() < 0.02 ? 0.25f : 0.01f));
+            _collapse = Make("collapse", 2.2f, t => (N() * 0.6f + Mathf.Sin(2 * Mathf.PI * 45 * t) * 0.4f) * Mathf.Exp(-t * 1.4f) * Mathf.Clamp01(t * 20) * 0.7f);
+            _prop = Make("prop", 0.25f, t => Mathf.Sin(2 * Mathf.PI * 220 * t) * Mathf.Exp(-t * 20) * 0.4f);
         }
 
         private static AudioClip Make(string name, float seconds, System.Func<float, float> wave)
@@ -50,11 +52,20 @@ namespace Mmo.Crafting.Mining.View
         {
             switch (e.Kind)
             {
-                case MineEventKind.Marked: _source.PlayOneShot(_chalk); break;
-                case MineEventKind.Opened: _source.PlayOneShot(_creak); break;
-                case MineEventKind.Closed: _source.PlayOneShot(_settle); break;
-                case MineEventKind.Clean: _source.PlayOneShot(_split); break;
-                case MineEventKind.Fracture: _source.PlayOneShot(_crunch); break;
+                case MineEventKind.Tapped:
+                    _source.PlayOneShot(e.Message == "ring" ? _ring : e.Message == "hollow" ? _hollow : _thud);
+                    break;
+                case MineEventKind.RoofTapped:
+                    _source.PlayOneShot(e.Message == "Solid" ? _thud : _hollow);
+                    break;
+                case MineEventKind.Freed:
+                case MineEventKind.Pried: _source.PlayOneShot(_split); break;
+                case MineEventKind.Shattered: _source.PlayOneShot(_crunch); break;
+                case MineEventKind.Bounced: _source.PlayOneShot(_bounce); break;
+                case MineEventKind.Smashed: _source.PlayOneShot(_smash); break;
+                case MineEventKind.Creak: _source.PlayOneShot(_creak); break;
+                case MineEventKind.Collapse: _source.PlayOneShot(_collapse); break;
+                case MineEventKind.Propped: _source.PlayOneShot(_prop); break;
             }
         }
     }

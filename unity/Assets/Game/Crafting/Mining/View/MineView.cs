@@ -1,27 +1,32 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Mmo.Crafting.Mining.View
 {
     /// <summary>
-    /// Placeholder front end for the mining minigame, drawn with Unity's immediate-mode GUI plus one generated texture
-    /// for the rock face, so there are no sprites, prefabs or packages to set up yet.
+    /// Placeholder front end for the mining minigame, drawn with Unity's immediate-mode GUI (no sprites or packages).
     /// The rules live in MineMinigame (Core); this class only draws and forwards input.
     ///
-    /// Deliberately unguided: no gauges, markers, zones or timers. The player reads the streaks, flecks and cracks to
-    /// find the seam, then watches and listens for each crack to open. The results screen explains the outcome.
-    /// Controls: mouse or WASD / arrows move the pick, SPACE or click marks the start / swings, E steps back,
-    /// ENTER mine again, ESC back to setup.
+    /// A knowledge game with no timing or aiming: the player reads surface signs, taps blocks and the roof, plans which
+    /// blocks to take out in which order with which tool, props the roof when it starts to work, and sorts the cart.
+    /// Nothing on screen says which block is ore or what to do; the results screen explains what happened.
     /// </summary>
     public sealed class MineView : MonoBehaviour
     {
         private const float W = 1280f, H = 720f;
         private const string SkillPref = "mmo.mine.skill";
         private const string IntroPref = "mmo.mine.introSeen";
-        private const float CursorSpeed = 0.55f; // face widths per second with the keys
+        private const string WorldPref = "mmo.mine.world";
+        private const string JournalPrefPrefix = "mmo.mine.journal.";
 
-        private static readonly Rect FaceRect = new Rect(170, 84, 860, 860 * (float)MineTuning.FaceHeight);
+        // Face geometry (GUI units).
+        private const float FaceX = 110, FaceY = 100, CellW = 70, CellH = 88;
+        private static float FaceW => CellW * MineTuning.Columns;
+        private static float FaceH => CellH * MineTuning.Rows;
+        private static Rect FaceRect => new Rect(FaceX, FaceY, FaceW, FaceH);
+        private static Rect RoofRect => new Rect(FaceX - 20, FaceY - 34, FaceW + 40, 30);
 
         private enum Mode { Intro, Setup, Play, Results }
 
@@ -30,18 +35,22 @@ namespace Mmo.Crafting.Mining.View
         private int _nodeIndex;
         private readonly MineSetup _setup = new MineSetup();
         private int _skill = 1;
+        private int _world;
+        private MinersJournal _journal;
         private MineMinigame _game;
         private MineAudio _audio;
         private int _seed = 1;
         private int _gameSeed;
         private int _skillBefore;
 
-        private Texture2D _face;
-        private Vector2 _cursor = new Vector2(0.5f, 0.3f);   // face units
+        private Tool _tool = Tool.Tap;
+        private int _selRow = 0, _selCol = 0;   // row -1 = the roof
+        private int _selPiece;
+        private string _caption = "";
+        private float _captionAt = -10f;
+        private float _collapseAt = -10f;
         private Vector2 _lastMouse = new Vector2(-1, -1);
-        private float _swingAt = -10f;
-        private Vector2 _swingSpot;
-        private bool _swingClean;
+        private readonly List<string> _learnedNew = new List<string>();
 
         private readonly HashSet<KeyCode> _held = new HashSet<KeyCode>();
         private GUIStyle _style;
@@ -53,14 +62,11 @@ namespace Mmo.Crafting.Mining.View
             EnsureCameraAndListener();
             _audio = gameObject.AddComponent<MineAudio>();
             _skill = Mathf.Clamp(PlayerPrefs.GetInt(SkillPref, 1), 1, 100);
+            _world = PlayerPrefs.GetInt(WorldPref, 0);
+            if (_world == 0) NewWorld();
+            else LoadJournal();
             _seed = Random.Range(1, int.MaxValue);
             if (PlayerPrefs.GetInt(IntroPref, 0) == 0) _mode = Mode.Intro;
-        }
-
-        private void OnDestroy()
-        {
-            if (_face != null) Destroy(_face);
-            Cursor.visible = true;
         }
 
         private static void EnsureCameraAndListener()
@@ -76,21 +82,36 @@ namespace Mmo.Crafting.Mining.View
             if (FindAnyObjectByType<AudioListener>() == null) cam.gameObject.AddComponent<AudioListener>();
         }
 
-        // A key released while the window was unfocused never sends KeyUp; forget held keys.
         private void OnApplicationFocus(bool focused)
         {
             if (!focused) _held.Clear();
         }
 
+        /// <summary>A fresh world: the signs mean different things and the journal starts empty.</summary>
+        private void NewWorld()
+        {
+            _world = Random.Range(1, int.MaxValue);
+            PlayerPrefs.SetInt(WorldPref, _world);
+            _journal = new MinersJournal();
+        }
+
+        private void LoadJournal() => _journal = MinersJournal.Parse(PlayerPrefs.GetString(JournalPrefPrefix + _world, ""));
+
+        private void SaveJournal() => PlayerPrefs.SetString(JournalPrefPrefix + _world, _journal.Serialize());
+
         private void StartMining()
         {
             _setup.Node = OreNodeType.All[_nodeIndex];
             _setup.SkillLevel = _skill;
+            _setup.WorldSeed = _world;
             _gameSeed = _seed++;
             _game = new MineMinigame(_setup, _gameSeed);
-            BuildFaceTexture(_game, _gameSeed);
-            _cursor = new Vector2(0.5f, (float)MineTuning.FaceHeight / 2);
-            _swingAt = -10f;
+            _tool = Tool.Tap;
+            _selRow = 0;
+            _selCol = 0;
+            _selPiece = 0;
+            _caption = "";
+            _collapseAt = -10f;
             _skillBefore = _skill;
             _mode = Mode.Play;
         }
@@ -98,28 +119,18 @@ namespace Mmo.Crafting.Mining.View
         private void Update()
         {
             if (_mode != Mode.Play || _game == null) return;
-
-            // Keyboard aiming.
-            Vector2 move = Vector2.zero;
-            if (_held.Contains(KeyCode.A) || _held.Contains(KeyCode.LeftArrow)) move.x -= 1;
-            if (_held.Contains(KeyCode.D) || _held.Contains(KeyCode.RightArrow)) move.x += 1;
-            if (_held.Contains(KeyCode.W) || _held.Contains(KeyCode.UpArrow)) move.y -= 1;
-            if (_held.Contains(KeyCode.S) || _held.Contains(KeyCode.DownArrow)) move.y += 1;
-            if (move != Vector2.zero)
-            {
-                _cursor += move.normalized * CursorSpeed * Time.deltaTime;
-                _cursor.x = Mathf.Clamp01(_cursor.x);
-                _cursor.y = Mathf.Clamp(_cursor.y, 0, (float)MineTuning.FaceHeight);
-            }
-
-            _game.Update(Time.deltaTime);
             DrainEvents();
-            if (_game.Stage == MineStage.Done)
-            {
-                _skill = Mathf.Min(100, _skill + _game.Result.SkillGain);
-                PlayerPrefs.SetInt(SkillPref, _skill);
-                _mode = Mode.Results;
-            }
+            if (_game.Stage == MineStage.Done) Finish();
+        }
+
+        private void Finish()
+        {
+            var r = _game.Result;
+            _skill = Mathf.Min(100, _skill + r.SkillGain);
+            PlayerPrefs.SetInt(SkillPref, _skill);
+            _journal.RecordFace(_game.Node.Ore, _game.Blocks);
+            SaveJournal();
+            _mode = Mode.Results;
         }
 
         private void DrainEvents()
@@ -127,21 +138,36 @@ namespace Mmo.Crafting.Mining.View
             foreach (var e in _game.Events)
             {
                 _audio.Play(e);
-                if (e.Kind == MineEventKind.Clean || e.Kind == MineEventKind.Fracture)
+                switch (e.Kind)
                 {
-                    _swingAt = Time.time;
-                    _swingSpot = new Vector2((float)e.X, (float)e.Y);
-                    _swingClean = e.Kind == MineEventKind.Clean;
+                    case MineEventKind.Tapped:
+                    case MineEventKind.StageChanged:
+                    case MineEventKind.Done:
+                        break;
+                    case MineEventKind.RoofTapped:
+                        Say(_game.LastRoofTap switch
+                        {
+                            RoofSound.Solid => "The roof rings solid.",
+                            RoofSound.Drummy => "The roof sounds a little drummy.",
+                            _ => "The roof sounds hollow and drummy.",
+                        });
+                        break;
+                    case MineEventKind.Collapse:
+                        _collapseAt = Time.time;
+                        Say(e.Message);
+                        break;
+                    default:
+                        Say(e.Message + ".");
+                        break;
                 }
             }
             _game.Events.Clear();
         }
 
-        private void Act()
+        private void Say(string text)
         {
-            if (_game.Stage == MineStage.Read) _game.Mark(_cursor.x, _cursor.y);
-            else if (_game.Stage == MineStage.Strike) _game.Swing(_cursor.x, _cursor.y);
-            DrainEvents();
+            _caption = text;
+            _captionAt = Time.time;
         }
 
         // ------------------------------------------------------------------ input
@@ -150,7 +176,7 @@ namespace Mmo.Crafting.Mining.View
         {
             if (e.type == EventType.KeyDown && e.keyCode != KeyCode.None)
             {
-                bool first = _held.Add(e.keyCode); // ignore key repeat
+                bool first = _held.Add(e.keyCode);
                 if (first && OnKeyDown(e.keyCode)) e.Use();
             }
             else if (e.type == EventType.KeyUp)
@@ -158,21 +184,41 @@ namespace Mmo.Crafting.Mining.View
                 _held.Remove(e.keyCode);
             }
 
-            if (_mode != Mode.Play) return;
+            if (_mode != Mode.Play || _game == null) return;
 
-            // The mouse moves the pick whenever it moves over the face.
             var m = e.mousePosition;
-            if (m != _lastMouse)
+            bool moved = m != _lastMouse;
+            _lastMouse = m;
+
+            if (_game.Stage == MineStage.Dig)
             {
-                _lastMouse = m;
-                if (FaceRect.Contains(m)) _cursor = ToFace(m);
+                if (moved) HoverFace(m);
+                if (e.type == EventType.MouseDown && e.button == 0 && (FaceRect.Contains(m) || RoofRect.Contains(m)))
+                {
+                    HoverFace(m);
+                    UseTool();
+                    e.Use();
+                }
             }
-            if (e.type == EventType.MouseDown && e.button == 0 && FaceRect.Contains(m))
+            else if (_game.Stage == MineStage.Sort)
             {
-                _cursor = ToFace(m);
-                Act();
-                e.Use();
+                int hit = PieceAt(m);
+                if (moved && hit >= 0) _selPiece = hit;
+                if (e.type == EventType.MouseDown && e.button == 0 && hit >= 0)
+                {
+                    _selPiece = hit;
+                    _game.ToggleKeep(hit);
+                    e.Use();
+                }
             }
+        }
+
+        private void HoverFace(Vector2 m)
+        {
+            if (RoofRect.Contains(m)) { _selRow = -1; return; }
+            if (!FaceRect.Contains(m)) return;
+            _selCol = Mathf.Clamp((int)((m.x - FaceX) / CellW), 0, MineTuning.Columns - 1);
+            _selRow = Mathf.Clamp((int)((m.y - FaceY) / CellH), 0, MineTuning.Rows - 1);
         }
 
         private bool OnKeyDown(KeyCode key)
@@ -194,19 +240,62 @@ namespace Mmo.Crafting.Mining.View
             }
 
             if (key == KeyCode.Escape) { _mode = Mode.Setup; return true; }
-            if (key == KeyCode.Space) { Act(); return true; }
-            if (key == KeyCode.E && _game.Stage == MineStage.Strike) { _game.StepBack(); return true; }
-            return key == KeyCode.W || key == KeyCode.A || key == KeyCode.S || key == KeyCode.D ||
-                   key == KeyCode.UpArrow || key == KeyCode.DownArrow || key == KeyCode.LeftArrow || key == KeyCode.RightArrow;
+
+            if (_game.Stage == MineStage.Dig)
+            {
+                if (key == KeyCode.Alpha1 || key == KeyCode.Keypad1) { _tool = Tool.Tap; return true; }
+                if (key == KeyCode.Alpha2 || key == KeyCode.Keypad2) { _tool = Tool.Pick; return true; }
+                if (key == KeyCode.Alpha3 || key == KeyCode.Keypad3) { _tool = Tool.Wedge; return true; }
+                if (key == KeyCode.Alpha4 || key == KeyCode.Keypad4) { _tool = Tool.Sledge; return true; }
+                if (key == KeyCode.P) { _game.Prop(); DrainEvents(); return true; }
+                if (key == KeyCode.E) { _game.FinishDigging(); return true; }
+                if (key == KeyCode.Space || key == KeyCode.Return) { UseTool(); return true; }
+                if (key == KeyCode.LeftArrow || key == KeyCode.A) { MoveSelection(-1, 0); return true; }
+                if (key == KeyCode.RightArrow || key == KeyCode.D) { MoveSelection(1, 0); return true; }
+                if (key == KeyCode.UpArrow || key == KeyCode.W) { MoveSelection(0, -1); return true; }
+                if (key == KeyCode.DownArrow || key == KeyCode.S) { MoveSelection(0, 1); return true; }
+            }
+            else if (_game.Stage == MineStage.Sort)
+            {
+                int n = _game.Cart.Count;
+                if (key == KeyCode.LeftArrow || key == KeyCode.A) { if (n > 0) _selPiece = (_selPiece + n - 1) % n; return true; }
+                if (key == KeyCode.RightArrow || key == KeyCode.D) { if (n > 0) _selPiece = (_selPiece + 1) % n; return true; }
+                if (key == KeyCode.Space) { _game.ToggleKeep(_selPiece); return true; }
+                if (key == KeyCode.Return || key == KeyCode.KeypadEnter) { _game.FinishSorting(); return true; }
+            }
+            return false;
         }
 
-        private static Vector2 ToFace(Vector2 gui) =>
-            new Vector2((gui.x - FaceRect.x) / FaceRect.width, (gui.y - FaceRect.y) / FaceRect.width);
+        /// <summary>Arrow keys step from block to block (left/right jump a whole block) and up onto the roof.</summary>
+        private void MoveSelection(int dx, int dy)
+        {
+            if (dy != 0)
+            {
+                _selRow = Mathf.Clamp(_selRow + dy, -1, MineTuning.Rows - 1);
+                return;
+            }
+            if (_selRow < 0) return;
+            var b = _game.BlockAt(_selRow, _selCol);
+            int col = dx < 0 ? (b != null ? b.Col - 1 : _selCol - 1) : (b != null ? b.End : _selCol + 1);
+            _selCol = Mathf.Clamp(col, 0, MineTuning.Columns - 1);
+        }
 
-        private static Vector2 ToGui(Rect face, double x, double y) =>
-            new Vector2(face.x + (float)x * face.width, face.y + (float)y * face.width);
+        private void UseTool()
+        {
+            if (_game.Stage != MineStage.Dig) return;
+            if (_selRow < 0)
+            {
+                if (_tool == Tool.Tap) _game.TapRoof();
+                DrainEvents();
+                return;
+            }
+            var b = _game.BlockAt(_selRow, _selCol);
+            if (b == null || !b.InPlace) return;
+            if (_tool == Tool.Tap) _game.Tap(b.Id);
+            else _game.Work(_tool, b.Id);
+            DrainEvents();
+        }
 
-        /// <summary>True on the mouse press inside r.</summary>
         private static bool Pressed(Rect r)
         {
             var e = Event.current;
@@ -238,9 +327,6 @@ namespace Mmo.Crafting.Mining.View
                 case Mode.Play: DrawPlay(); break;
                 case Mode.Results: DrawResults(); break;
             }
-
-            if (Event.current.type == EventType.Repaint)
-                Cursor.visible = !(_mode == Mode.Play && FaceRect.Contains(Event.current.mousePosition));
         }
 
         private static void Fill(Rect r, Color c)
@@ -259,7 +345,6 @@ namespace Mmo.Crafting.Mining.View
             Fill(new Rect(r.xMax - t, r.y, t, r.height), c);
         }
 
-        /// <summary>A line of small squares (IMGUI has no line primitive).</summary>
         private static void Dots(Vector2 a, Vector2 b, Color c, float size = 2f, float spacing = 2f)
         {
             int n = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(a, b) / spacing));
@@ -300,154 +385,55 @@ namespace Mmo.Crafting.Mining.View
 
         private static Color RockColor(OreKind ore) => ore switch
         {
-            OreKind.Iron => new Color(0.37f, 0.36f, 0.37f),
-            OreKind.Coal => new Color(0.33f, 0.30f, 0.27f),
-            _ => new Color(0.44f, 0.40f, 0.35f),
+            OreKind.Iron => new Color(0.40f, 0.39f, 0.40f),
+            OreKind.Coal => new Color(0.36f, 0.33f, 0.30f),
+            _ => new Color(0.46f, 0.42f, 0.37f),
         };
 
-        private static Color OreColor(OreKind ore) => ore switch
+        private static Color PieceColor(PieceColour c) => c switch
         {
-            OreKind.Iron => new Color(0.58f, 0.26f, 0.14f),
-            OreKind.Coal => new Color(0.07f, 0.07f, 0.08f),
-            _ => new Color(0.22f, 0.56f, 0.50f),
+            PieceColour.Rust => new Color(0.55f, 0.27f, 0.15f),
+            PieceColour.DarkGrey => new Color(0.26f, 0.26f, 0.28f),
+            PieceColour.Black => new Color(0.08f, 0.08f, 0.09f),
+            PieceColour.GreenBlue => new Color(0.22f, 0.55f, 0.50f),
+            PieceColour.Brass => new Color(0.72f, 0.62f, 0.28f),
+            PieceColour.Grey => new Color(0.50f, 0.50f, 0.50f),
+            PieceColour.Brown => new Color(0.45f, 0.36f, 0.27f),
+            _ => new Color(0.90f, 0.90f, 0.88f),
         };
-
-        // ------------------------------------------------------------------ the rock face texture
-        // Everything the player reads is painted here once per node: grain, a patchy stain along the seam, flecks of
-        // ore (most near the seam, some stray ones elsewhere) and cracks (bedding cracks follow the seam, others don't).
-
-        private const int TexW = 430;
-
-        private void BuildFaceTexture(MineMinigame g, int seed)
-        {
-            int texH = Mathf.RoundToInt(TexW * (float)MineTuning.FaceHeight);
-            if (_face == null || _face.width != TexW || _face.height != texH)
-            {
-                if (_face != null) Destroy(_face);
-                _face = new Texture2D(TexW, texH, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            }
-
-            var rng = new System.Random(seed ^ 0x5eed);
-            var ore = g.Node.Ore;
-            Color rock = RockColor(ore), oreC = OreColor(ore);
-            var seam = g.Seam;
-            float nx = (float)rng.NextDouble() * 100f, ny = (float)rng.NextDouble() * 100f;
-            float sx = (float)rng.NextDouble() * 100f;
-            var px = new Color[TexW * texH];
-
-            // Grain and a patchy seam stain.
-            for (int j = 0; j < texH; j++)
-            for (int i = 0; i < TexW; i++)
-            {
-                double u = (i + 0.5) / TexW, v = (j + 0.5) / TexW;
-                float n = 0.55f * Mathf.PerlinNoise(nx + i * 0.035f, ny + j * 0.035f)
-                        + 0.30f * Mathf.PerlinNoise(nx + i * 0.11f, ny + j * 0.11f)
-                        + 0.15f * Mathf.PerlinNoise(nx + i * 0.4f, ny + j * 0.4f);
-                Color c = rock * (0.72f + 0.55f * n);
-                double d = seam.DistanceTo(u, v);
-                float inSeam = Mathf.Clamp01(1f - (float)((d - seam.HalfWidth) / (seam.HalfWidth * 1.2)));
-                float patch = Mathf.Clamp01(Mathf.PerlinNoise(sx + i * 0.06f, sx + j * 0.06f) * 1.6f - 0.35f);
-                c = Color.Lerp(c, oreC * (0.8f + 0.4f * n), inSeam * patch * (ore == OreKind.Coal ? 0.35f : 0.22f));
-                c.a = 1;
-                px[(texH - 1 - j) * TexW + i] = c;
-            }
-
-            void Set(int i, int j, Color c)
-            {
-                if (i < 0 || j < 0 || i >= TexW || j >= texH) return;
-                px[(texH - 1 - j) * TexW + i] = c;
-            }
-
-            Color Get(int i, int j) => (i < 0 || j < 0 || i >= TexW || j >= texH) ? Color.black : px[(texH - 1 - j) * TexW + i];
-
-            double Gauss()
-            {
-                double a = 1.0 - rng.NextDouble(), b = rng.NextDouble();
-                return System.Math.Sqrt(-2 * System.Math.Log(a)) * System.Math.Cos(2 * System.Math.PI * b);
-            }
-
-            // Flecks: about 70% sit in or near the seam, the rest are strays.
-            double gx = seam.DirX, gy = seam.DirY, ax = -gy, ay = gx;
-            for (int k = 0; k < 150; k++)
-            {
-                double u, v;
-                if (rng.NextDouble() < 0.7)
-                {
-                    double along = (rng.NextDouble() * 2 - 1) * 1.2;
-                    double across = Gauss() * seam.HalfWidth * 1.1;
-                    u = seam.X + gx * along + ax * across;
-                    v = seam.Y + gy * along + ay * across;
-                }
-                else
-                {
-                    u = rng.NextDouble();
-                    v = rng.NextDouble() * MineTuning.FaceHeight;
-                }
-                int ci = (int)(u * TexW), cj = (int)(v * TexW);
-                int size = 1 + rng.Next(3);
-                Color fc = oreC * (0.85f + 0.3f * (float)rng.NextDouble());
-                fc.a = 1;
-                for (int a = 0; a < size; a++)
-                for (int b = 0; b < size; b++)
-                    if (rng.NextDouble() < 0.8) Set(ci + a, cj + b, fc);
-                if (ore == OreKind.Coal && rng.NextDouble() < 0.5) Set(ci, cj, new Color(0.55f, 0.55f, 0.6f)); // glossy glint
-            }
-
-            // Cracks: a wobbling dark line, lit on one side.
-            void Crack(double u, double v, double angle, double length)
-            {
-                double x = u * TexW, y = v * TexW;
-                int steps = (int)(length * TexW);
-                for (int s = 0; s < steps; s++)
-                {
-                    angle += (rng.NextDouble() * 2 - 1) * 0.25;
-                    x += System.Math.Cos(angle);
-                    y += System.Math.Sin(angle);
-                    int i = (int)x, j = (int)y;
-                    Set(i, j, Get(i, j) * 0.35f + new Color(0, 0, 0, 0.65f));
-                    Set(i, j - 1, Get(i, j - 1) * 1.15f);
-                }
-            }
-
-            for (int k = 0; k < 7; k++) // bedding cracks along the grain, a few hugging the seam's edges
-            {
-                double off = k < 3 ? (k - 1) * seam.HalfWidth * 1.15 : (rng.NextDouble() * 2 - 1) * 0.35;
-                double along = (rng.NextDouble() * 2 - 1) * 0.6;
-                Crack(seam.X + gx * along + ax * off, seam.Y + gy * along + ay * off,
-                    seam.Angle + (rng.NextDouble() < 0.5 ? 0 : System.Math.PI), 0.12 + rng.NextDouble() * 0.3);
-            }
-            for (int k = 0; k < 5; k++) // random fractures that mean nothing
-                Crack(rng.NextDouble(), rng.NextDouble() * MineTuning.FaceHeight, rng.NextDouble() * System.Math.PI * 2, 0.05 + rng.NextDouble() * 0.15);
-
-            _face.SetPixels(px);
-            _face.Apply();
-        }
 
         // ------------------------------------------------------------------ intro
-        // The old miner explains what each step is and why it matters, once, before the first node.
-        // It teaches the craft, never the answer: no counts, no numbers, no "look for this exact sign".
+        // The old miner teaches the craft (how rock behaves, what tools are for), never the answer:
+        // nothing about which sign means which ore here. That has to be learned.
 
         private static readonly (string Title, string Body)[] IntroPages =
         {
-            ("The face",
+            ("Reading the face",
              "So you want to dig. Good. Listen once, then learn with your hands.\n\n" +
-             "Ore runs through rock in seams, bands of it, and a seam always shows itself if you look. Streaks of " +
-             "colour, flecks, cracks that run alongside. Not every fleck tells the truth: bits wash out and lie where " +
-             "there's nothing behind them. Look at the whole face before you choose.\n\n" +
-             "Where you start matters most. Rock splits along its grain, so start on the seam and the seam comes out " +
-             "with you. Start beside it and you'll break fine clean stone, and stone is all you'll carry home."),
-            ("The pick",
-             "Once you've started, the rock talks. It settles, it groans, and a crack opens where it wants to split. " +
-             "Grit runs out of it. Strike it there, while it's open. It won't wait for you.\n\n" +
-             "Swing anywhere else, or swing before the rock is ready, and it fractures. The ore crushes to grit and the " +
-             "node wears out faster. Let a crack close and that piece stays in the rock for someone else.\n\n" +
-             "You can always step back and leave the rest."),
-            ("The vein",
-             "Some veins are rich and some are poor, and no swing turns poor ore rich. The best of them lie deep, far " +
-             "out, or where it's dangerous.\n\n" +
-             "A worn pick holds you back, and so do untrained hands. Better tools and years at the face give you " +
-             "more time to see each crack, and more of the vein's worth.\n\n" +
-             "When a node's done, look at what you brought out and what you left. That's how a miner learns. Now go dig."),
+             "Ore lies in seams, a bed of it between beds of plain rock. Look at the face before you swing. Ore leaves " +
+             "signs on the surface: stains, streaks, lichen, little crystals. Which sign goes with which ore changes from " +
+             "land to land, so I can't tell you. Keep a journal and you'll learn it.\n\n" +
+             "When you're not sure, tap the rock with the back of your pick. Ore rings. Sound rock thuds. Broken rock " +
+             "sounds hollow. Your arm only has so many taps in it before you have to get on with it."),
+            ("Cutting",
+             "Rock is held by the rock around it. A block with rock on both sides and rock above it is locked tight. " +
+             "Try to pry ore out of that and it shatters, and crushed ore is poor ore.\n\n" +
+             "So open the face first, on barren rock, beside or above the ore. Broken rock comes away easy. Then the " +
+             "ore has a free side, and it comes out whole.\n\n" +
+             "Pick for the small blocks. Wedge for the big ones; the pick can't shift them and the wedge shatters small " +
+             "ones. The sledge breaks rock out of anywhere, but never take it to ore. Every swing tires you, and a " +
+             "wasted one is wasted."),
+            ("The roof",
+             "Every block you take out leaves the roof less to sit on. The sledge shakes it worse.\n\n" +
+             "Listen to it. When it starts to creak and dust trickles down, it's working. Tap it: a roof that rings solid " +
+             "is fine, one that sounds drummy is not. Set a prop and it settles. You only carry a couple.\n\n" +
+             "Push your luck and it comes down, and you'll leave part of your cart under it."),
+            ("Sorting",
+             "Not everything in the cart is ore. Some rock is stained the same colour and will fool your eye. Colour " +
+             "lies. Lift each piece and feel it. Know what your ore should weigh for its size.\n\n" +
+             "Keep the ore, toss the rest on the spoil heap. Rock left in your ore makes it worth less, and ore " +
+             "thrown away is ore you dug for nothing.\n\n" +
+             "When a node's done, look at what was really in that face. That's how a miner learns. Now go dig."),
         };
 
         private void NextIntroPage()
@@ -465,12 +451,12 @@ namespace Mmo.Crafting.Mining.View
         private void DrawIntro()
         {
             var page = IntroPages[_introPage];
-            var card = new Rect(190, 70, 900, 560);
+            var card = new Rect(190, 60, 900, 590);
             Fill(card, new Color(0.14f, 0.13f, 0.12f));
             Outline(card, new Color(0.42f, 0.38f, 0.3f), 2);
-            Text(new Rect(card.x + 50, card.y + 34, 800, 40), "The old miner", 16, new Color(0.62f, 0.58f, 0.5f));
-            Text(new Rect(card.x + 50, card.y + 60, 800, 60), $"<b>{page.Title}</b>", 34, new Color(0.95f, 0.82f, 0.5f));
-            Text(new Rect(card.x + 50, card.y + 130, 800, 360), page.Body, 20, new Color(0.92f, 0.89f, 0.84f));
+            Text(new Rect(card.x + 50, card.y + 30, 800, 40), "The old miner", 16, new Color(0.62f, 0.58f, 0.5f));
+            Text(new Rect(card.x + 50, card.y + 56, 800, 60), $"<b>{page.Title}</b>", 34, new Color(0.95f, 0.82f, 0.5f));
+            Text(new Rect(card.x + 50, card.y + 120, 800, 400), page.Body, 20, new Color(0.92f, 0.89f, 0.84f));
             Text(new Rect(card.x + 50, card.yMax - 50, 300, 30), $"{_introPage + 1} / {IntroPages.Length}", 15, new Color(0.58f, 0.54f, 0.48f));
 
             bool last = _introPage == IntroPages.Length - 1;
@@ -493,67 +479,71 @@ namespace Mmo.Crafting.Mining.View
                     _nodeIndex = i;
             }
             var node = OreNodeType.All[_nodeIndex];
-            Text(new Rect(40, 290, 360, 120), $"{node.Description}\n\n<b>Gives:</b> {node.OreName}", 15, new Color(0.85f, 0.82f, 0.78f));
+            Text(new Rect(40, 290, 360, 80), $"{node.Description}\n<b>Gives:</b> {node.OreName}", 15, new Color(0.85f, 0.82f, 0.78f));
 
             float x = 460;
             Text(new Rect(x, 80, 700, 30), $"Mining skill: <b>{_skill}</b> ({MineTuning.RankFor(_skill)})", 18, Color.white);
             int newSkill = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x, 115, 500, 20), _skill, 1, 100));
             if (newSkill != _skill) { _skill = newSkill; PlayerPrefs.SetInt(SkillPref, _skill); }
-            Text(new Rect(x, 135, 780, 40), "Test slider (in game this is your character's skill; mining raises it).", 13, new Color(0.65f, 0.62f, 0.6f));
+            Text(new Rect(x, 135, 780, 40), "Test slider. Skill sharpens your senses (more signs noticed, more taps, earlier roof warnings) and raises the quality cap.", 13, new Color(0.65f, 0.62f, 0.6f));
             if (_skill < node.RequiredSkill)
-                Text(new Rect(x, 160, 780, 24), $"Below this node's rank ({node.RequiredSkill}). You can still practise on it.", 14, new Color(1f, 0.6f, 0.4f));
+                Text(new Rect(x, 172, 780, 24), $"Below this node's rank ({node.RequiredSkill}). You can still practise on it.", 14, new Color(1f, 0.6f, 0.4f));
 
-            Text(new Rect(x, 190, 400, 26), "Pick", 18, new Color(0.8f, 0.76f, 0.7f));
+            Text(new Rect(x, 200, 400, 26), "Pick", 18, new Color(0.8f, 0.76f, 0.7f));
             for (int i = 0; i < Pick.All.Length; i++)
             {
                 var p = Pick.All[i];
-                if (Button(new Rect(x + i * 205, 218, 195, 36), p.Name, _setup.Pick == p)) _setup.Pick = p;
+                if (Button(new Rect(x + i * 205, 228, 195, 36), p.Name, _setup.Pick == p)) _setup.Pick = p;
             }
-            Text(new Rect(x, 256, 780, 22), _setup.Pick.Description, 13, new Color(0.65f, 0.62f, 0.6f));
+            Text(new Rect(x, 266, 780, 22), _setup.Pick.Description, 13, new Color(0.65f, 0.62f, 0.6f));
 
-            Text(new Rect(x, 290, 780, 26), "The node  <size=13><color=#a6a09a>(test sliders: in game these are hidden and rolled per node)</color></size>", 18, new Color(0.8f, 0.76f, 0.7f));
-            Text(new Rect(x, 326, 200, 30), "Vein grade", 15, Color.white);
-            _setup.VeinGrade = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 200, 334, 300, 20), _setup.VeinGrade, 1, 100));
-            Text(new Rect(x + 520, 326, 260, 30), $"{_setup.VeinGrade}  <size=13><color=#a6a09a>caps ore quality</color></size>", 15, GradeColor(_setup.VeinGrade));
-            Text(new Rect(x, 366, 200, 30), "Node size", 15, Color.white);
-            _setup.NodeSize = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 200, 374, 300, 20), _setup.NodeSize, 5, 15));
-            Text(new Rect(x + 520, 366, 260, 30), $"{_setup.NodeSize} swings", 15, Color.white);
+            Text(new Rect(x, 300, 200, 30), "Vein grade", 15, Color.white);
+            _setup.VeinGrade = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 200, 308, 300, 20), _setup.VeinGrade, 1, 100));
+            Text(new Rect(x + 520, 300, 300, 30), $"{_setup.VeinGrade}  <size=13><color=#a6a09a>test slider; hidden in game</color></size>", 15, GradeColor(_setup.VeinGrade));
+
+            // World and journal
+            Text(new Rect(x, 350, 780, 26), "World", 18, new Color(0.8f, 0.76f, 0.7f));
+            Text(new Rect(x, 378, 520, 60), "Signs mean different things in each world. Your journal keeps what you've learned in this one.", 14, new Color(0.75f, 0.72f, 0.68f));
+            if (Button(new Rect(x + 540, 380, 240, 40), "New world (fresh journal)")) NewWorld();
+            DrawJournal(new Rect(x, 440, 780, 170), node.Ore);
 
             if (Button(new Rect(x, 630, 300, 56), "<b>Start mining</b>  <size=13>(Enter)</size>", true)) StartMining();
             if (Button(new Rect(40, 630, 360, 56), "Hear the old miner again")) { _introPage = 0; _mode = Mode.Intro; }
-            Text(new Rect(x + 320, 630, 470, 60),
-                "Controls: mouse or WASD / arrows move the pick · click or SPACE mark where to start, then swing · E step back · ESC leave.",
-                13, new Color(0.65f, 0.62f, 0.6f));
+        }
+
+        private void DrawJournal(Rect r, OreKind ore)
+        {
+            Text(new Rect(r.x, r.y, r.width, 24), $"<b>Journal</b>: signs seen at {ore.ToString().ToLowerInvariant()} faces", 15, new Color(0.9f, 0.85f, 0.7f));
+            if (_journal.IsEmpty(ore))
+            {
+                Text(new Rect(r.x, r.y + 26, r.width, 24), "Nothing written yet.", 14, new Color(0.65f, 0.62f, 0.6f));
+                return;
+            }
+            float y = r.y + 26;
+            foreach (var s in SignTable.AllSigns)
+            {
+                var (o, k) = _journal.Seen(ore, s);
+                if (o + k == 0) continue;
+                Text(new Rect(r.x, y, r.width, 20), $"{SignTable.Describe(s)}: on ore {o}, on barren rock {k}", 13, new Color(0.82f, 0.8f, 0.76f));
+                y += 18;
+                if (y > r.yMax - 16) break;
+            }
         }
 
         // ------------------------------------------------------------------ play screen
-        // No prompts, gauges, markers or zones: the player reads the face, then watches and listens for each crack.
 
         private void DrawPlay()
         {
             var g = _game;
+            float shake = Time.time - _collapseAt < 0.6f ? (1 - (Time.time - _collapseAt) / 0.6f) * 6f : 0;
+            var old = GUI.matrix;
+            if (shake > 0) GUI.matrix = old * Matrix4x4.TRS(new Vector3(Mathf.Sin(Time.time * 80) * shake, Mathf.Cos(Time.time * 60) * shake, 0), Quaternion.identity, Vector3.one);
+
             Text(new Rect(30, 14, 900, 40), $"<b>{g.Node.Name}</b>", 26, new Color(0.95f, 0.82f, 0.5f));
+            if (g.Stage == MineStage.Dig) DrawDig(g);
+            else if (g.Stage == MineStage.Sort) DrawSort(g);
 
-            // A small shake on each blow.
-            float since = Time.time - _swingAt;
-            var face = FaceRect;
-            if (since < 0.12f)
-            {
-                float s = (_swingClean ? 2f : 3.5f) * (1 - since / 0.12f);
-                face.x += Mathf.Sin(Time.time * 90f) * s;
-                face.y += Mathf.Cos(Time.time * 70f) * s * 0.6f;
-            }
-
-            Fill(new Rect(face.x - 14, face.y - 14, face.width + 28, face.height + 28), new Color(0.15f, 0.13f, 0.12f));
-            if (_face != null) GUI.DrawTexture(face, _face);
-
-            DrawWorkedRock(g, face);
-            if (g.Stage == MineStage.Strike) DrawOpenCrack(g, face);
-            if (g.Stage != MineStage.Read) DrawChalkMark(ToGui(face, g.MarkX, g.MarkY), 0.35f);
-            DrawImpact(face, since);
-            DrawRubble(g);
-            DrawPile(g);
-            DrawCursor(g, face);
+            GUI.matrix = old;
             DrawControls(g);
         }
 
@@ -561,154 +551,271 @@ namespace Mmo.Crafting.Mining.View
         {
             string keys = g.Stage switch
             {
-                MineStage.Read => "<b>MOUSE</b> or <b>WASD</b> move   <b>CLICK</b> or <b>SPACE</b> mark where to start",
-                MineStage.Strike => "<b>MOUSE</b> or <b>WASD</b> aim   <b>CLICK</b> or <b>SPACE</b> swing   <b>E</b> step back",
+                MineStage.Dig => "<b>1</b> tap  <b>2</b> pick  <b>3</b> wedge  <b>4</b> sledge   <b>MOUSE</b>/<b>ARROWS</b> choose   <b>CLICK</b>/<b>SPACE</b> use   <b>P</b> prop   <b>E</b> stop digging",
+                MineStage.Sort => "<b>MOUSE</b>/<b>ARROWS</b> pick up a piece   <b>CLICK</b>/<b>SPACE</b> keep or toss   <b>ENTER</b> done",
                 _ => "",
             };
             var bar = new Rect(0, H - 40, W, 40);
             Fill(bar, new Color(0.055f, 0.05f, 0.045f));
-            Text(new Rect(30, bar.y, W - 60, bar.height), keys + "      <color=#7d746c>ESC leave</color>", 16, new Color(0.85f, 0.82f, 0.78f), TextAnchor.MiddleLeft);
+            Text(new Rect(30, bar.y, W - 60, bar.height), keys + "      <color=#7d746c>ESC leave</color>", 15, new Color(0.85f, 0.82f, 0.78f), TextAnchor.MiddleLeft);
         }
 
-        /// <summary>Hollows where chunks came away cleanly; pale crushed grit where blows fractured the rock.</summary>
-        private void DrawWorkedRock(MineMinigame g, Rect face)
+        private void DrawDig(MineMinigame g)
         {
             var rock = RockColor(g.Node.Ore);
-            for (int i = 0; i < g.Points.Count; i++)
+
+            // Roof and frame.
+            Fill(new Rect(FaceX - 20, FaceY - 34, FaceW + 40, FaceH + 54), Shade(rock, 0.45f));
+            Fill(RoofRect, Shade(rock, 0.6f));
+
+            foreach (var b in g.Blocks) DrawBlock(g, b, rock);
+
+            // Props drawn over the face (they stand in front of it).
+            for (int i = 0; i < g.PropsSet; i++)
             {
-                var p = g.Points[i];
-                if (p.State != PointState.Clean) continue;
-                var c = ToGui(face, p.X, p.Y);
-                var rng = new System.Random(_gameSeed + i * 31);
-                for (int k = 0; k < 5; k++)
-                {
-                    float w = 18 + rng.Next(14), h = 12 + rng.Next(10);
-                    float dx = rng.Next(-10, 11), dy = rng.Next(-7, 8);
-                    Fill(new Rect(c.x + dx - w / 2, c.y + dy - h / 2, w, h), Shade(rock, 0.38f + 0.06f * k));
-                }
-                Fill(new Rect(c.x - 12, c.y - 10, 24, 2), Shade(rock, 1.25f));
+                float px = FaceX + FaceW * (i + 1) / (g.PropsSet + 1f);
+                Fill(new Rect(px - 6, FaceY - 4, 12, FaceH + 8), new Color(0.48f, 0.34f, 0.2f, 0.9f));
+                Fill(new Rect(px - 22, FaceY - 8, 44, 8), new Color(0.42f, 0.3f, 0.18f));
             }
-            for (int i = 0; i < g.FractureMarks.Count; i++)
+
+            DrawSelection(g);
+            DrawDust(g);
+            DrawFloor(g, rock);
+            DrawKit(g);
+            DrawJournal(new Rect(990, 420, 270, 220), g.Node.Ore);
+
+            if (_caption.Length > 0 && Time.time - _captionAt < 6f)
             {
-                var (fx, fy) = g.FractureMarks[i];
-                var c = ToGui(face, fx, fy);
-                var rng = new System.Random(_gameSeed + 7 + i * 17);
-                for (int k = 0; k < 26; k++)
-                {
-                    float r = (float)rng.NextDouble() * 18f, a = (float)rng.NextDouble() * Mathf.PI * 2;
-                    float s = 2 + rng.Next(3);
-                    Fill(new Rect(c.x + Mathf.Cos(a) * r, c.y + Mathf.Sin(a) * r, s, s), new Color(0.72f, 0.70f, 0.66f, 0.85f));
-                }
-                for (int k = 0; k < 4; k++)
-                {
-                    float a = (float)rng.NextDouble() * Mathf.PI * 2;
-                    Dots(c, c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (14 + rng.Next(14)), new Color(0.1f, 0.09f, 0.08f), 2f, 2f);
-                }
+                float a = Mathf.Clamp01(1.5f - (Time.time - _captionAt) / 4f);
+                Text(new Rect(FaceX, FaceY + FaceH + 66, FaceW, 30), _caption, 18, new Color(0.95f, 0.92f, 0.85f, a), TextAnchor.MiddleCenter);
             }
         }
 
-        /// <summary>
-        /// The one cue in play: a hairline crack that opens where the rock wants to split, with grit trickling out,
-        /// then closes again. It is drawn in the rock's own colours, not as a marker.
-        /// </summary>
-        private void DrawOpenCrack(MineMinigame g, Rect face)
-        {
-            var p = g.CurrentPoint;
-            if (p == null || p.State != PointState.Showing) return;
-            float t = (float)g.OpenFor, life = (float)g.OpenSeconds;
-            float alpha = Mathf.Clamp01(t / 0.12f) * Mathf.Clamp01((life - t) / 0.3f);
-            var c = ToGui(face, p.X, p.Y);
-            var rng = new System.Random(_gameSeed * 13 + g.Current);
+        private Rect BlockRect(Block b) => new Rect(FaceX + b.Col * CellW, FaceY + b.Row * CellH, b.Width * CellW, CellH);
 
-            // A jagged hairline through the point.
-            float angle = (float)(rng.NextDouble() * Mathf.PI);
-            Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            Vector2 a = c - dir * 14, prev = a;
-            for (int k = 1; k <= 6; k++)
-            {
-                Vector2 next = a + dir * (28f * k / 6f) + new Vector2(-dir.y, dir.x) * (float)(rng.NextDouble() * 6 - 3);
-                Dots(prev, next, new Color(0.05f, 0.04f, 0.04f, 0.9f * alpha), 2f, 1.5f);
-                prev = next;
-            }
-            // Grit running out of it.
-            for (int k = 0; k < 6; k++)
-            {
-                float phase = (t * 1.6f + k / 6f) % 1f;
-                float gx = c.x + (float)(rng.NextDouble() * 20 - 10);
-                Fill(new Rect(gx, c.y + phase * 40f, 2, 2), new Color(0.8f, 0.77f, 0.7f, alpha * (1 - phase)));
-            }
-        }
-
-        private void DrawImpact(Rect face, float since)
+        private void DrawBlock(MineMinigame g, Block b, Color rock)
         {
-            if (since > 0.15f) return;
-            var c = ToGui(face, _swingSpot.x, _swingSpot.y);
-            var rng = new System.Random(Mathf.FloorToInt(_swingAt * 1000));
-            float k = since / 0.15f;
-            for (int i = 0; i < 10; i++)
-            {
-                float a = (float)rng.NextDouble() * Mathf.PI * 2, r = 4 + k * (20 + rng.Next(20));
-                Fill(new Rect(c.x + Mathf.Cos(a) * r, c.y + Mathf.Sin(a) * r, 3, 3), new Color(1f, 0.95f, 0.8f, 1 - k));
-            }
-        }
+            var r = BlockRect(b);
+            var inner = new Rect(r.x + 2, r.y + 2, r.width - 4, r.height - 4);
+            var rng = new System.Random(_gameSeed * 31 + b.Id * 977);
 
-        /// <summary>Crushed rock collecting at the foot of the face, a little more with every fracture.</summary>
-        private void DrawRubble(MineMinigame g)
-        {
-            var rng = new System.Random(_gameSeed + 99);
-            int bits = g.Fractures * 14;
-            for (int i = 0; i < bits; i++)
+            if (!b.InPlace)
             {
-                float x = FaceRect.x + 40 + (float)rng.NextDouble() * (FaceRect.width - 80);
-                float y = FaceRect.yMax + 16 + (float)rng.NextDouble() * 10;
-                Fill(new Rect(x, y, 3, 2), new Color(0.6f, 0.58f, 0.55f));
-            }
-        }
-
-        /// <summary>The ore cart: one lump per clean split, coloured by how much ore it held.</summary>
-        private void DrawPile(MineMinigame g)
-        {
-            var cart = new Rect(1060, 470, 190, 110);
-            Fill(cart, new Color(0.25f, 0.18f, 0.12f));
-            Outline(cart, new Color(0.38f, 0.28f, 0.2f), 3);
-            Fill(new Rect(cart.x + 20, cart.yMax, 30, 30), new Color(0.2f, 0.2f, 0.22f));
-            Fill(new Rect(cart.xMax - 50, cart.yMax, 30, 30), new Color(0.2f, 0.2f, 0.22f));
-            Color rock = RockColor(g.Node.Ore), oreC = OreColor(g.Node.Ore);
-            int n = 0;
-            for (int i = 0; i < g.Points.Count; i++)
-            {
-                var p = g.Points[i];
-                if (p.State != PointState.Clean) continue;
-                int col = n % 5, row = n / 5;
-                var lump = new Rect(cart.x + 12 + col * 34 + (row % 2) * 14, cart.y - 18 - row * 18, 30, 22);
-                Fill(lump, Color.Lerp(rock, oreC, (float)p.OreContent * 0.85f));
-                Fill(new Rect(lump.x + 3, lump.y + 2, lump.width - 10, 3), Color.Lerp(rock, oreC, (float)p.OreContent) * 1.3f);
-                n++;
-            }
-        }
-
-        private void DrawChalkMark(Vector2 c, float alpha)
-        {
-            var chalk = new Color(0.93f, 0.92f, 0.88f, alpha);
-            Dots(c + new Vector2(-9, -9), c + new Vector2(9, 9), chalk, 3f, 2f);
-            Dots(c + new Vector2(-9, 9), c + new Vector2(9, -9), chalk, 3f, 2f);
-        }
-
-        /// <summary>A stick of chalk while reading, the pick's point while striking.</summary>
-        private void DrawCursor(MineMinigame g, Rect face)
-        {
-            if (g.Stage == MineStage.Done) return;
-            var c = ToGui(face, _cursor.x, _cursor.y);
-            if (g.Stage == MineStage.Read)
-            {
-                DrawChalkMark(c, 0.55f);
+                Fill(inner, new Color(0.06f, 0.05f, 0.05f));
+                if (b.State == BlockState.Crushed)
+                    for (int i = 0; i < 30; i++)
+                        Fill(new Rect(inner.x + (float)rng.NextDouble() * inner.width, inner.yMax - 4 - (float)rng.NextDouble() * 18, 3, 2), new Color(0.5f, 0.48f, 0.45f));
                 return;
             }
-            // Pick head: a dark iron spike pointing at the spot, with the haft going off to the lower right.
-            Dots(c + new Vector2(30, 34), c + new Vector2(60, 70), new Color(0.42f, 0.29f, 0.17f), 6f, 3f);
-            Dots(c, c + new Vector2(30, 34), new Color(0.2f, 0.2f, 0.22f), 5f, 2f);
-            Dots(c + new Vector2(16, 44), c + new Vector2(44, 22), new Color(0.24f, 0.24f, 0.26f), 6f, 2f);
-            Fill(new Rect(c.x - 1, c.y - 1, 3, 3), new Color(0.75f, 0.75f, 0.78f));
+
+            // Body with grain.
+            float tone = 0.85f + 0.3f * (float)rng.NextDouble();
+            Fill(inner, Shade(rock, tone));
+            for (int i = 0; i < 26; i++)
+            {
+                float sx = inner.x + (float)rng.NextDouble() * (inner.width - 4), sy = inner.y + (float)rng.NextDouble() * (inner.height - 3);
+                Fill(new Rect(sx, sy, 2 + rng.Next(5), 2), Shade(rock, tone * (0.75f + 0.5f * (float)rng.NextDouble())));
+            }
+            // Bedding texture: faint horizontal lines.
+            for (int i = 1; i < 3; i++)
+                Fill(new Rect(inner.x + 4, inner.y + inner.height * i / 3f + (float)rng.NextDouble() * 6, inner.width - 8, 1), Shade(rock, tone * 0.8f));
+
+            // Broken rock shows it: a web of cracks.
+            if (b.Kind == BlockKind.Loose)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    var a = new Vector2(inner.x + (float)rng.NextDouble() * inner.width, inner.y + (float)rng.NextDouble() * inner.height);
+                    var c = a + new Vector2((float)rng.NextDouble() * 40 - 20, (float)rng.NextDouble() * 40 - 20);
+                    Dots(a, c, new Color(0.08f, 0.07f, 0.06f), 2f, 2f);
+                }
+            }
+
+            foreach (var s in b.Signs) DrawSign(inner, s, rng);
+
+            // Chalked tap result.
+            if (b.Tapped != TapSound.None)
+                Text(new Rect(inner.x + 4, inner.y + 2, inner.width - 8, 22), b.Tapped.ToString().ToLowerInvariant(), 14, new Color(0.95f, 0.95f, 0.9f, 0.85f));
+        }
+
+        private static void DrawSign(Rect r, Sign s, System.Random rng)
+        {
+            float X() => r.x + 6 + (float)rng.NextDouble() * (r.width - 12);
+            float Y() => r.y + 18 + (float)rng.NextDouble() * (r.height - 26);
+            switch (s)
+            {
+                case Sign.RustStreaks:
+                    for (int i = 0; i < 4; i++) { var a = new Vector2(X(), Y()); Dots(a, a + new Vector2(18, 10), new Color(0.6f, 0.28f, 0.12f), 2f, 2f); }
+                    break;
+                case Sign.GreenStain:
+                    for (int i = 0; i < 3; i++) Fill(new Rect(X() - 8, Y() - 5, 18 + rng.Next(10), 10 + rng.Next(6)), new Color(0.2f, 0.55f, 0.5f, 0.55f));
+                    break;
+                case Sign.BlackBands:
+                    for (int i = 0; i < 2; i++) Fill(new Rect(r.x + 6, Y(), r.width - 12, 2), new Color(0.05f, 0.05f, 0.06f));
+                    break;
+                case Sign.QuartzVeins:
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var a = new Vector2(X(), Y());
+                        var b = a + new Vector2(10, -8); var c = b + new Vector2(12, 6);
+                        Dots(a, b, new Color(0.92f, 0.92f, 0.9f), 2f, 1.5f); Dots(b, c, new Color(0.92f, 0.92f, 0.9f), 2f, 1.5f);
+                    }
+                    break;
+                case Sign.YellowLichen:
+                case Sign.GreyLichen:
+                {
+                    var col = s == Sign.YellowLichen ? new Color(0.85f, 0.75f, 0.2f) : new Color(0.55f, 0.65f, 0.5f);
+                    float cx = X(), cy = Y();
+                    for (int i = 0; i < 12; i++) Fill(new Rect(cx + (float)rng.NextDouble() * 16 - 8, cy + (float)rng.NextDouble() * 10 - 5, 3, 3), col);
+                    break;
+                }
+                case Sign.CubeCrystals:
+                    for (int i = 0; i < 6; i++) { float cx = X(), cy = Y(); Fill(new Rect(cx, cy, 4, 4), new Color(0.7f, 0.65f, 0.4f)); Fill(new Rect(cx, cy, 2, 2), Color.white); }
+                    break;
+                default:
+                    for (int i = 0; i < 7; i++) { float cx = X(), cy = Y(); Fill(new Rect(cx, cy, 1, 7), new Color(0.85f, 0.88f, 0.9f)); }
+                    break;
+            }
+        }
+
+        private void DrawSelection(MineMinigame g)
+        {
+            var chalk = new Color(0.95f, 0.95f, 0.9f, 0.8f);
+            if (_selRow < 0) { Outline(RoofRect, chalk, 2); return; }
+            var b = g.BlockAt(_selRow, _selCol);
+            if (b != null) Outline(BlockRect(b), chalk, 2);
+        }
+
+        /// <summary>Dust trickling from the roof once the miner would notice it. The only roof reading besides a tap.</summary>
+        private void DrawDust(MineMinigame g)
+        {
+            float d = (float)g.DustLevel;
+            if (d <= 0) return;
+            int n = Mathf.RoundToInt(6 + d * 40);
+            for (int i = 0; i < n; i++)
+            {
+                float seed = i * 12.9898f;
+                float x = FaceX + Mathf.Repeat(seed * 37.1f, FaceW);
+                float speed = 60 + Mathf.Repeat(seed * 7.3f, 60);
+                float y = FaceY + Mathf.Repeat(Time.time * speed + seed * 50, FaceH);
+                Fill(new Rect(x, y, 2, 2), new Color(0.8f, 0.77f, 0.7f, 0.35f + 0.4f * d));
+            }
+        }
+
+        private void DrawFloor(MineMinigame g, Color rock)
+        {
+            float y = FaceY + FaceH + 20;
+            // Spoil heap: one heap of rubble per barren block out.
+            int removed = 0;
+            foreach (var b in g.Blocks) if (b.State == BlockState.Removed) removed++;
+            var rng = new System.Random(_gameSeed + 5);
+            for (int i = 0; i < removed * 10; i++)
+                Fill(new Rect(FaceX + 10 + (float)rng.NextDouble() * 220, y + 30 - (float)rng.NextDouble() * Mathf.Min(30, removed * 4), 5, 4), Shade(rock, 0.7f + 0.3f * (float)rng.NextDouble()));
+            Text(new Rect(FaceX + 10, y + 32, 220, 20), "spoil heap", 12, new Color(0.55f, 0.52f, 0.48f));
+
+            // The cart.
+            var cart = new Rect(FaceX + FaceW - 200, y, 190, 36);
+            Fill(cart, new Color(0.25f, 0.18f, 0.12f));
+            Outline(cart, new Color(0.38f, 0.28f, 0.2f), 2);
+            for (int i = 0; i < g.Cart.Count && i < 30; i++)
+                Fill(new Rect(cart.x + 6 + (i % 15) * 12, cart.y - 8 - (i / 15) * 8, 10, 8), Shade(PieceColor(g.Cart[i].Colour), g.Cart[i].Crushed ? 0.8f : 1f));
+        }
+
+        /// <summary>The miner's kit: tools, what's left in the arm, props in hand.</summary>
+        private void DrawKit(MineMinigame g)
+        {
+            var panel = new Rect(990, 70, 270, 340);
+            Fill(panel, new Color(0.13f, 0.12f, 0.11f));
+            Outline(panel, new Color(0.3f, 0.28f, 0.25f), 1);
+            float y = panel.y + 12;
+            var tools = new[] { (Tool.Tap, "1  Tap"), (Tool.Pick, "2  Pick"), (Tool.Wedge, "3  Wedge"), (Tool.Sledge, "4  Sledge") };
+            foreach (var (tool, label) in tools)
+            {
+                if (Button(new Rect(panel.x + 12, y, panel.width - 24, 34), label, _tool == tool)) _tool = tool;
+                y += 40;
+            }
+            y += 8;
+            Text(new Rect(panel.x + 14, y, 240, 22), $"Swings left in your arm: <b>{g.SwingsLeft}</b>", 15, Color.white); y += 24;
+            Text(new Rect(panel.x + 14, y, 240, 22), $"Taps left: <b>{g.TapsLeft}</b>", 15, Color.white); y += 28;
+            Text(new Rect(panel.x + 14, y, 120, 22), "Props:", 15, Color.white);
+            for (int i = 0; i < g.PropsLeft; i++) Fill(new Rect(panel.x + 80 + i * 22, y + 2, 10, 20), new Color(0.48f, 0.34f, 0.2f));
+            y += 30;
+            if (Button(new Rect(panel.x + 12, y, 120, 32), "P  Prop", false, g.PropsLeft > 0 && g.SwingsLeft > 0)) { g.Prop(); DrainEvents(); }
+            if (Button(new Rect(panel.x + 138, y, 120, 32), "E  Stop")) g.FinishDigging();
+        }
+
+        // ------------------------------------------------------------------ sorting
+
+        private Rect PieceRect(int i, bool keep, int slot)
+        {
+            const int perRow = 12;
+            float baseY = keep ? 130 : 420;
+            return new Rect(90 + (slot % perRow) * 74, baseY + (slot / perRow) * 70, 60, 54);
+        }
+
+        private readonly List<Rect> _pieceRects = new List<Rect>();
+
+        private int PieceAt(Vector2 m)
+        {
+            for (int i = 0; i < _pieceRects.Count; i++) if (_pieceRects[i].Contains(m)) return i;
+            return -1;
+        }
+
+        private void DrawSort(MineMinigame g)
+        {
+            if (g.Collapsed) Text(new Rect(30, 48, 1000, 26), "The roof came in. You got clear with what was in the cart.", 16, new Color(1f, 0.6f, 0.45f));
+            Text(new Rect(90, 92, 600, 30), "<b>Keep</b> (the cart)", 18, new Color(0.9f, 0.85f, 0.7f));
+            Fill(new Rect(80, 122, 900, 270), new Color(0.2f, 0.15f, 0.1f));
+            Text(new Rect(90, 392, 600, 26), "<b>Toss</b> (the spoil heap)", 18, new Color(0.8f, 0.76f, 0.7f));
+            Fill(new Rect(80, 418, 900, 200), new Color(0.16f, 0.15f, 0.14f));
+
+            _pieceRects.Clear();
+            int keepSlot = 0, tossSlot = 0;
+            for (int i = 0; i < g.Cart.Count; i++)
+            {
+                var p = g.Cart[i];
+                var r = PieceRect(i, p.Keep, p.Keep ? keepSlot++ : tossSlot++);
+                _pieceRects.Add(r);
+                DrawPiece(r, p, i == _selPiece);
+            }
+            if (g.Cart.Count == 0) Text(new Rect(90, 160, 800, 30), "The cart is empty.", 16, new Color(0.7f, 0.66f, 0.6f));
+
+            // What you see and feel of the piece in your hand.
+            var info = new Rect(1000, 130, 260, 300);
+            Fill(info, new Color(0.13f, 0.12f, 0.11f));
+            Outline(info, new Color(0.3f, 0.28f, 0.25f), 1);
+            if (_selPiece >= 0 && _selPiece < g.Cart.Count)
+            {
+                var p = g.Cart[_selPiece];
+                Text(new Rect(info.x + 14, info.y + 12, 232, 26), "<b>In your hand</b>", 16, new Color(0.9f, 0.85f, 0.7f));
+                Text(new Rect(info.x + 14, info.y + 44, 232, 240),
+                    $"{Cap(MineTuning.Describe(p.Colour))}, {MineTuning.Describe(p.Lustre)}" + (p.Crushed ? ", crushed to grit" : "") +
+                    $".\n\nYou heft it: {MineTuning.Describe(p.Heft)}.", 16, new Color(0.9f, 0.88f, 0.84f));
+            }
+            if (Button(new Rect(1000, 560, 260, 52), "<b>Done sorting</b> (Enter)", true)) g.FinishSorting();
+        }
+
+        private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
+
+        private void DrawPiece(Rect r, Piece p, bool selected)
+        {
+            var c = PieceColor(p.Colour);
+            float w = r.width * (0.7f + 0.3f * (float)p.Shape), h = r.height * (0.6f + 0.25f * (float)(1 - p.Shape));
+            var body = new Rect(r.x + (r.width - w) / 2, r.y + (r.height - h) / 2, w, h);
+            if (p.Crushed)
+            {
+                var rng = new System.Random((int)(p.Shape * 100000));
+                for (int i = 0; i < 18; i++)
+                    Fill(new Rect(body.x + (float)rng.NextDouble() * body.width, body.y + (float)rng.NextDouble() * body.height, 5, 4), Shade(c, 0.8f + 0.3f * (float)rng.NextDouble()));
+            }
+            else
+            {
+                Fill(body, c);
+                Fill(new Rect(body.x + 4, body.y - 4, body.width - 10, 4), Shade(c, 0.9f));
+                if (p.Lustre == Lustre.Metallic) Fill(new Rect(body.x + 6, body.y + 4, 8, 3), new Color(0.95f, 0.95f, 0.95f));
+                else if (p.Lustre == Lustre.Glassy) Dots(new Vector2(body.x + 6, body.y + 4), new Vector2(body.x + 20, body.y + body.height - 6), new Color(1f, 1f, 1f, 0.7f), 2f, 2f);
+            }
+            if (selected) Outline(new Rect(r.x - 3, r.y - 6, r.width + 6, r.height + 10), new Color(0.95f, 0.95f, 0.9f, 0.8f), 2);
         }
 
         // ------------------------------------------------------------------ results screen
@@ -719,70 +826,56 @@ namespace Mmo.Crafting.Mining.View
             var g = _game;
             var gc = r.Yield > 0 ? GradeColor(r.Quality) : new Color(0.7f, 0.65f, 0.6f);
             string title = r.Yield > 0 ? $"{r.ItemName} × {r.Yield}" : r.ItemName;
-            Text(new Rect(40, 26, 1200, 60), $"<b>{title}</b>", 40, gc);
-            Text(new Rect(40, 80, 1200, 30), r.Yield > 0 ? $"Quality <b>{r.Quality}</b>  ·  from a vein of grade {r.VeinGrade}" : "Nothing worth carrying came out of this node.", 20, Color.white);
+            Text(new Rect(40, 22, 1200, 60), $"<b>{title}</b>", 38, gc);
+            Text(new Rect(40, 72, 1200, 30), r.Yield > 0 ? $"Quality <b>{r.Quality}</b>  ·  vein grade {r.VeinGrade}" : "Nothing worth carrying came out of this node.", 19, Color.white);
 
-            string markWord = r.MarkOffset <= 1 ? "on the seam" : r.MarkOffset <= 2.5 ? "just off the seam" : "well off the seam";
             string capNote = r.RawQuality > r.Ceiling ? $" → capped at <b>{r.Ceiling}</b> by {r.CeilingReason}" : "";
+            string dim(string s) => $"<size=14><color=#a9a294>{s}</color></size>";
             string body =
-                $"<b>Read</b>  You started {markWord}. Your clean chunks were {r.Read:P0} ore on average.\n" +
-                $"<size=14><color=#a9a294>The map on the right shows where the seam really ran.</color></size>\n\n" +
-                $"<b>Yield</b>  node {r.NodeSize} × yield {r.YieldScore:0.00} = <b>{r.Yield}</b>\n" +
-                $"<size=14><color=#a9a294>yield = ore in the clean chunks ÷ node size</color></size>\n\n" +
-                $"<b>Quality</b>  vein {r.VeinGrade} × (0.5 + 0.5 × clean breaks {r.BreakScore:0.00}) = {r.RawQuality}{capNote}\n" +
-                $"<size=14><color=#a9a294>clean breaks = clean splits ÷ (clean splits + fractures); cap = {r.CeilingReason}, {r.Ceiling}</color></size>\n\n" +
-                $"<b>Chunks</b>  split clean {r.Clean} · cracks left to close {r.Missed} · crushed by fractures {r.Crushed}" +
-                (r.Left > 0 ? $" · left in the node {r.Left}" : "") + "\n" +
-                $"<b>Fractures</b>  {r.Fractures}" + (r.Fractures > 0 ? "  <size=14><color=#a9a294>(blows off the open crack, or before the rock was ready)</color></size>" : "") + "\n\n" +
-                $"<b>Skill</b>  {_skillBefore} → {_skill}" + (r.SkillGain == 0 ? "  <size=14><color=#a9a294>(no gain: nothing came out, or this node is too easy for you)</color></size>" : "");
-            Text(new Rect(40, 124, 700, 480), body, 18, new Color(0.9f, 0.88f, 0.85f));
+                $"<b>The face</b>  {r.OreBlocks} ore blocks: {r.OreFreed} out whole, {r.OreShattered} shattered, {r.OreBlocks - r.OreFreed - r.OreShattered} left in the rock\n" +
+                dim($"barren rock taken out {r.RockRemoved} · wasted swings {r.WastedSwings} · swings used {r.SwingsUsed} · taps used {r.TapsUsed}") + "\n" +
+                $"<b>The roof</b>  props set {r.PropsUsed}" + (r.Collapsed ? $" · <color=#ff9a80>it came down; {r.PiecesBuried} pieces buried</color>" : " · it held") + "\n" +
+                $"<b>Sorting</b>  right calls {r.SortScore:P0} · ore kept {r.OreKept + r.CrushedKept} · rock kept {r.WasteKept} · ore tossed {r.OreTossed}\n\n" +
+                $"<b>Yield</b>  ore kept {r.OreKept} + crushed {r.CrushedKept} × ½ = <b>{r.Yield}</b> of the {r.NodeOre} the node held\n" +
+                $"<b>Quality</b>  vein {r.VeinGrade} × (0.5 + 0.5 × whole {r.BreakScore:0.00}) × (0.6 + 0.4 × purity {r.Purity:0.00}) = {r.RawQuality}{capNote}\n" +
+                dim("whole = share of the ore you took out that came out unbroken; purity = share of what you kept that was ore") + "\n\n" +
+                $"<b>Skill</b>  {_skillBefore} → {_skill}" + (r.SkillGain == 0 ? "  " + dim("(no gain: nothing came out, or this node is too easy for you)") : "") + "\n\n" +
+                "<b>Written in your journal</b>\n" + (r.Learned.Count > 0 ? string.Join("\n", r.Learned) : "No signs on this face.");
+            Text(new Rect(40, 112, 760, 520), body, 16, new Color(0.9f, 0.88f, 0.85f));
 
-            DrawFaceMap(g, new Rect(770, 130, 470, 470 * (float)MineTuning.FaceHeight));
+            DrawFaceMap(g, new Rect(820, 120, 430, 430 * FaceH / FaceW));
 
-            if (Button(new Rect(40, 620, 260, 56), "<b>Mine again</b> (Enter)", true)) StartMining();
-            if (Button(new Rect(320, 620, 260, 56), "Change setup (Esc)")) _mode = Mode.Setup;
+            if (Button(new Rect(40, 640, 260, 50), "<b>Mine again</b> (Enter)", true)) StartMining();
+            if (Button(new Rect(320, 640, 260, 50), "Change setup (Esc)")) _mode = Mode.Setup;
         }
 
-        /// <summary>The face again, with the seam revealed, the chalk mark and what happened at each weak point.</summary>
+        /// <summary>The face as it really was: ore, solid and loose rock, and what happened to each block.</summary>
         private void DrawFaceMap(MineMinigame g, Rect map)
         {
-            if (_face != null) GUI.DrawTexture(map, _face);
-            Outline(map, new Color(0.4f, 0.38f, 0.35f), 1);
-
-            var s = g.Seam;
-            var band = new Color(1f, 0.85f, 0.4f, 0.55f);
-            for (int side = -1; side <= 1; side += 2)
+            float cw = map.width / MineTuning.Columns, ch = map.height / MineTuning.Rows;
+            foreach (var b in g.Blocks)
             {
-                double ox = -s.DirY * s.HalfWidth * side, oy = s.DirX * s.HalfWidth * side;
-                Vector2? prev = null;
-                for (int k = -40; k <= 40; k++)
+                var r = new Rect(map.x + b.Col * cw + 1, map.y + b.Row * ch + 1, b.Width * cw - 2, ch - 2);
+                Color c = b.Kind switch
                 {
-                    double t = k / 40.0 * 1.2;
-                    double x = s.X + s.DirX * t + ox, y = s.Y + s.DirY * t + oy;
-                    Vector2? here = MineMinigame.InsideFace(x, y) ? ToGui(map, x, y) : (Vector2?)null;
-                    if (prev.HasValue && here.HasValue) Dots(prev.Value, here.Value, band, 2f, 3f);
-                    prev = here;
-                }
-            }
-
-            foreach (var p in g.Points)
-            {
-                var c = ToGui(map, p.X, p.Y);
-                Color col = p.State switch
-                {
-                    PointState.Clean => new Color(0.45f, 0.9f, 0.45f),
-                    PointState.Crushed => new Color(1f, 0.4f, 0.3f),
-                    PointState.Missed => new Color(0.75f, 0.75f, 0.75f),
-                    _ => new Color(0.45f, 0.45f, 0.5f),
+                    BlockKind.Ore => new Color(0.75f, 0.6f, 0.25f),
+                    BlockKind.Loose => new Color(0.38f, 0.35f, 0.32f),
+                    _ => new Color(0.5f, 0.5f, 0.5f),
                 };
-                Fill(new Rect(c.x - 4, c.y - 4, 8, 8), col);
+                Fill(r, b.InPlace ? c : Shade(c, 0.4f));
+                string mark = b.State switch
+                {
+                    BlockState.Clean => "whole",
+                    BlockState.Crushed => "crushed",
+                    BlockState.Removed => "out",
+                    _ => "",
+                };
+                Text(r, $"<size=11>{(b.Kind == BlockKind.Loose ? "loose" : b.Kind == BlockKind.Ore ? "ORE" : "")}\n{mark}</size>", 11, Color.white, TextAnchor.MiddleCenter);
+                if (b.Signs.Count > 0) Fill(new Rect(r.xMax - 7, r.y + 2, 5, 5), b.Signs.Contains(g.TrueSign) ? new Color(1f, 0.9f, 0.4f) : new Color(0.7f, 0.7f, 0.9f));
             }
-            DrawChalkMark(ToGui(map, g.MarkX, g.MarkY), 0.9f);
-
-            float y0 = map.yMax + 10;
-            Text(new Rect(map.x, y0, map.width, 60),
-                "<color=#ffd966>— seam</color>   <color=#73e673>■ clean</color>   <color=#d9d9d9>■ closed</color>   <color=#ff6650>■ crushed</color>   <color=#737380>■ left</color>   X your mark",
-                14, new Color(0.8f, 0.78f, 0.75f));
+            Text(new Rect(map.x, map.yMax + 8, map.width, 60),
+                $"What the face really was. Ore here showed <b>{SignTable.Describe(g.TrueSign)}</b> (gold dot); other signs (blue dot) meant nothing.",
+                13, new Color(0.8f, 0.78f, 0.75f));
         }
     }
 
