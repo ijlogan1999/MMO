@@ -10,7 +10,7 @@ Unity project for the game client. Built with the built-in renderer and no extra
 
 Open `Assets/Game/Scenes/Blacksmithing.unity` and press Play.
 
-The forge gives no on-screen help: no heat gauge, no markers, no timing zones, no quench timer. You read the colour of the metal, listen to the beat, and judge the blade against the ghost outline. The results screen explains what happened afterwards.
+The first time you open it, an old smith explains each step once (the setup screen can replay it). After that the forge gives no help beyond a keys bar: no heat gauge, no markers, no timing zones, no quench timer. You read the colour of the metal, listen to the beat, and judge the blade against the ghost outline. The results screen explains what happened afterwards.
 
 | Step | What you do | Keys |
 |---|---|---|

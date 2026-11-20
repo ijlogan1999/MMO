@@ -18,8 +18,10 @@ namespace Mmo.Crafting.Blacksmithing.View
     {
         private const float W = 1280f, H = 720f;
         private const string SkillPref = "mmo.forge.skill";
+        private const string IntroPref = "mmo.forge.introSeen";
+        private int _introPage;
 
-        private enum Mode { Setup, Play, Results }
+        private enum Mode { Intro, Setup, Play, Results }
 
         private Mode _mode = Mode.Setup;
         private int _recipeIndex;
@@ -54,6 +56,7 @@ namespace Mmo.Crafting.Blacksmithing.View
             _skill = Mathf.Clamp(PlayerPrefs.GetInt(SkillPref, 1), 1, 100);
             for (int i = 0; i < _setups.Length; i++) _setups[i] = new ForgeSetup(ForgeRecipe.All[i]);
             _seed = Random.Range(1, int.MaxValue);
+            if (PlayerPrefs.GetInt(IntroPref, 0) == 0) _mode = Mode.Intro;
         }
 
         private static void EnsureCameraAndListener()
@@ -148,6 +151,11 @@ namespace Mmo.Crafting.Blacksmithing.View
         {
             switch (_mode)
             {
+                case Mode.Intro:
+                    if (key == KeyCode.Space || key == KeyCode.Return || key == KeyCode.KeypadEnter || key == KeyCode.RightArrow) { NextIntroPage(); return true; }
+                    if (key == KeyCode.LeftArrow || key == KeyCode.Backspace) { _introPage = Mathf.Max(0, _introPage - 1); return true; }
+                    if (key == KeyCode.Escape) { CloseIntro(); return true; }
+                    return false;
                 case Mode.Setup:
                     if (key == KeyCode.Return || key == KeyCode.KeypadEnter) { StartCraft(); return true; }
                     return false;
@@ -215,6 +223,7 @@ namespace Mmo.Crafting.Blacksmithing.View
 
             switch (_mode)
             {
+                case Mode.Intro: DrawIntro(); break;
                 case Mode.Setup: DrawSetup(); break;
                 case Mode.Play: DrawPlay(); break;
                 case Mode.Results: DrawResults(); break;
@@ -284,6 +293,69 @@ namespace Mmo.Crafting.Blacksmithing.View
             return new Color(0.6f, 0.45f, 0.45f);
         }
 
+        // ------------------------------------------------------------------ intro
+        // The old smith explains what each step is and why it matters, once, before the first craft.
+        // It teaches the craft, never the answer: no colours to aim for, no counts, no numbers.
+
+        private static readonly (string Title, string Body)[] IntroPages =
+        {
+            ("The forge",
+             "So you want to work iron. Good. Listen once, then learn with your hands.\n\n" +
+             "Iron only moves when it is hot. Put the bar in the fire and watch it: it goes from dark, to dull red, " +
+             "to cherry, to orange, to yellow, to white. Every piece wants its own heat. Pull it too cold and it cracks " +
+             "under the hammer. Leave it too long and it burns, and you'll see the sparks.\n\n" +
+             "No one will tell you when. Your eyes will learn."),
+            ("The anvil",
+             "On the anvil, the iron answers the beat. Strike with it, not against it. A blow off the beat, or two in " +
+             "one beat, only dents the metal.\n\n" +
+             "Where you strike decides what moves: the tip, the body, or the edge. The faint outline is the blade you " +
+             "mean to make. Look at the iron, look at the outline, and strike what is missing. Hammer a part too much " +
+             "and it runs thin and is ruined. When the blade is right, set the hammer down.\n\n" +
+             "Iron cools as you work. Cold iron does not move at all. Put it back in the fire, but not too often: " +
+             "every extra trip coarsens the grain."),
+            ("The quench",
+             "Good blades are hardened. Plunge the hot blade and count.\n\n" +
+             "Water bites hardest and fastest, and it can crack a blade. Brine is gentler. Oil is slow and safe, " +
+             "and the blade comes out a little softer. Lift it out too soon and it stays soft. Hold it too long " +
+             "and it turns brittle.\n\n" +
+             "Find your count. Nobody can count for you."),
+            ("The stone",
+             "Last comes the whetstone. Sweep it along the edge and stroke where the edge is dull. A clean edge " +
+             "sometimes gives a blade something extra.\n\n" +
+             "What you make can only be as good as what you make it from. Poor iron, a poor hammer or a poor forge " +
+             "will hold you back, however good your hands are.\n\n" +
+             "After each piece, look at what went wrong. That's how a smith learns. Now go and work."),
+        };
+
+        private void NextIntroPage()
+        {
+            if (_introPage < IntroPages.Length - 1) _introPage++;
+            else CloseIntro();
+        }
+
+        private void CloseIntro()
+        {
+            PlayerPrefs.SetInt(IntroPref, 1);
+            _mode = Mode.Setup;
+        }
+
+        private void DrawIntro()
+        {
+            var page = IntroPages[_introPage];
+            var card = new Rect(190, 70, 900, 560);
+            Fill(card, new Color(0.16f, 0.13f, 0.11f));
+            Outline(card, new Color(0.45f, 0.35f, 0.25f), 2);
+            Text(new Rect(card.x + 50, card.y + 34, 800, 40), "The old smith", 16, new Color(0.65f, 0.55f, 0.45f));
+            Text(new Rect(card.x + 50, card.y + 60, 800, 60), $"<b>{page.Title}</b>", 34, new Color(1f, 0.78f, 0.45f));
+            Text(new Rect(card.x + 50, card.y + 130, 800, 360), page.Body, 20, new Color(0.92f, 0.88f, 0.82f));
+            Text(new Rect(card.x + 50, card.yMax - 50, 300, 30), $"{_introPage + 1} / {IntroPages.Length}", 15, new Color(0.6f, 0.53f, 0.47f));
+
+            bool last = _introPage == IntroPages.Length - 1;
+            if (_introPage > 0 && Button(new Rect(card.xMax - 430, card.yMax - 70, 180, 48), "Back")) _introPage--;
+            if (Button(new Rect(card.xMax - 230, card.yMax - 70, 180, 48), last ? "<b>To the forge</b>" : "<b>Next</b>", true)) NextIntroPage();
+            Text(new Rect(0, H - 40, W, 30), "SPACE next · LEFT back · ESC skip", 14, new Color(0.5f, 0.47f, 0.45f), TextAnchor.MiddleCenter);
+        }
+
         // ------------------------------------------------------------------ setup screen
 
         private void DrawSetup()
@@ -347,6 +419,7 @@ namespace Mmo.Crafting.Blacksmithing.View
             }
 
             if (Button(new Rect(x, 630, 300, 56), "<b>Start forging</b>  <size=13>(Enter)</size>", true)) StartCraft();
+            if (Button(new Rect(40, 630, 360, 56), "Hear the old smith again")) { _introPage = 0; _mode = Mode.Intro; }
             Text(new Rect(x + 320, 630, 470, 60),
                 "Controls: SPACE pull from the fire, hold to quench, sharpen · A S D strike tip, body, edge on the beat · R reheat · E set the hammer down · 1 2 3 water, oil, brine · ESC leave. Mouse: click the forge, the blade parts, the bucket, the edge.",
                 13, new Color(0.65f, 0.62f, 0.6f));
