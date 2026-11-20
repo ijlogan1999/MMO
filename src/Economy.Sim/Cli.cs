@@ -23,6 +23,7 @@ public static class Cli
             // market settled at, so later runs start close to equilibrium
             // instead of spending months drifting there.
             int seeds = int.Parse(Arg(args, "--seeds") ?? "4");
+            double calibrateCap = double.Parse(Arg(args, "--cost-cap") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
             var value = new System.Collections.Concurrent.ConcurrentDictionary<string, (double v, double u)>();
             Parallel.For(1, seeds + 1, seed =>
             {
@@ -50,10 +51,27 @@ public static class Cli
                 double inputs = r.Inputs.Sum(i => i.Quantity * (!design.Defs[design[i.GoodId]].HasDurability && traded.TryGetValue(i.GoodId, out double p) ? p : MarketCost(i.GoodId, depth + 1)));
                 return (inputs * 1.25 + r.CraftMinutes * 5) / r.OutputQuantity;
             }
+            // Crafted materials and consumables: a market price far above what it
+            // costs to make (inputs at their own capped prices plus time) is a
+            // leftover from thin early trading, so cap it at a few times cost.
+            var capped = new Dictionary<string, double>();
+            double CappedPrice(string id, int depth = 0)
+            {
+                if (capped.TryGetValue(id, out double c)) return c;
+                int g = design[id];
+                double t = traded.TryGetValue(id, out double tp) ? tp : design.BasePrice[g];
+                var r = design.RecipesByOutput[g].FirstOrDefault();
+                if (r != null && depth < 8 && !design.Defs[g].HasDurability && calibrateCap > 0)
+                {
+                    double cost = (r.Inputs.Sum(i => i.Quantity * (design.Defs[design[i.GoodId]].HasDurability ? MarketCost(i.GoodId) : CappedPrice(i.GoodId, depth + 1))) * 1.25 + r.CraftMinutes * 5) / r.OutputQuantity;
+                    t = Math.Min(t, cost * calibrateCap);
+                }
+                return capped[id] = t;
+            }
             double Clamp(string id, double tradedPrice)
             {
                 double d = design.BasePrice[design[id]];
-                if (!design.Defs[design[id]].HasDurability) return Math.Max(tradedPrice, d * 0.25);
+                if (!design.Defs[design[id]].HasDurability) return Math.Max(Math.Min(tradedPrice, CappedPrice(id)), d * 0.25);
                 double m = MarketCost(id);
                 return Math.Clamp(tradedPrice, m * 0.8, m * 1.5);
             }
@@ -238,6 +256,7 @@ public static class Cli
                 var spend = Enum.GetValues<World.SpendKind>().ToDictionary(k => k, k => Enumerable.Range(0, roles).Where(r => (Role)r is not (Role.Bot or Role.Speculator)).Sum(r => (double)world.SpendParts[r, (int)k]));
                 Console.WriteLine($"  per online hour: net income {income / hours:0}c; spend " + string.Join(", ", spend.Select(kv => $"{kv.Key} {kv.Value / hours:0}c ({kv.Value / Math.Max(1, income):P0})")));
             }
+            Console.WriteLine("  novice-made: " + string.Join(", ", world.NoviceByGood.OrderByDescending(kv => kv.Value).Select(kv => $"{world.Goods.Defs[kv.Key].Id} {kv.Value}")));
             Console.WriteLine($"  fight hours with a healer {world.HealedFightHours}; novice crafts by good: " + string.Join(", ", new[] { "sword", "sword_s2", "sword_s3", "sword_s4", "sword_s5" }.Select(id => $"{id} {world.GoodFlows[world.Goods[id], (int)World.GoodFlowKind.Crafted]}")));
             Console.WriteLine($"  work orders posted {world.WorkOrdersPosted}, done {world.WorkOrdersDone}, expired {world.WorkOrdersExpired}; novice crafts {world.NoviceCrafts}; crafter quests {world.CrafterQuestsGiven}");
             Console.WriteLine("  order misses: " + string.Join(", ", world.WorkOrderMisses.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key.good}/{kv.Key.why} {kv.Value}")));

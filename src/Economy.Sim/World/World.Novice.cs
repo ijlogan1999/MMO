@@ -15,6 +15,8 @@ namespace Economy.Sim.World;
 public sealed partial class World
 {
     public long NoviceCrafts { get; private set; }
+    /// <summary>Units made at novice level, per good.</summary>
+    public Dictionary<int, long> NoviceByGood { get; } = new();
     public long CrafterQuestsGiven { get; private set; }
     public long CommissionCoins { get; private set; }
 
@@ -78,6 +80,7 @@ public sealed partial class World
             TrackGood(g, GoodFlowKind.UsedInCrafts, take);
         }
         a.Inventory.Add(good, can, Config.NoviceQuality);
+        NoviceByGood[good] = NoviceByGood.GetValueOrDefault(good) + can;
         foreach (var g in _rawScratch.Keys) a.NoviceKeep.Remove(g);
         TrackGood(good, GoodFlowKind.Crafted, can);
         NoviceCrafts += can;

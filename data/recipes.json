@@ -275,7 +275,7 @@
       "qty": 1,
       "inputs": {
         "leather": 3,
-        "padding": 1
+        "cloth": 1
       },
       "station": "workbench",
       "skill": "leatherworking",
@@ -375,8 +375,7 @@
       "output": "cloth_armor",
       "qty": 1,
       "inputs": {
-        "cloth": 4,
-        "padding": 1
+        "cloth": 5
       },
       "station": "loom",
       "skill": "tailoring",
