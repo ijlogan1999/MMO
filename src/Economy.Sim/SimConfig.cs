@@ -115,7 +115,11 @@ public sealed class SimConfig
     /// <summary>Fighters below this combat level heal with bandages (tailors) instead of potions.</summary>
     public double BandageMaxLevel { get; set; } = 40;
     /// <summary>Tailors' gauze (not novice-made) heals as much as GauzeHeals bandages and works up to this combat skill.</summary>
-    public double GauzeMaxLevel { get; set; } = 70;
+    public double GauzeMaxLevel { get; set; } = 40;
+    /// <summary>Iron ore and coal gathered per swing, relative to other raw goods.</summary>
+    public double OreYieldMultiplier { get; set; } = 2.2;
+    /// <summary>A profession stops drawing new players at this multiple of its normal share.</summary>
+    public double RoleShareCap { get; set; } = 2.5;
     public int GauzeHeals { get; set; } = 2;
     /// <summary>Extra party carry for each member with a travel pack (leatherworkers); packs wear out per trip.</summary>
     public double PackCarry { get; set; } = 3;

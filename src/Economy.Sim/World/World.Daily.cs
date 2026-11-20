@@ -268,7 +268,7 @@ public sealed partial class World
         var income = Config.JoinByTypicalPay ? TypicalRoleIncome() : RoleIncome();
         var share = RoleShares();
         return Config.RoleMix
-            .Select(kv => (kv.Key, (share.GetValueOrDefault(kv.Key) >= kv.Value * 1.5 && (Config.CapCrafts || !Roles.IsCrafter(kv.Key))) || PlotsFull(kv.Key, share) ? 0.0
+            .Select(kv => (kv.Key, (share.GetValueOrDefault(kv.Key) >= kv.Value * Config.RoleShareCap && (Config.CapCrafts || !Roles.IsCrafter(kv.Key))) || PlotsFull(kv.Key, share) ? 0.0
                 : kv.Value * Math.Pow(Math.Clamp(income.GetValueOrDefault(kv.Key, 1.0), 0.3, 3.0), Config.JoinerIncomeBias)))
             .ToList();
     }

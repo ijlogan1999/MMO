@@ -381,6 +381,7 @@ public sealed partial class World
     private void AddProduce(Agent a, int good, double amount)
     {
         if (good == Herbs) amount *= Config.HerbYieldMultiplier;
+        if (good == IronOre || good == Coal) amount *= Config.OreYieldMultiplier;
         if (Config.YieldBalancer && !IsRare(good)) amount *= YieldFactor(a.Town, good);
         int n = RandomRound(amount, _agentRng);
         if (n <= 0) return;
