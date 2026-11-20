@@ -383,7 +383,25 @@ namespace Mmo.Crafting.Blacksmithing.View
                     break;
             }
 
+            DrawControls(g);
             DrawPopups();
+        }
+
+        /// <summary>Which keys do what right now. Keys only: nothing about when or which is right.</summary>
+        private void DrawControls(ForgeMinigame g)
+        {
+            string keys = g.Stage switch
+            {
+                ForgeStage.Heat => "<b>SPACE</b> pull the bar from the fire",
+                ForgeStage.Strike => "<b>A</b> strike tip   <b>S</b> strike body   <b>D</b> strike edge   <b>R</b> back in the fire   <b>E</b> set the hammer down",
+                ForgeStage.QuenchChoose => "<b>1</b> water   <b>2</b> oil   <b>3</b> brine",
+                ForgeStage.QuenchHold => "<b>hold SPACE</b> blade in the quench, <b>release</b> to lift it out",
+                ForgeStage.Finish => "<b>SPACE</b> stroke the whetstone",
+                _ => "",
+            };
+            var bar = new Rect(0, H - 40, W, 40);
+            Fill(bar, new Color(0.06f, 0.055f, 0.05f));
+            Text(new Rect(30, bar.y, W - 60, bar.height), keys + "      <color=#7d746c>ESC leave</color>", 16, new Color(0.85f, 0.82f, 0.78f), TextAnchor.MiddleLeft);
         }
 
         private void DrawForge(ForgeMinigame g)
