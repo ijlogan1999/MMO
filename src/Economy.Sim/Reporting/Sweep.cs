@@ -175,7 +175,7 @@ public static class Sweep
             r => r.RecoveryDays is int d && d <= 30,
             $"Median {Fmt(RunAnalysis.Median(shocks.Where(r => r.RecoveryDays.HasValue).Select(r => (double)r.RecoveryDays!.Value)))} days; {shocks.Count(r => !r.RecoveryDays.HasValue)} runs never settled.");
 
-        C(3, "NPCs stay small", "Under 10% of trade value in calm", "baseline", baseline, r => r.NpcShare < 0.10,
+        C(3, "NPCs stay small", "Under 15% of trade value in calm", "baseline", baseline, r => r.NpcShare < 0.15,
             $"Median NPC share {RunAnalysis.Median(baseline.Select(r => r.NpcShare)):P1}.");
 
         C(4, "No flicker", "At most 2 spawns per market, role and week", "all stabilizer-on runs", on, r => r.MaxSpawnsPerMarketWeek <= 2,

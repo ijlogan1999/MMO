@@ -110,13 +110,14 @@ public sealed partial class World
 
     private void BuyFood(Agent a)
     {
-        int held = a.Inventory[Bread] + a.Inventory[Stew] * 2;
+        int held = a.Inventory[Bread] + (Roast >= 0 ? a.Inventory[Roast] : 0) + a.Inventory[Stew] * 2;
         if (held >= 3) return;
-        // Richer players prefer stew; everyone falls back to bread.
+        // Richer players prefer stew; everyone else eats bread or roast meat, whichever is cheaper.
         long coins = Coins(a);
         int want = 6 - held;
-        bool stew = Config.BreadObsolete || (coins > 15000 && a.Belief[Stew] < a.Belief[Bread] * 3);
-        int good = stew ? Stew : Bread;
+        int basic = Roast >= 0 && AskOrBelief(a, Roast) < AskOrBelief(a, Bread) ? Roast : Bread;
+        bool stew = Config.BreadObsolete || (coins > 15000 && a.Belief[Stew] < a.Belief[basic] * 3);
+        int good = stew ? Stew : basic;
         int qty = stew ? (want + 1) / 2 : want;
         if (!stew) { qty -= TryNoviceMake(a, good, qty); if (qty <= 0) return; }
         long price = Math.Max(1, (long)Math.Round(a.Belief[good]));

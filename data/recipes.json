@@ -154,6 +154,20 @@
       "minutes": 6
     },
     {
+      "id": "roast_meat",
+      "output": "roast_meat",
+      "qty": 3,
+      "inputs": {
+        "meat": 2,
+        "firewood": 1
+      },
+      "station": "kitchen",
+      "skill": "cooking",
+      "minSkill": 0,
+      "methodCeiling": 70,
+      "minutes": 5
+    },
+    {
       "id": "cook_stew",
       "output": "stew",
       "qty": 4,

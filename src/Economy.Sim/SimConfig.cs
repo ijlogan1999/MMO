@@ -81,7 +81,7 @@ public sealed class SimConfig
     public double FarmYieldPerHour { get; set; } = 4;
     public double HuntHidePerHour { get; set; } = 1.2;
     public double HuntMeatPerHour { get; set; } = 1.5;
-    public double GrainYieldMultiplier { get; set; } = 1.0;
+    public double GrainYieldMultiplier { get; set; } = 1.5;
 
     /// <summary>Set by the obsolescence scenario: players stop buying bread.</summary>
     public bool BreadObsolete { get; set; }
@@ -129,7 +129,7 @@ public sealed class SimConfig
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;
-    public string[] NoviceGoods { get; set; } = { "bread", "bandage", "flour", "firewood", "cloth",
+    public string[] NoviceGoods { get; set; } = { "bread", "roast_meat", "bandage", "flour", "firewood", "cloth",
         // Rough early swords (Ian, 2026-11-19), and the bottom-tier parts they need.
         "iron_ingot", "blade_blank", "leather", "plank", "sword", "sword_s2", "sword_s3", "sword_s4", "sword_s5" };
     /// <summary>Gear is made at novice level whenever buying costs more than this times making it.</summary>
@@ -236,7 +236,7 @@ public sealed class SimConfig
     public bool FoodBuffs { get; set; } = true;
     public int ToolWearPerHour { get; set; } = 16;
     public int WeaponWearPerHour { get; set; } = 10;
-    public int ArmorWearPerHour { get; set; } = 7;
+    public int ArmorWearPerHour { get; set; } = 10;
     public double PotionsPerFightHour { get; set; } = 0.2;
     public double FighterHidePerHour { get; set; } = 0.4;
     public double FighterMeatPerHour { get; set; } = 0.5;
@@ -276,7 +276,7 @@ public sealed class SimConfig
         ["iron_ore"] = 2, ["copper_ore"] = 2, ["coal"] = 1.5, ["timber"] = 2, ["hide"] = 1, ["meat"] = 1, ["grain"] = 0.5,
         ["fiber"] = 0.3, ["herbs"] = 0.2, ["ember_slag"] = 1.5, ["ice_crystal"] = 1, ["relic_core"] = 0.5,
         ["iron_ingot"] = 1, ["plank"] = 1, ["firewood"] = 1, ["flour"] = 0.5, ["cloth"] = 0.3, ["leather"] = 0.5,
-        ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
+        ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["roast_meat"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
         ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
         ["skinning_knife"] = 0.5, ["sword"] = 3, ["blade_blank"] = 2, ["leather_armor"] = 5, ["plate_armor"] = 15,
         ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["furniture"] = 20,
@@ -321,6 +321,8 @@ public sealed class SimConfig
     public bool SaveForGear { get; set; } = true;
     /// <summary>Everyone's starter kit has a weapon and armor (off: only main fighters).</summary>
     public bool StarterGearForAll { get; set; } = true;
+    /// <summary>Roast meat (meat + firewood) is an everyday food beside bread.</summary>
+    public bool RoastMeat { get; set; } = true;
     /// <summary>Fresh coins per fight hour that towns add to bounties (a faucet); 0 = bounties only recycle sinks.</summary>
     public double BountyMintPerFightHour { get; set; } = 30;
     /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>

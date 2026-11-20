@@ -122,6 +122,12 @@
       "use": "Food"
     },
     {
+      "id": "roast_meat",
+      "name": "Roast meat",
+      "tier": "Finished",
+      "use": "Food"
+    },
+    {
       "id": "stew",
       "name": "Stew",
       "tier": "Finished",

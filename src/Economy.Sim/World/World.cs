@@ -56,8 +56,9 @@ public sealed partial class World
             for (int g = 0; g < Goods.Count; g++) RegionProducedHour[r, g] = 0;
         TravelBlocked = new bool[Regions.Length];
 
-        Food = new[] { Goods["bread"], Goods["stew"] };
         Bread = Goods["bread"];
+        Roast = Goods.Index.TryGetValue("roast_meat", out int roast) && Config.RoastMeat ? roast : -1;
+        Food = Roast >= 0 ? new[] { Bread, Roast, Goods["stew"] } : new[] { Bread, Goods["stew"] };
         Stew = Goods["stew"];
         Potion = Goods["healing_potion"];
         Bandage = Goods["bandage"];
@@ -96,6 +97,8 @@ public sealed partial class World
     public bool[] TravelBlocked { get; }
 
     public int[] Food { get; }
+    /// <summary>Roast meat: a second everyday food beside bread (-1 when off).</summary>
+    public int Roast { get; }
     public int Bread { get; }
     public int Stew { get; }
     public int Potion { get; }
