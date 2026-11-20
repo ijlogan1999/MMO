@@ -48,7 +48,7 @@ Scoring follows the spec:
 - Yield = node size × yield score, where yield score = ore in the clean chunks ÷ node size (a chunk on the seam is all ore, one well beside it is a trace)
 - Quality = vein grade × (0.5 + 0.5 × clean breaks), clean breaks = clean splits ÷ (clean splits + fractures)
 - Capped by the lower of the pick (worn 60, iron 85, steel 100) and skill (31 at skill 1, 100 at skill 100)
-- Skill keeps each crack open from 0.6 s (skill 1) to 1.5 s (skill 100) and gives more reach; better picks add a little more of both; hard rock (iron) closes faster, soft rock (coal) slower
+- Skill keeps each crack open from 1.8 s (skill 1) to 3.2 s (skill 100) and gives more reach; better picks add a little more of both; hard rock (iron) closes faster, soft rock (coal) slower
 
 Nodes: iron seam and coal seam (skill 1+), copper seam (skill 20+, thin). Vein grade and node size are test sliders on the setup screen; in game they are hidden and rolled per node.
 

@@ -616,7 +616,7 @@ namespace Mmo.Crafting.Mining.View
             var p = g.CurrentPoint;
             if (p == null || p.State != PointState.Showing) return;
             float t = (float)g.OpenFor, life = (float)g.OpenSeconds;
-            float alpha = Mathf.Clamp01(t / 0.12f) * Mathf.Clamp01((life - t) / (life * 0.3f));
+            float alpha = Mathf.Clamp01(t / 0.12f) * Mathf.Clamp01((life - t) / 0.3f);
             var c = ToGui(face, p.X, p.Y);
             var rng = new System.Random(_gameSeed * 13 + g.Current);
 

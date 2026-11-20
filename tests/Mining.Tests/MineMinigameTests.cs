@@ -135,14 +135,14 @@ public class MineMinigameTests
     [Fact]
     public void SkillAndPickKeepTheCrackOpenLonger()
     {
-        Assert.Equal(0.6, MineTuning.OpenSeconds(1, Pick.IronPick, OreNodeType.CopperSeam), 6);
-        Assert.Equal(1.5, MineTuning.OpenSeconds(100, Pick.IronPick, OreNodeType.CopperSeam), 6);
+        Assert.Equal(1.8, MineTuning.OpenSeconds(1, Pick.IronPick, OreNodeType.CopperSeam), 6);
+        Assert.Equal(3.2, MineTuning.OpenSeconds(100, Pick.IronPick, OreNodeType.CopperSeam), 6);
         Assert.True(MineTuning.OpenSeconds(50, Pick.SteelPick, OreNodeType.IronSeam) > MineTuning.OpenSeconds(50, Pick.WornPick, OreNodeType.IronSeam));
         Assert.True(MineTuning.HitRadius(100, Pick.IronPick) > MineTuning.HitRadius(1, Pick.IronPick));
 
-        // Reacting after 0.8 s: a novice's crack has closed, a master's has not.
-        var novice = Play(Setup(OreNodeType.CopperSeam, 1, pick: Pick.IronPick), 6, reactAfter: 0.8).Result;
-        var master = Play(Setup(OreNodeType.CopperSeam, 100, pick: Pick.IronPick), 6, reactAfter: 0.8).Result;
+        // Reacting after 2.2 s: a novice's crack has closed, a master's has not.
+        var novice = Play(Setup(OreNodeType.CopperSeam, 1, pick: Pick.IronPick), 6, reactAfter: 2.2).Result;
+        var master = Play(Setup(OreNodeType.CopperSeam, 100, pick: Pick.IronPick), 6, reactAfter: 2.2).Result;
         Assert.Equal(10, novice.Missed);
         Assert.Equal(10, master.Clean);
     }

@@ -38,9 +38,10 @@ namespace Mmo.Crafting.Mining
         /// <summary>Skill 1..100 mapped to 0..1.</summary>
         public static double Skill01(int skill) => Clamp01((skill - 1) / 99.0);
 
-        /// <summary>How long a weak point stays open: 0.6 s at skill 1, 1.5 s at 100 (spec), times pick and rock.</summary>
+        /// <summary>How long a weak point stays open: 1.8 s at skill 1, 3.2 s at 100, times pick and rock.
+        /// (The spec's 0.6-1.5 s felt far too fast in play, Ian 2026-11-20.)</summary>
         public static double OpenSeconds(int skill, Pick pick, OreNodeType node) =>
-            Lerp(0.6, 1.5, Skill01(skill)) * pick.WindowMultiplier * node.Softness;
+            Lerp(1.8, 3.2, Skill01(skill)) * pick.WindowMultiplier * node.Softness;
 
         /// <summary>How close to a weak point a blow must land to split it (face units).</summary>
         public static double HitRadius(int skill, Pick pick) => Lerp(0.032, 0.055, Skill01(skill)) * pick.ReachMultiplier;
