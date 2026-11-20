@@ -17,7 +17,7 @@ namespace Mmo.Crafting.Mining.View
     {
         private const float W = 1280f, H = 720f;
         private const string SkillPref = "mmo.mine.skill";
-        private const string IntroPref = "mmo.mine.introSeen";
+        private const string IntroPref = "mmo.mine.introSeen.v2";
         private const string WorldPref = "mmo.mine.world";
         private const string JournalPrefPrefix = "mmo.mine.journal.";
 
