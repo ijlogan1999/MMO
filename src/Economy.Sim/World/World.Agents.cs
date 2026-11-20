@@ -908,7 +908,10 @@ public sealed partial class World
             foreach (var f in _fightersThisHour) total += Math.Max(0.01, f.LastPower);
             double pool = Config.BountyMintPerFightHour * _fightersThisHour.Count;
             // The town's new money passes through the treasury on its way to the fighters.
-            Ledger.Transfer(Ledger.Mint, Ledger.Treasury, (long)Math.Ceiling(pool), Flow.TreasurySeed);
+            // A treasury above its starting level pays from its surplus first, so it doesn't hoard.
+            double seed = (double)Config.TreasurySeedPerAgent * Config.AgentCount;
+            long mint = (long)Math.Ceiling(pool - Math.Max(0, Ledger.TreasuryBalance - NpcCommitted - seed));
+            if (mint > 0) Ledger.Transfer(Ledger.Mint, Ledger.Treasury, mint, Flow.TreasurySeed);
             foreach (var f in _fightersThisHour)
             {
                 long each = (long)(pool * Math.Max(0.01, f.LastPower) / total);
