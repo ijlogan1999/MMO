@@ -31,13 +31,38 @@ Scoring follows the Crafting & Gathering Spec:
 
 Recipes are the iron path for level 1–20: Plain Iron Sword (Novice), Iron Shortsword (Apprentice), Iron Longsword (Journeyman).
 
+## Mining minigame
+
+Open `Assets/Game/Scenes/Mining.unity` and press Play.
+
+The first time, an old miner explains the craft once (the setup screen can replay it). After that there is no help beyond a keys bar: no seam marker, no target circles, no timers.
+
+| Step | What you do | Keys |
+|---|---|---|
+| Read the face | The rock shows streaks, flecks of ore and cracks. Most flecks and the cracks that run alongside cluster on the seam; some are strays. Chalk where to start. The rock splits along its grain from there, so starting on the seam keeps every chunk in the ore. | Mouse or WASD / arrows to move, click or SPACE to mark |
+| Strike | One at a time, a hairline crack opens with grit trickling out, then closes. Hit it while open for a clean split. A blow anywhere else, or before the rock is ready, fractures it and crushes that chunk. A crack left alone closes and that chunk stays in the rock. | Mouse or WASD / arrows to aim, click or SPACE to swing |
+| Step back | Stop early; the rest stays in the node. | E |
+
+Scoring follows the spec:
+
+- Yield = node size × yield score, where yield score = ore in the clean chunks ÷ node size (a chunk on the seam is all ore, one well beside it is a trace)
+- Quality = vein grade × (0.5 + 0.5 × clean breaks), clean breaks = clean splits ÷ (clean splits + fractures)
+- Capped by the lower of the pick (worn 60, iron 85, steel 100) and skill (31 at skill 1, 100 at skill 100)
+- Skill keeps each crack open from 0.6 s (skill 1) to 1.5 s (skill 100) and gives more reach; better picks add a little more of both; hard rock (iron) closes faster, soft rock (coal) slower
+
+Nodes: iron seam and coal seam (skill 1+), copper seam (skill 20+, thin). Vein grade and node size are test sliders on the setup screen; in game they are hidden and rolled per node.
+
 ## Code layout
 
 ```
 Assets/Game/Crafting/Blacksmithing/
   Core/   rules only, no UnityEngine (asmdef with noEngineReferences) -> reusable on the C# server
   View/   ForgeView (placeholder visuals drawn with IMGUI), ForgeAudio (sounds generated in code)
+Assets/Game/Crafting/Mining/
+  Core/   rules only, no UnityEngine
+  View/   MineView (IMGUI plus one generated rock-face texture), MineAudio (sounds generated in code)
 Assets/Game/Scenes/Blacksmithing.unity
+Assets/Game/Scenes/Mining.unity
 ```
 
-The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` (needs the .NET 8 SDK).
+The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` and `dotnet test tests/Mining.Tests` (needs the .NET 8 SDK).
