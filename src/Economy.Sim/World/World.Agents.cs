@@ -900,6 +900,24 @@ public sealed partial class World
         }
         for (int t = 0; t < Towns.Length; t++)
             if (fighters[t] > 0) _healerShare[t] = (double)healers[t] / fighters[t];
+        // New coins for town bounties (Ian, 2026-11-19: raise income): towns pay
+        // a little fresh money per fight hour, on top of recycling sinks.
+        if (Config.BountyMintPerFightHour > 0 && _fightersThisHour.Count > 0)
+        {
+            double total = 0;
+            foreach (var f in _fightersThisHour) total += Math.Max(0.01, f.LastPower);
+            double pool = Config.BountyMintPerFightHour * _fightersThisHour.Count;
+            // The town's new money passes through the treasury on its way to the fighters.
+            Ledger.Transfer(Ledger.Mint, Ledger.Treasury, (long)Math.Ceiling(pool), Flow.TreasurySeed);
+            foreach (var f in _fightersThisHour)
+            {
+                long each = (long)(pool * Math.Max(0.01, f.LastPower) / total);
+                if (each <= 0) continue;
+                Ledger.Transfer(Ledger.Treasury, f.Account, each, Flow.TownContract);
+                f.TodayIncome += each;
+                Track(f, IncomeKind.Bounties, each);
+            }
+        }
         _fightersThisHour.Clear();
         _onlineFightersThisHour = 0;
     }

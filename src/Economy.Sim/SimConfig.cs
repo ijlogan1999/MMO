@@ -44,7 +44,7 @@ public sealed class SimConfig
     public long InitialPurse { get; set; } = 5000;
     public long StarterPurse { get; set; } = 1500;
     public long TreasurySeedPerAgent { get; set; } = 3000;
-    public long TargetMoneyPerPlayer { get; set; } = 5000;
+    public long TargetMoneyPerPlayer { get; set; } = 8000;
 
     // Sinks
     public double MarketTax { get; set; } = 0.03;
@@ -226,7 +226,7 @@ public sealed class SimConfig
     public long NpcPorterFee { get; set; } = 120;
     /// <summary>NPC fighters are weaker than players: wipe chance multiplier per hired fighter.</summary>
     public double NpcWipeFactor { get; set; } = 1.5;
-    public double FoodPerHour { get; set; } = 0.25;
+    public double FoodPerHour { get; set; } = 0.5;
     public double StewFoodValue { get; set; } = 2.0;
     /// <summary>Stew eaten as a combat buff per fight hour at skill 0 and at skill 100 (scales linearly).</summary>
     public double BuffFoodPerFightHourMin { get; set; } = 0.15;
@@ -321,6 +321,8 @@ public sealed class SimConfig
     public bool SaveForGear { get; set; } = true;
     /// <summary>Everyone's starter kit has a weapon and armor (off: only main fighters).</summary>
     public bool StarterGearForAll { get; set; } = true;
+    /// <summary>Fresh coins per fight hour that towns add to bounties (a faucet); 0 = bounties only recycle sinks.</summary>
+    public double BountyMintPerFightHour { get; set; } = 30;
     /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>
     public int CopperMinLevel { get; set; } = 21;
     /// <summary>Healers heal with abilities: fighting with one uses this share of the potions and buff meals.</summary>
