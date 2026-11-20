@@ -81,7 +81,7 @@ public sealed class SimConfig
     public double FarmYieldPerHour { get; set; } = 4;
     public double HuntHidePerHour { get; set; } = 1.2;
     public double HuntMeatPerHour { get; set; } = 1.5;
-    public double GrainYieldMultiplier { get; set; } = 1.5;
+    public double GrainYieldMultiplier { get; set; } = 1.3;
 
     /// <summary>Set by the obsolescence scenario: players stop buying bread.</summary>
     public bool BreadObsolete { get; set; }
@@ -323,6 +323,14 @@ public sealed class SimConfig
     public bool StarterGearForAll { get; set; } = true;
     /// <summary>Roast meat (meat + firewood) is an everyday food beside bread.</summary>
     public bool RoastMeat { get; set; } = true;
+    /// <summary>Herbs gathered or grown per hour, as a share of the base rate (herbs were flooding the market).</summary>
+    public double HerbYieldMultiplier { get; set; } = 0.7;
+    /// <summary>Hidden yield balancer: raw-material yields drift down while a good trades below its usual price, up while above.</summary>
+    public bool YieldBalancer { get; set; } = true;
+    public double YieldBalancerBand { get; set; } = 0.15;
+    public double YieldBalancerStep { get; set; } = 0.02;
+    public double YieldBalancerMin { get; set; } = 0.6;
+    public double YieldBalancerMax { get; set; } = 1.4;
     /// <summary>Fresh coins per fight hour that towns add to bounties (a faucet); 0 = bounties only recycle sinks.</summary>
     public double BountyMintPerFightHour { get; set; } = 30;
     /// <summary>Copper sits in harder zones; miners below this level can't reach it.</summary>

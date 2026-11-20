@@ -57,6 +57,7 @@ public sealed partial class World
         TravelBlocked = new bool[Regions.Length];
 
         Bread = Goods["bread"];
+        Herbs = Goods["herbs"];
         Roast = Goods.Index.TryGetValue("roast_meat", out int roast) && Config.RoastMeat ? roast : -1;
         Food = Roast >= 0 ? new[] { Bread, Roast, Goods["stew"] } : new[] { Bread, Goods["stew"] };
         Stew = Goods["stew"];
@@ -103,6 +104,7 @@ public sealed partial class World
     public int Stew { get; }
     public int Potion { get; }
     public int Bandage { get; }
+    public int Herbs { get; }
     public int CopperOre { get; }
     public int Pack { get; }
     public int Furniture { get; }

@@ -376,6 +376,8 @@ public sealed partial class World
 
     private void AddProduce(Agent a, int good, double amount)
     {
+        if (good == Herbs) amount *= Config.HerbYieldMultiplier;
+        if (Config.YieldBalancer && !IsRare(good)) amount *= YieldFactor(a.Town, good);
         int n = RandomRound(amount, _agentRng);
         if (n <= 0) return;
         double q = Math.Clamp(_agentRng.NextGaussian(30 + 0.6 * a.Skill + _gatherToolBonus, 8), 1, 100);

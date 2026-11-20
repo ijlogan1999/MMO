@@ -1,3 +1,4 @@
+using Economy.Core.Items;
 using Economy.Core.Ledger;
 
 namespace Economy.Sim.World;
@@ -22,6 +23,7 @@ public sealed partial class World
         }
 
         if (weekEnd || Day == 0) AssignShops();
+        BalanceYields();
         OpenTaskBudgets();
         TrackDay();
         ExpireCourierJobs();
@@ -329,5 +331,49 @@ public sealed partial class World
             result[kv.Key] = overall > 0 ? Math.Max(0.01, perHour / overall) : 1.0;
         }
         return result;
+    }
+
+    // ------------------------------------------------------------ yield balancer
+
+    private double[,]? _yield;
+    private double[]? _yieldAnchor;
+
+    /// <summary>How rich a town's nodes of a raw good are right now (1 = normal).</summary>
+    public double YieldFactor(int town, int good) => _yield == null ? 1.0 : _yield[town, good];
+
+    /// <summary>
+    /// Hidden yield balancer (Ian, 2026-11-20): a raw material that keeps
+    /// trading well below its usual price gets thinner nodes (overworked,
+    /// slow to regrow); one trading well above it gets richer nodes. It moves
+    /// a little each day and stays within limits, so players still feel
+    /// gluts and shortages but they don't run away.
+    /// </summary>
+    private void BalanceYields()
+    {
+        if (!Config.YieldBalancer) return;
+        if (_yield == null)
+        {
+            _yield = new double[Towns.Length, Goods.Count];
+            _yieldAnchor = new double[Goods.Count];
+            for (int g = 0; g < Goods.Count; g++)
+            {
+                _yieldAnchor[g] = Towns.Average(t => t.Markets[g].Reference.Value);
+                for (int t = 0; t < Towns.Length; t++) _yield[t, g] = 1.0;
+            }
+            return;
+        }
+        for (int g = 0; g < Goods.Count; g++)
+        {
+            if (Goods.Defs[g].Tier != GoodTier.Raw || IsRare(g) || _yieldAnchor![g] <= 0) continue;
+            for (int t = 0; t < Towns.Length; t++)
+            {
+                double ratio = Towns[t].Markets[g].Reference.Value / _yieldAnchor[g];
+                double y = _yield[t, g];
+                if (ratio < 1 - Config.YieldBalancerBand) y *= 1 - Config.YieldBalancerStep;
+                else if (ratio > 1 + Config.YieldBalancerBand) y *= 1 + Config.YieldBalancerStep;
+                else y += (1 - y) * Config.YieldBalancerStep; // drift back toward normal
+                _yield[t, g] = Math.Clamp(y, Config.YieldBalancerMin, Config.YieldBalancerMax);
+            }
+        }
     }
 }
