@@ -191,10 +191,14 @@ public static class Cli
                 Console.WriteLine($"  {g.Key,-14} {g.Count(),5}  income x{inc.GetValueOrDefault(g.Key):0.00}  coins {Economy.Core.Currency.Money.Format(g.Average(a => world.Coins(a))),12}");
             Console.WriteLine($"  role switches {world.RoleSwitches} (blocked by the fee {world.RoleSwitchesBlocked}), items injected {world.ItemsInjected}");
             Console.WriteLine($"  parties {world.PartiesFormed} (full {world.PartiesFull}), wipes {world.PartyWipes}, units {world.PartyUnits}, hired tanks {world.NpcTanksHired} healers {world.NpcHealersHired} porters {world.NpcPortersHired}, deaths {world.Deaths}, furniture placed {world.FurniturePlaced}, shops {world.Agents.Count(a => a.HasShop)}");
+            {
+                var hl = world.Agents.Where(a => a.Active && a.Role == Role.Hauler).ToList();
+                Console.WriteLine($"  horses: bought {world.HorsesBought}, haulers {hl.Count} (level 21+ {hl.Count(a => World.World.LevelOf(a) >= config.HorseMinLevel)}, with horse {hl.Count(a => a.HasHorse)}, saddled {hl.Count(a => a.HasHorse && a.Saddle != null && a.Saddle.IsUsable)}), mounted trips {world.MountedTrips}");
+            }
             Console.WriteLine($"  tasks: {world.TaskUnitsDelivered} units for {world.TaskCoinsPaid} coins; haul fees {world.HaulFeesPaid}; players hired {world.PlayersHired}");
             var lv = world.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(World.World.LevelOf).ToList();
             Console.WriteLine($"  levels: band1 {lv.Count(l => l <= 20)}, band2 {lv.Count(l => l is > 20 and <= 40)}, band3 {lv.Count(l => l is > 40 and <= 60)}, band4 {lv.Count(l => l > 60)}; median {lv.OrderBy(l => l).ElementAt(lv.Count / 2)}");
-            foreach (var id in new[] { "iron_ore", "copper_ore", "iron_ingot", "copper_ingot", "alloy_ingot", "sword", "sword_s2", "sword_s5", "sword_b2", "sword_b3", "sword_b4", "leather_armor", "leather_armor_b2", "leather_armor_b3", "leather_armor_b4" })
+            foreach (var id in new[] { "iron_ore", "copper_ore", "iron_ingot", "copper_ingot", "alloy_ingot", "sword", "sword_s2", "sword_s5", "sword_b2", "sword_b3", "sword_b4", "leather_armor", "leather_armor_b2", "leather_armor_b3", "leather_armor_b4", "saddle", "travel_pack" })
             {
                 int g = world.Goods[id];
                 Console.Write($"  {id} ref {Economy.Core.Currency.Money.Format(world.Towns[0].Markets[g].Reference.Value)} wearing {world.Agents.Count(a => a.Active && (a.Weapon?.Good.Id == id || a.Armor?.Good.Id == id))};");

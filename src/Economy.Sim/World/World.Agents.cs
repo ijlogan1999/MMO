@@ -564,6 +564,7 @@ public sealed partial class World
         if (g == Bandage && Fights(a)) return 6;
         if (g == Pack && Fights(a)) return 1;
         if (g == Furniture) return int.MaxValue / 2;
+        if (g == SaddleGood && a.HasHorse) return 1;
         if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler)
             // Keep a spare of the gear we need; outgrown gear goes up for sale.
@@ -855,6 +856,7 @@ public sealed partial class World
     private void TickTravel(Agent a)
     {
         a.TravelHoursLeft--;
+        if (Mounted(a)) Durability.Wear(a.Saddle!, Config.SaddleWearPerHour);
         if (a.TravelHoursLeft > 0) return;
         if (_agentRng.Chance(Config.CargoLossChance))
         {

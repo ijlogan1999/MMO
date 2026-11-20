@@ -172,13 +172,16 @@ public sealed partial class World
                 // Still carrying something for elsewhere: keep going.
                 var next = a.Cargo[0].To;
                 a.TravelTo = next;
-                a.TravelHoursLeft = _worldFile.TravelHoursBetween(Towns[a.Town].Def.Region, Towns[next].Def.Region);
+                a.TravelHoursLeft = RideHours(a, a.Town, next);
                 return;
             }
         }
 
         var here = Towns[a.Town];
         var jobs = _jobs[here.Index];
+        HorseUpkeep(a);
+        bool mounted = Mounted(a);
+        double capacity = Config.WagonWeight + (mounted ? Config.HorseExtraWeight : 0);
         if (jobs.Count > 0)
         {
             // Best destination by fees per travel hour, loaded up to the wagon's weight.
@@ -190,11 +193,11 @@ public sealed partial class World
                 foreach (var j in grp.OrderByDescending(j => j.Fee / Math.Max(0.1, j.Qty * WeightOf(j.Good))))
                 {
                     double w = j.Qty * WeightOf(j.Good);
-                    if (weight + w > Config.WagonWeight) continue;
+                    if (weight + w > capacity) continue;
                     weight += w;
                     fees += j.Fee;
                 }
-                double rate = fees / _worldFile.TravelHoursBetween(here.Def.Region, Towns[grp.Key].Def.Region);
+                double rate = fees / RideHours(a, here.Index, grp.Key);
                 if (rate > bestRate) { bestRate = rate; bestTo = grp.Key; }
             }
             if (bestTo >= 0)
@@ -205,7 +208,7 @@ public sealed partial class World
                 {
                     double w = j.Qty * WeightOf(j.Good);
                     // The courier must be able to cover the deposit on everything carried.
-                    if (load + w > Config.WagonWeight || held + j.Collateral > coins) continue;
+                    if (load + w > capacity || held + j.Collateral > coins) continue;
                     load += w;
                     held += j.Collateral;
                     jobs.Remove(j);
@@ -215,7 +218,8 @@ public sealed partial class World
                 if (a.Cargo.Count > 0)
                 {
                     a.TravelTo = bestTo;
-                    a.TravelHoursLeft = _worldFile.TravelHoursBetween(here.Def.Region, Towns[bestTo].Def.Region);
+                    a.TravelHoursLeft = RideHours(a, here.Index, bestTo);
+                    if (mounted) MountedTrips++;
                     return;
                 }
             }
@@ -233,10 +237,33 @@ public sealed partial class World
         if (target >= 0 && _agentRng.Chance(0.5))
         {
             a.TravelTo = target;
-            a.TravelHoursLeft = _worldFile.TravelHoursBetween(here.Def.Region, Towns[target].Def.Region);
+            a.TravelHoursLeft = RideHours(a, here.Index, target);
             return;
         }
         Gather(a, productivity * 0.6);
+    }
+
+    private bool Mounted(Agent a) => Config.Horses && a.HasHorse && a.Saddle != null && a.Saddle.IsUsable;
+
+    /// <summary>Travel hours between towns; a rider is faster.</summary>
+    private int RideHours(Agent a, int from, int to)
+    {
+        int h = _worldFile.TravelHoursBetween(Towns[from].Def.Region, Towns[to].Def.Region);
+        return Mounted(a) ? Math.Max(1, (int)Math.Round(h * Config.HorseTravelFactor)) : h;
+    }
+
+    /// <summary>A hauler of high enough level buys a horse once they can spare the coins, then keeps a saddle on it.</summary>
+    private void HorseUpkeep(Agent a)
+    {
+        if (!Config.Horses || SaddleGood < 0 || LevelOf(a) < Config.HorseMinLevel) return;
+        if (!a.HasHorse)
+        {
+            if (Coins(a) < Config.HorsePrice * 2) return;
+            Ledger.Transfer(a.Account, Ledger.Treasury, Config.HorsePrice, Flow.HorsePurchase);
+            a.HasHorse = true;
+            HorsesBought++;
+        }
+        a.Saddle = Maintain(a, a.Saddle, SaddleGood, s => a.Saddle = s);
     }
 
     private void Deliver(Agent courier, CourierJob j)

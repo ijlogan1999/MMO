@@ -63,6 +63,8 @@ namespace Economy.Core.Ledger
         NpcHireFee,
         /// <summary>Paid to retrain into a new profession.</summary>
         ProfessionSwitchFee,
+        /// <summary>Paid to the stable for a horse.</summary>
+        HorsePurchase,
 
         // Transfers between players
         PlayerTrade,
@@ -98,6 +100,7 @@ namespace Economy.Core.Ledger
             Flow.SubclassSwitchFee => FlowDirection.Sink,
             Flow.NpcHireFee => FlowDirection.Sink,
             Flow.ProfessionSwitchFee => FlowDirection.Sink,
+            Flow.HorsePurchase => FlowDirection.Sink,
 
             Flow.PlayerTrade => FlowDirection.Transfer,
             Flow.EscrowHold => FlowDirection.Transfer,

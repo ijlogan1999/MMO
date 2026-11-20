@@ -397,6 +397,19 @@
       "minSkill": 10,
       "methodCeiling": 90,
       "minutes": 10
+    },
+    {
+      "id": "stitch_saddle",
+      "output": "saddle",
+      "qty": 1,
+      "inputs": {
+        "leather": 5
+      },
+      "station": "workbench",
+      "skill": "leatherworking",
+      "minSkill": 25,
+      "methodCeiling": 90,
+      "minutes": 30
     }
   ]
 }

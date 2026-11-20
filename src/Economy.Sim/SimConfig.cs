@@ -175,6 +175,16 @@ public sealed class SimConfig
     public bool CrafterCostFloor { get; set; } = false;
     /// <summary>Bark gathered per unit of timber felled (used for tanning when the data has bark).</summary>
     public double BarkPerTimber { get; set; } = 0.5;
+
+    /// <summary>Horses (Ian, 2026-11-20): haulers of HorseMinLevel+ buy a horse from the stable (a coin sink); riding needs a leather saddle, which wears while travelling.</summary>
+    public bool Horses { get; set; } = true;
+    /// <summary>Hours of fighting wear a dangerous-zone party trip puts on gear, on top of wipes (Ian, 2026-11-20: gear wears with use, not just death).</summary>
+    public double PartyTripWearHours { get; set; } = 0;
+    public int HorseMinLevel { get; set; } = 21;
+    public long HorsePrice { get; set; } = 5000;
+    public double HorseExtraWeight { get; set; } = 100;
+    public double HorseTravelFactor { get; set; } = 0.75;
+    public int SaddleWearPerHour { get; set; } = 2;
     /// <summary>Weight of today in each player's running average of units sold per day.</summary>
     public double SalesAverageWeight { get; set; } = 0.15;
     public double DeathChancePerFightHour { get; set; } = 0.03;
@@ -287,7 +297,7 @@ public sealed class SimConfig
         ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["roast_meat"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
         ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
         ["skinning_knife"] = 0.5, ["sword"] = 3, ["blade_blank"] = 2, ["leather_armor"] = 5, ["plate_armor"] = 15,
-        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["furniture"] = 20,
+        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["saddle"] = 8, ["furniture"] = 20,
     };
     public double CargoLossChance { get; set; } = 0.03;
     public double HaulMinMargin { get; set; } = 0.12;

@@ -143,6 +143,13 @@ public sealed partial class World
         double wipe = tank && healer ? Config.PartyWipeChanceFull : Config.PartyWipeChanceMissingRole;
         if (npcTank) wipe *= Config.NpcWipeFactor;
         if (npcHealer) wipe *= Config.NpcWipeFactor;
+        // Fighting through a dangerous zone wears gear even when nobody dies.
+        if (Config.PartyTripWearHours > 0)
+            foreach (var a in party)
+            {
+                if (a.Weapon != null) Durability.Wear(a.Weapon, (int)Math.Round(Config.WeaponWearPerHour * Config.PartyTripWearHours));
+                if (a.Armor != null) Durability.Wear(a.Armor, (int)Math.Round(Config.ArmorWearPerHour * Config.PartyTripWearHours));
+            }
         if (_agentRng.Chance(wipe))
         {
             // Cargo drops on death; gear takes a beating.

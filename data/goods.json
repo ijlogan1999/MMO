@@ -239,6 +239,13 @@
       "use": "Consumable"
     },
     {
+      "id": "saddle",
+      "name": "Saddle",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 400
+    },
+    {
       "id": "furniture",
       "name": "Furniture",
       "tier": "Finished",
