@@ -9,3 +9,8 @@ out/
 !data/**/*.csv
 !results/**/*.csv
 sweep-smoke/
+
+# Scratch diagnose/tuning runs
+results/diag*/
+results/diagnose/
+results/tune/
