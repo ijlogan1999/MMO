@@ -2,7 +2,7 @@
 
 Unity project for the game client. Built with the built-in renderer and no extra packages so far.
 
-- **Editor:** Unity 6.3 LTS (`6000.3.x`). Any 6000.3 patch works; if Unity Hub asks, pick the 6000.3 version you have installed.
+- **Editor:** Unity 6.3 LTS, pinned to `6000.3.29f1`.
 - **First open:** Unity fills in the rest of `ProjectSettings/` and writes `Packages/packages-lock.json`. Commit those files after the first open.
 - **Git LFS:** run `git lfs install` once per machine before adding art or audio. `unity/.gitattributes` sends images, models, audio, video and fonts to LFS.
 
