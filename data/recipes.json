@@ -385,6 +385,34 @@
       "minutes": 20
     },
     {
+      "id": "sew_quiver",
+      "output": "quiver",
+      "qty": 1,
+      "inputs": {
+        "cloth": 2,
+        "leather": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 15,
+      "methodCeiling": 90,
+      "minutes": 15
+    },
+    {
+      "id": "sew_reagent_bag",
+      "output": "reagent_bag",
+      "qty": 1,
+      "inputs": {
+        "cloth": 2,
+        "fiber": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 10,
+      "methodCeiling": 90,
+      "minutes": 12
+    },
+    {
       "id": "stitch_pack",
       "output": "travel_pack",
       "qty": 1,

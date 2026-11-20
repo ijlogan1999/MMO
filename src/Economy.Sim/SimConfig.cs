@@ -180,6 +180,12 @@ public sealed class SimConfig
     public bool Horses { get; set; } = true;
     /// <summary>Joiners pick professions by the median player's pay, not the average (a few rich shop owners skew it).</summary>
     public bool JoinByTypicalPay { get; set; } = true;
+    /// <summary>Tailors' quivers (ranged fighters) and reagent bags (herbalists, alchemists, cooks): work at NoBagProductivity without one.</summary>
+    public bool SpecialBags { get; set; } = true;
+    /// <summary>Cloth for healers and ranged fighters, leather for melee (Ian, 2026-11-20).</summary>
+    public bool RangedWearCloth { get; set; } = true;
+    public double NoBagProductivity { get; set; } = 0.85;
+    public int BagWearPerHour { get; set; } = 3;
     /// <summary>Hours of fighting wear a dangerous-zone party trip puts on gear, on top of wipes (Ian, 2026-11-20: gear wears with use, not just death).</summary>
     public double PartyTripWearHours { get; set; } = 0;
     public int HorseMinLevel { get; set; } = 21;
@@ -299,7 +305,7 @@ public sealed class SimConfig
         ["padding"] = 0.5, ["nails"] = 0.2, ["bread"] = 0.3, ["roast_meat"] = 0.3, ["stew"] = 0.5, ["stock"] = 0.5,
         ["healing_potion"] = 0.3, ["bandage"] = 0.1, ["pickaxe"] = 3, ["woodaxe"] = 3, ["sickle"] = 1,
         ["skinning_knife"] = 0.5, ["sword"] = 3, ["blade_blank"] = 2, ["leather_armor"] = 5, ["plate_armor"] = 15,
-        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["saddle"] = 8, ["furniture"] = 20,
+        ["cloth_armor"] = 2, ["relic_sword"] = 3, ["travel_pack"] = 1, ["saddle"] = 8, ["quiver"] = 1, ["reagent_bag"] = 1, ["furniture"] = 20,
     };
     public double CargoLossChance { get; set; } = 0.03;
     public double HaulMinMargin { get; set; } = 0.12;

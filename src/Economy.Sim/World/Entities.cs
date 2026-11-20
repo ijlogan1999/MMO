@@ -111,6 +111,8 @@ public sealed class Agent
     /// <summary>Higher-level haulers can own a horse; it needs a working saddle to ride.</summary>
     public bool HasHorse { get; set; }
     public Equipment? Saddle { get; set; }
+    /// <summary>A quiver or reagent bag, by role.</summary>
+    public Equipment? Bag { get; set; }
 
     public long RepairPrice { get; set; }
     public int RepairsToday { get; set; }

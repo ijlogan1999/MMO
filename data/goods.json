@@ -246,6 +246,20 @@
       "baseDurability": 400
     },
     {
+      "id": "quiver",
+      "name": "Quiver",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 500
+    },
+    {
+      "id": "reagent_bag",
+      "name": "Reagent bag",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 500
+    },
+    {
       "id": "furniture",
       "name": "Furniture",
       "tier": "Finished",

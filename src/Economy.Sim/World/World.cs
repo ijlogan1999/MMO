@@ -61,6 +61,8 @@ public sealed partial class World
         Timber = Goods.Index.TryGetValue("timber", out int tim) ? tim : -1;
         Bark = Goods.Index.TryGetValue("bark", out int bark) ? bark : -1;
         SaddleGood = Goods.Index.TryGetValue("saddle", out int sad) ? sad : -1;
+        Quiver = Goods.Index.TryGetValue("quiver", out int qv) ? qv : -1;
+        ReagentBag = Goods.Index.TryGetValue("reagent_bag", out int rb) ? rb : -1;
         Roast = Goods.Index.TryGetValue("roast_meat", out int roast) && Config.RoastMeat ? roast : -1;
         Food = Roast >= 0 ? new[] { Bread, Roast, Goods["stew"] } : new[] { Bread, Goods["stew"] };
         Stew = Goods["stew"];
@@ -111,6 +113,8 @@ public sealed partial class World
     public int Timber { get; }
     public int Bark { get; }
     public int SaddleGood { get; }
+    public int Quiver { get; }
+    public int ReagentBag { get; }
     public long HorsesBought { get; private set; }
     public long MountedTrips { get; private set; }
     public int CopperOre { get; }
@@ -294,7 +298,7 @@ public sealed partial class World
         if (Config.StarterGearForAll ? Fights(agent) : role == Role.Fighter)
         {
             int lvl = LevelOf(agent);
-            string armorBase = agent.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
+            string armorBase = agent.CombatRole == CombatRole.Healer || (Config.RangedWearCloth && IsRanged(agent)) ? "cloth_armor" : "leather_armor";
             agent.Weapon = Durability.Create(Goods.Defs[Goods[Config.LevelBands ? LevelBands.WearableId("sword", lvl) : "sword"]], q);
             agent.Armor = Durability.Create(Goods.Defs[Goods[LevelBands.Id(armorBase, Config.LevelBands ? LevelBands.WearableBand(armorBase, lvl) : 0)]], q);
             if (role == Role.Fighter) agent.Inventory.Add(Potion, 3, 40);

@@ -29,8 +29,10 @@ public sealed partial class World
 
         double productivity = Eat(a);
         a.OnlineHoursWeek += 1;
+        bool fights = FightsThisHour(a);
+        productivity *= BagFactor(a, fights);
 
-        if (FightsThisHour(a))
+        if (fights)
         {
             Fight(a, productivity);
             if (Config.Parties && PartyEligible(a.Role) && _agentRng.Chance(Config.PartyTripChance))
@@ -565,6 +567,8 @@ public sealed partial class World
         if (g == Pack && Fights(a)) return 1;
         if (g == Furniture) return int.MaxValue / 2;
         if (g == SaddleGood && a.HasHorse) return 1;
+        if (g == Quiver && IsRanged(a)) return 1;
+        if (g == ReagentBag && a.Role is Role.Herbalist or Role.Alchemist or Role.Cook) return 1;
         if (g == RelicCore && Fights(a) && a.Weapon?.Good.IsMagical == true) return 1;
         if (Goods.Defs[g].HasDurability && !Roles.IsCrafter(a.Role) && a.Role != Role.Hauler)
             // Keep a spare of the gear we need; outgrown gear goes up for sale.
@@ -590,6 +594,26 @@ public sealed partial class World
         foreach (var (i, q) in TieredInputs(r, Math.Min(a.Skill, r.MinSkill))) cost += Math.Max(1, Towns[a.Town].Markets[i].Reference.Value) * q;
         return cost / r.OutputQuantity;
     }
+
+    /// <summary>
+    /// Specialized bags from tailors (Ian, 2026-11-20): ranged fighters need a
+    /// quiver to fight well; herbalists, alchemists and cooks a reagent bag.
+    /// The bag wears with use; without one, work goes slower.
+    /// </summary>
+    private double BagFactor(Agent a, bool fights)
+    {
+        if (!Config.SpecialBags) return 1;
+        int good = a.Role is Role.Herbalist or Role.Alchemist or Role.Cook ? ReagentBag
+            : fights && IsRanged(a) ? Quiver : -1;
+        if (good < 0) return 1;
+        a.Bag = Maintain(a, a.Bag?.Good.Id == Goods.Defs[good].Id ? a.Bag : null, good, b => a.Bag = b);
+        if (a.Bag == null || !a.Bag.IsUsable) return Config.NoBagProductivity;
+        Durability.Wear(a.Bag, Config.BagWearPerHour);
+        return 1;
+    }
+
+    /// <summary>About two in five damage dealers fight at range (archers, casters with focus quivers).</summary>
+    public static bool IsRanged(Agent a) => a.CombatRole == CombatRole.Damage && a.Id % 5 < 2;
 
     private bool MakesItself(Agent a, int g)
     {
@@ -667,7 +691,7 @@ public sealed partial class World
         int band = Config.LevelBands ? LevelBands.BandForLevel(level) : 0;
         // Each piece unlocks at its own level inside the band.
         string swordId = Config.LevelBands ? LevelBands.WearableId("sword", level) : "sword";
-        string armorBase = a.CombatRole == CombatRole.Healer ? "cloth_armor" : "leather_armor";
+        string armorBase = a.CombatRole == CombatRole.Healer || (Config.RangedWearCloth && IsRanged(a)) ? "cloth_armor" : "leather_armor";
         int armorBand = Config.LevelBands ? LevelBands.WearableBand(armorBase, level) : 0;
         bool wantRelic = coins > 15000 && (!Config.LevelBands || level >= LevelBands.MinLevel("relic_sword"));
         int weaponGood = Goods[wantRelic ? "relic_sword" : swordId];
