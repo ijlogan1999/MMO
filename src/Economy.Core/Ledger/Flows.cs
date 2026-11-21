@@ -46,6 +46,9 @@ namespace Economy.Core.Ledger
         HiredHandWage,
         MarketMakerPurchase,
 
+        /// <summary>Coins created by a bug or exploit (a dupe). Only for testing the gold-flood scenario.</summary>
+        ExploitDupe,
+
         // Sinks
         MarketTax,
         StationFee,
@@ -57,6 +60,11 @@ namespace Economy.Core.Ledger
         NpcSale,
         TokenListingFee,
         SubclassSwitchFee,
+        NpcHireFee,
+        /// <summary>Paid to retrain into a new profession.</summary>
+        ProfessionSwitchFee,
+        /// <summary>Paid to the stable for a horse.</summary>
+        HorsePurchase,
 
         // Transfers between players
         PlayerTrade,
@@ -78,6 +86,7 @@ namespace Economy.Core.Ledger
             Flow.NpcScrapPurchase => FlowDirection.Faucet,
             Flow.HiredHandWage => FlowDirection.Faucet,
             Flow.MarketMakerPurchase => FlowDirection.Faucet,
+            Flow.ExploitDupe => FlowDirection.Faucet,
 
             Flow.MarketTax => FlowDirection.Sink,
             Flow.StationFee => FlowDirection.Sink,
@@ -89,6 +98,9 @@ namespace Economy.Core.Ledger
             Flow.NpcSale => FlowDirection.Sink,
             Flow.TokenListingFee => FlowDirection.Sink,
             Flow.SubclassSwitchFee => FlowDirection.Sink,
+            Flow.NpcHireFee => FlowDirection.Sink,
+            Flow.ProfessionSwitchFee => FlowDirection.Sink,
+            Flow.HorsePurchase => FlowDirection.Sink,
 
             Flow.PlayerTrade => FlowDirection.Transfer,
             Flow.EscrowHold => FlowDirection.Transfer,
@@ -104,7 +116,7 @@ namespace Economy.Core.Ledger
 
         /// <summary>
         /// Checks a flow moves between the right kinds of account. The starter
-        /// purse is the only faucet paid by the mint (true money creation);
+        /// purse (and, in tests, an exploit dupe) is paid by the mint (true money creation);
         /// every other faucet is paid from the treasury.
         /// </summary>
         public static bool IsAllowed(Flow flow, AccountKind from, AccountKind to)
@@ -113,7 +125,9 @@ namespace Economy.Core.Ledger
             {
                 case FlowDirection.Faucet:
                     if (!InCirculation(to)) return false;
-                    return flow == Flow.StarterPurse ? from == AccountKind.Mint : from == AccountKind.Treasury;
+                    return flow == Flow.StarterPurse || flow == Flow.ExploitDupe
+                        ? from == AccountKind.Mint
+                        : from == AccountKind.Treasury;
                 case FlowDirection.Sink:
                     return InCirculation(from) && to == AccountKind.Treasury;
                 case FlowDirection.Transfer:

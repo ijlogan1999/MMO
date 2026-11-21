@@ -169,7 +169,7 @@ namespace Economy.Core.Ledger
             if (circulating != _faucetTotal - _sinkTotal)
                 throw new LedgerException($"Circulation {circulating} differs from faucets {_faucetTotal} minus sinks {_sinkTotal}.");
 
-            long treasuryPaidFaucets = _faucetTotal - TotalFor(Flow.StarterPurse);
+            long treasuryPaidFaucets = _faucetTotal - TotalFor(Flow.StarterPurse) - TotalFor(Flow.ExploitDupe);
             long expectedTreasury = TotalFor(Flow.TreasurySeed) + _sinkTotal - treasuryPaidFaucets;
             if (Balance(Treasury) != expectedTreasury)
                 throw new LedgerException($"Treasury {Balance(Treasury)} differs from expected {expectedTreasury}.");

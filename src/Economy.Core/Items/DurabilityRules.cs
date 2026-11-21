@@ -6,19 +6,13 @@ namespace Economy.Core.Items
     public sealed class DurabilitySettings
     {
         /// <summary>
-        /// Share of the item's current ceiling a repair after a full break keeps,
-        /// by repairer skill 0..100 (linear between novice and expert).
-        /// Design doc: novice 50%, expert 90%.
+        /// Share of the item's ORIGINAL life a repair of a fully worn item takes
+        /// off its ceiling, by repairer skill 0..100 (linear between novice and
+        /// expert). Ian, 2026-11-19: novice about 40%, master about 15%, so a
+        /// novice gets ~2 repairs out of an item (100, 60, 20) and a master ~5.
         /// </summary>
-        public double NoviceRepairFactor { get; set; } = 0.50;
-        public double ExpertRepairFactor { get; set; } = 0.90;
-
-        /// <summary>
-        /// Routine upkeep before a break costs this share of the ceiling per
-        /// fully-worn item. Topping up at half wear costs half of this.
-        /// Much cheaper than a break, so players who maintain gear get more life.
-        /// </summary>
-        public double UpkeepCeilingLoss { get; set; } = 0.05;
+        public double NoviceRepairLoss { get; set; } = 0.40;
+        public double ExpertRepairLoss { get; set; } = 0.15;
 
         /// <summary>Below this share of its original ceiling an item is worn out for good.</summary>
         public double WornOutFraction { get; set; } = 0.20;
@@ -31,9 +25,8 @@ namespace Economy.Core.Items
 
         public void Validate()
         {
-            if (NoviceRepairFactor <= 0 || NoviceRepairFactor > 1) throw new InvalidOperationException("NoviceRepairFactor must be in (0, 1].");
-            if (ExpertRepairFactor < NoviceRepairFactor || ExpertRepairFactor > 1) throw new InvalidOperationException("ExpertRepairFactor must be in [novice, 1].");
-            if (UpkeepCeilingLoss < 0 || UpkeepCeilingLoss >= 1) throw new InvalidOperationException("UpkeepCeilingLoss must be in [0, 1).");
+            if (NoviceRepairLoss <= 0 || NoviceRepairLoss >= 1) throw new InvalidOperationException("NoviceRepairLoss must be in (0, 1).");
+            if (ExpertRepairLoss <= 0 || ExpertRepairLoss > NoviceRepairLoss) throw new InvalidOperationException("ExpertRepairLoss must be in (0, novice].");
             if (WornOutFraction <= 0 || WornOutFraction >= 1) throw new InvalidOperationException("WornOutFraction must be in (0, 1).");
             if (MinQualityDurabilityFactor <= 0 || MinQualityDurabilityFactor > 1) throw new InvalidOperationException("MinQualityDurabilityFactor must be in (0, 1].");
         }
@@ -112,17 +105,17 @@ namespace Economy.Core.Items
             return WearOutcome.Broke;
         }
 
-        /// <summary>Repair factor for a repairer's skill, 0 (novice) to 100 (expert).</summary>
-        public double RepairFactor(int repairerSkill)
+        /// <summary>Share of original life a full repair takes off, for a repairer's skill 0 (novice) to 100 (expert).</summary>
+        public double RepairLoss(int repairerSkill)
         {
             double t = Math.Max(0, Math.Min(100, repairerSkill)) / 100.0;
-            return Settings.NoviceRepairFactor + (Settings.ExpertRepairFactor - Settings.NoviceRepairFactor) * t;
+            return Settings.NoviceRepairLoss + (Settings.ExpertRepairLoss - Settings.NoviceRepairLoss) * t;
         }
 
         /// <summary>
-        /// Repairs a broken item. The new ceiling is the old ceiling times the
-        /// repairer's factor, so each break lowers it and a repair can never
-        /// raise it. A magical item needs a new relic core to be repaired.
+        /// Repairs a broken item. Each repair takes a share of the item's
+        /// original life off its ceiling (less for a skilled repairer), so a
+        /// repair can never raise it and gear wears out after a few repairs. A magical item needs a new relic core to be repaired.
         /// Returns false (and changes nothing) if the item is worn out for good.
         /// </summary>
         public bool RepairBroken(Equipment item, int repairerSkill, int? newCoreQuality = null)
@@ -134,7 +127,7 @@ namespace Economy.Core.Items
             if (!item.Good.IsMagical && newCoreQuality.HasValue)
                 throw new InvalidOperationException($"{item} is not magical and cannot hold a core.");
 
-            int newMax = (int)Math.Floor(item.MaxDurability * RepairFactor(repairerSkill));
+            int newMax = item.MaxDurability - (int)Math.Ceiling(item.OriginalMaxDurability * RepairLoss(repairerSkill) - 1e-9);
             if (IsBelowWornOut(item, newMax)) return false;
 
             item.MaxDurability = newMax;
@@ -144,17 +137,18 @@ namespace Economy.Core.Items
         }
 
         /// <summary>
-        /// Routine upkeep on an item that has not broken: restores it to full
-        /// at a small cost to the ceiling, scaled by how worn it was.
+        /// Routine upkeep on an item that has not broken: restores it to full.
+        /// It costs the same share of original life as a repair, scaled by how
+        /// worn the item was, so topping up at half wear costs half a repair.
         /// </summary>
-        public void Upkeep(Equipment item)
+        public void Upkeep(Equipment item, int repairerSkill)
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
             if (item.IsBroken) throw new InvalidOperationException($"{item} is broken; use RepairBroken instead.");
             if (item.Durability == item.MaxDurability) return;
 
             double wornShare = 1.0 - (double)item.Durability / item.MaxDurability;
-            int loss = (int)Math.Ceiling(item.MaxDurability * Settings.UpkeepCeilingLoss * wornShare);
+            int loss = (int)Math.Ceiling(item.OriginalMaxDurability * RepairLoss(repairerSkill) * wornShare - 1e-9);
             item.MaxDurability = Math.Max(1, item.MaxDurability - loss);
             item.Durability = item.MaxDurability;
         }
