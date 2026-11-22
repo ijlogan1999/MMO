@@ -152,6 +152,10 @@ public static class Cli
                     prices = Enumerable.Range(0, w.Goods.Count).ToDictionary(g => w.Goods.Defs[g].Id, g => w.DailyPrices.Select(d => Math.Round(d[g], 1)).ToArray()),
                     taskUnits = w.TaskUnitsDelivered, taskCoins = w.TaskCoinsPaid, haulFees = w.HaulFeesPaid,
                     armedShare = w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator) && a.Weapon != null) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator))),
+                    fighterArmed = w.Agents.Count(a => a.Active && a.Role == Role.Fighter && a.Weapon != null) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role == Role.Fighter)),
+                    fighterUpToLevel = w.Agents.Count(a => a.Active && a.Role == Role.Fighter && a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)) - 1) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role == Role.Fighter)),
+                    foodHeals = w.FoodHeals, foodHealMisses = w.FoodHealMisses, coresSelfFarmed = w.CoresSelfFarmed, coreBuysSkipped = w.CoreBuysSkipped,
+                    localJoins = w.LocalShortageJoins, localSwitches = w.LocalShortageSwitches,
                     upgradeGapEarly = w.UpgradeGapsEarly.Count == 0 ? -1 : w.UpgradeGapsEarly.OrderBy(v => v).ElementAt(w.UpgradeGapsEarly.Count / 2),
                     upgradesEarly = w.UpgradeGapsEarly.Count,
                     medianCoins = w.Agents.Where(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)).Select(a => w.Coins(a)).OrderBy(c => c).ElementAt(w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator)) / 2),
@@ -258,6 +262,11 @@ public static class Cli
                 var ranks = players.Where(a => a.Weapon != null && a.Weapon.Good.Id.StartsWith("sword")).GroupBy(a => LevelBands.BandOf(a.Weapon!.Good.Id)).OrderBy(g => g.Key);
                 Console.WriteLine($"  weapon upgrades: {world.UpgradeGapsEarly.Count} at level 1-20 (median {Med(world.UpgradeGapsEarly):0.0} fight hours apart), {world.UpgradeGapsLate.Count} above (median {Med(world.UpgradeGapsLate):0.0}h); swords worn by band " + string.Join(", ", ranks.Select(g => $"b{g.Key + 1} {g.Count()}")));
             }
+            {
+                var fighters = players.Where(a => a.Role == Role.Fighter).ToList();
+                Console.WriteLine($"  fight-focused: {fighters.Count}, {fighters.Count(a => a.Weapon != null)} with a weapon, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)))} up to level, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)) - 1)} within one step");
+                Console.WriteLine($"  healing: {world.FoodHeals} food heals ({world.FoodHealMisses} fell back to potions); cores: {world.CoresSelfFarmed} self-farmed, {world.CoreBuysSkipped} buys skipped as too dear; local-shortage joins {world.LocalShortageJoins}, switches {world.LocalShortageSwitches}");
+            }
             Console.WriteLine($"  gear: {players.Count} players, {armed} with a weapon, {armored} with armor, {upToDate} weapon up to level; behind-on-weapon median coins {(behind.Count > 0 ? behind[behind.Count / 2] : 0)}");
             {
                 int swd = world.Goods["sword"];
@@ -299,8 +308,18 @@ public static class Cli
         {
             if (args[i] != "--set") continue;
             var parts = args[i + 1].Split('=', 2);
-            var prop = typeof(SimConfig).GetProperty(parts[0]) ?? throw new ArgumentException($"No setting {parts[0]}");
-            prop.SetValue(config, prop.PropertyType == typeof(string[]) ? parts[1].Split(',') : Convert.ChangeType(parts[1], prop.PropertyType, System.Globalization.CultureInfo.InvariantCulture));
+            object target = config;
+            string name = parts[0];
+            if (name.Contains('.'))
+            {
+                // Nested settings, e.g. Stabilizer.MarketMakerCap=0.
+                var path = name.Split('.');
+                for (int k = 0; k < path.Length - 1; k++)
+                    target = target.GetType().GetProperty(path[k])?.GetValue(target) ?? throw new ArgumentException($"No setting {name}");
+                name = path[^1];
+            }
+            var prop = target.GetType().GetProperty(name) ?? throw new ArgumentException($"No setting {parts[0]}");
+            prop.SetValue(target, prop.PropertyType == typeof(string[]) ? parts[1].Split(',') : Convert.ChangeType(parts[1], prop.PropertyType, System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 

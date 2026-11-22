@@ -237,7 +237,14 @@ public sealed partial class World
         if (magical && owner.Inventory[RelicCore] == 0)
         {
             // Repairing a broken magical item needs a new core: buy one first.
-            PlaceBuy(owner, RelicCore, 1, (long)Math.Round(AskOrBelief(owner, RelicCore)));
+            double ask = AskOrBelief(owner, RelicCore);
+            if (Config.CoreFarmChoice)
+            {
+                // Worth at most what the player would earn in the hours it takes to farm one.
+                double worth = CoreFarmHours(owner) * Math.Max(1, HourlyIncome(owner));
+                if (ask > worth) { owner.HuntingCore = true; CoreBuysSkipped++; return false; }
+            }
+            PlaceBuy(owner, RelicCore, 1, (long)Math.Round(ask));
             if (owner.Inventory[RelicCore] == 0) return false;
         }
 
@@ -408,14 +415,16 @@ public sealed partial class World
         // Orders are for the common version: a skilled crafter makes it well, but with common materials.
         double tierSkill = order != null && _orders.Contains(order) ? Math.Min(a.Skill, OrderTierSkill) : a.Skill;
         if (best == null)
-        foreach (var r in Goods.Catalog.Recipes)
+        foreach (var (r, output) in RecipesForSkill(skill))
         {
-            if (r.Skill != skill || r.MinSkill > a.Skill) continue;
-            int output = Goods[r.OutputGoodId];
+            if (r.MinSkill > a.Skill) continue;
             // A real crafter stops making (and buying materials for) what is not selling.
             // What they keep for their own use (potions, bandages, meals for fighting) isn't unsold stock.
             if (Config.CraftersWatchSales && a.Inventory[output] - (Config.OwnUseNotUnsold ? KeepAmount(a, output) : 0) >= UnsoldLimit(a, output)) continue;
-            double value = a.Belief[output] * r.OutputQuantity;
+            double unit = a.Belief[output];
+            // Buy orders on the board show demand the crafter can fill right away.
+            if (Config.CraftersSeeBids) { var m = Towns[a.Town].Markets[output]; if (m.Book.BestBid.HasValue) unit = Math.Max(unit, StandardBid(m) ?? 0); }
+            double value = unit * r.OutputQuantity;
             double cost = Config.StationFee;
             foreach (var (g, q) in TieredInputs(r, a.Skill)) cost += InputCost(a, g) * q;
             double perHour = (value - cost) * (60.0 / r.CraftMinutes);
@@ -499,6 +508,16 @@ public sealed partial class World
     /// Inputs for one craft at the crafter's tier. Only gear is tiered:
     /// food, potions and materials use the base recipe.
     /// </summary>
+    private readonly Dictionary<string, (Recipe recipe, int output)[]> _recipesBySkill = new();
+
+    /// <summary>A craft's recipes (in catalog order) with their output index, worked out once.</summary>
+    private (Recipe recipe, int output)[] RecipesForSkill(string skill)
+    {
+        if (!_recipesBySkill.TryGetValue(skill, out var list))
+            _recipesBySkill[skill] = list = Goods.Catalog.Recipes.Where(r => r.Skill == skill).Select(r => (r, Goods[r.OutputGoodId])).ToArray();
+        return list;
+    }
+
     private List<(int good, int qty)> TieredInputs(Recipe r, double skill)
     {
         int output = Goods[r.OutputGoodId];
@@ -558,11 +577,16 @@ public sealed partial class World
         return n;
     }
 
-    private bool IsToolGood(int g) => Goods.Defs[g].Id is "pickaxe" or "woodaxe" or "sickle" or "skinning_knife";
+    private bool[]? _isTool;
+    private bool IsToolGood(int g) => (_isTool ??= Enumerable.Range(0, Goods.Count).Select(i => Goods.Defs[i].Id is "pickaxe" or "woodaxe" or "sickle" or "skinning_knife").ToArray())[g];
+    private int _pickRepairMat = -1, _leatherRepairMat = -1;
+    private int PickRepairMat => _pickRepairMat >= 0 ? _pickRepairMat : _pickRepairMat = Goods.RepairMaterial[Goods["pickaxe"]];
+    private int LeatherRepairMat => _leatherRepairMat >= 0 ? _leatherRepairMat : _leatherRepairMat = Goods.RepairMaterial[Goods["leather_armor"]];
 
     private int KeepAmount(Agent a, int g)
     {
-        if (g == Bread) return 6;
+        if (g == Bread) return Config.FoodHealShare > 0 && Fights(a) ? 8 : 6;
+        if (g == Roast && Config.FoodHealShare > 0 && Fights(a)) return 8;
         if (g == Stew) return Fights(a) ? 6 : 3;
         if (g == Potion && Fights(a)) return 6;
         if (g == Bandage && Fights(a)) return 6;
@@ -577,8 +601,8 @@ public sealed partial class World
             // Keep a spare of the gear we need; outgrown gear goes up for sale.
             return !Config.LevelBands || Goods.Defs[g].Use != Economy.Core.Items.GoodUse.Equipment || IsToolGood(g) || g == a.WantWeapon || g == a.WantArmor ? 1 : 0;
         if (Roles.IsCrafter(a.Role) && g == RepairStockFor(a.Role)) return 4;
-        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["pickaxe"]]) return 8;
-        if (a.Role == Role.Repairer && g == Goods.RepairMaterial[Goods["leather_armor"]]) return 8;
+        if (a.Role == Role.Repairer && g == PickRepairMat) return 8;
+        if (a.Role == Role.Repairer && g == LeatherRepairMat) return 8;
         // A part the crafter makes itself (tailors' padding, leatherworkers' leather):
         // keep a few for their own crafts and sell the rest to the trades that need it.
         if (Config.SellOwnParts && Roles.IsCrafter(a.Role) && IsInputFor(a, g) && MakesItself(a, g)) return Config.OwnPartKeep;
@@ -618,13 +642,30 @@ public sealed partial class World
     /// <summary>About two in five damage dealers fight at range (archers, casters with focus quivers).</summary>
     public static bool IsRanged(Agent a) => a.CombatRole == CombatRole.Damage && a.Id % 5 < 2;
 
+    // Recipes never change during a run, so these role x good answers are cached (0 unknown, 1 no, 2 yes).
+    private sbyte[]? _makesItself, _inputFor;
+
     private bool MakesItself(Agent a, int g)
     {
-        string skill = Roles.CraftSkill(a.Role)!;
-        return Goods.RecipesByOutput[g].Any(r => r.Skill == skill);
+        _makesItself ??= new sbyte[RoleCount * Goods.Count];
+        int k = (int)a.Role * Goods.Count + g;
+        if (_makesItself[k] == 0)
+        {
+            string skill = Roles.CraftSkill(a.Role)!;
+            _makesItself[k] = (sbyte)(Goods.RecipesByOutput[g].Any(r => r.Skill == skill) ? 2 : 1);
+        }
+        return _makesItself[k] == 2;
     }
 
     private bool IsInputFor(Agent a, int g)
+    {
+        _inputFor ??= new sbyte[RoleCount * Goods.Count];
+        int k = (int)a.Role * Goods.Count + g;
+        if (_inputFor[k] == 0) _inputFor[k] = (sbyte)(IsInputForUncached(a, g) ? 2 : 1);
+        return _inputFor[k] == 2;
+    }
+
+    private bool IsInputForUncached(Agent a, int g)
     {
         string skill = Roles.CraftSkill(a.Role)!;
         string id = Goods.Defs[g].Id;
@@ -730,13 +771,33 @@ public sealed partial class World
         bool healed = HasHealerThisHour(a);
         if (healed) HealedFightHours++;
         double zoneSupply = 1 + Config.ZoneSupplyPerBand * band;
-        a.PotionCredit += Config.PotionsPerFightHour * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
+        a.PotionCredit += Config.PotionsPerFightHour * (1 - Config.FoodHealShare) * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
             int used = TakeHealing(a, heal);
             if (used < 0) power *= 0.7;
             else if (used == Gauze) a.PotionCredit -= Config.GauzeHeals - 1; // gauze covers more than one heal
+        }
+        if (Config.FoodHealShare > 0)
+        {
+            // Eating between pulls covers part of the healing (food heals over time).
+            a.FoodHealCredit += Config.PotionsPerFightHour * Config.FoodHealShare * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0) * Config.FoodHealUnits;
+            while (a.FoodHealCredit >= 1)
+            {
+                a.FoodHealCredit -= 1;
+                if (!EatHealingFood(a)) { a.PotionCredit += 1.0 / Config.FoodHealUnits; FoodHealMisses++; }
+                else FoodHeals++;
+            }
+            int onHand = a.Inventory[Bread] + (Roast >= 0 ? a.Inventory[Roast] : 0);
+            if (onHand < 4)
+            {
+                int basic = Roast >= 0 && AskOrBelief(a, Roast) < AskOrBelief(a, Bread) ? Roast : Bread;
+                int qty = 8 - onHand - TryNoviceMake(a, basic, 8 - onHand);
+                long price = Math.Max(1, (long)Math.Round(a.Belief[basic]));
+                if (qty > 0 && price * qty > Coins(a) / 3) qty = (int)(Coins(a) / 3 / price);
+                if (qty > 0) PlaceBuy(a, basic, qty, price);
+            }
         }
         if (a.Inventory[heal] < 3)
         {
@@ -789,8 +850,13 @@ public sealed partial class World
         double zone = 1 + Config.ZonePayPerBand * band;
         AddLoot(a, Goods["hide"], Config.FighterHidePerHour * power * zone);
         AddLoot(a, Goods["meat"], Config.FighterMeatPerHour * power * zone);
-        if (_agentRng.Chance(Config.RelicCoreDropPerHour * Config.DungeonRunMultiplier * power))
+        double hunt = a.HuntingCore ? Config.CoreHuntFactor : 1.0;
+        if (_agentRng.Chance(Config.RelicCoreDropPerHour * Config.DungeonRunMultiplier * power * hunt))
+        {
             a.Inventory.Add(RelicCore, 1, Math.Clamp(_agentRng.NextGaussian(55, 15), 1, 100));
+            if (a.HuntingCore) CoresSelfFarmed++;
+            a.HuntingCore = false;
+        }
 
         GainCombat(a, 1.0);
         _fightersThisHour.Add(a);
@@ -798,6 +864,30 @@ public sealed partial class World
     }
 
     public long Deaths { get; private set; }
+    public long FoodHeals { get; private set; }
+    public long FoodHealMisses { get; private set; }
+    public long CoresSelfFarmed { get; private set; }
+    public long CoreBuysSkipped { get; private set; }
+
+    /// <summary>Fight hours a player expects to spend farming a relic core themselves.</summary>
+    private double CoreFarmHours(Agent a)
+    {
+        double share = a.Role == Role.Fighter ? Config.MainFighterFightShare : Config.FocusFightShare;
+        double perOnlineHour = Config.RelicCoreDropPerHour * Math.Max(0.1, Config.DungeonRunMultiplier) * Config.CoreHuntFactor * Math.Max(0.05, share);
+        return 1.0 / perOnlineHour;
+    }
+
+    /// <summary>The player's own coins earned per online hour over the last week.</summary>
+    public double HourlyIncome(Agent a) => a.DailyIncome.Sum() / Math.Max(1, a.SessionHours * 7);
+
+    /// <summary>Eats a bread or roast to heal between fights (cheapest on hand first). False if none.</summary>
+    private bool EatHealingFood(Agent a)
+    {
+        int first = Roast >= 0 && AskOrBelief(a, Roast) < AskOrBelief(a, Bread) ? Roast : Bread;
+        if (a.Inventory.Take(first, 1) == 1) return true;
+        int other = first == Bread ? Roast : Bread;
+        return other >= 0 && a.Inventory.Take(other, 1) == 1;
+    }
 
     /// <summary>Uses one heal, falling back to any other kind on hand. Returns the good used, or -1.</summary>
     private int TakeHealing(Agent a, int preferred)

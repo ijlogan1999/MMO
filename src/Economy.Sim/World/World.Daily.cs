@@ -194,8 +194,22 @@ public sealed partial class World
         if (joiners <= 0) return;
 
         var mix = JoinMix();
+        var regional = Config.LocalShortageBoost > 1 ? RegionRoleShares() : null;
         for (int i = 0; i < joiners; i++)
         {
+            if (regional != null)
+            {
+                // A new player starts somewhere, and notices which crafts are missing there.
+                int home = PickWeighted(Towns.Select(t => (t.Index, t.Def.Size)).ToList(), _agentRng);
+                int region = Towns[home].Region;
+                var local = LocalMix(mix, regional, region);
+                var r = PickWeighted(local, _agentRng);
+                int town = LocalShort(regional, region, r) ? PickTownInRegion(r, region, _agentRng) : PickTown(r, _agentRng);
+                if (LocalShort(regional, region, r)) LocalShortageJoins++;
+                CreateAgent(r, town, Config.StarterPurse, _agentRng, veteran: false);
+                JoinsToday++;
+                continue;
+            }
             var role = PickWeighted(mix, _agentRng);
             CreateAgent(role, PickTown(role, _agentRng), Config.StarterPurse, _agentRng, veteran: false);
             JoinsToday++;
@@ -211,6 +225,7 @@ public sealed partial class World
         var income = RoleIncome();
         var mix = JoinMix();
         var share = RoleShares();
+        var regionalS = Config.LocalShortageBoost > 1 ? RegionRoleShares() : null;
         foreach (var a in Agents)
         {
             if (!a.Active || a.Role is Role.Speculator or Role.Bot or Role.Casual) continue;
@@ -219,7 +234,8 @@ public sealed partial class World
             // A profession never empties out completely: its last half stays.
             if (share.GetValueOrDefault(a.Role) < Config.RoleMix.GetValueOrDefault(a.Role) * 0.5) continue;
             if (!_agentRng.Chance(Config.RoleSwitchChancePerDay)) continue;
-            var role = PickWeighted(mix, _agentRng);
+            int myRegion = Towns[a.Town].Region;
+            var role = PickWeighted(regionalS != null ? LocalMix(mix, regionalS, myRegion) : mix, _agentRng);
             if (role == a.Role) continue;
             // Retraining is expensive (Ian, 2026-11-19): only players who can pay switch.
             if (Config.RoleSwitchFee > 0)
@@ -232,7 +248,8 @@ public sealed partial class World
             if (Roles.Repairs(a.Role)) Towns[a.Town].Repairers.Remove(a.Id);
             a.Role = role;
             a.Skill = 15;
-            if (GatherGoodsFor(role).Length > 0 || SettleNearFor(role).Length > 0) a.Town = PickTown(role, _agentRng);
+            if (regionalS != null && LocalShort(regionalS, myRegion, role)) { a.Town = PickTownInRegion(role, myRegion, _agentRng); LocalShortageSwitches++; }
+            else if (GatherGoodsFor(role).Length > 0 || SettleNearFor(role).Length > 0) a.Town = PickTown(role, _agentRng);
             if (Roles.Repairs(role)) { Towns[a.Town].Repairers.Add(a.Id); a.RepairPrice = 150; }
             GiveCrafterQuest(a);
             a.Tool = null;
@@ -241,6 +258,40 @@ public sealed partial class World
     }
 
     public int RoleSwitches { get; private set; }
+    public int LocalShortageJoins { get; private set; }
+    public int LocalShortageSwitches { get; private set; }
+
+    /// <summary>Share of each region's active players in each role.</summary>
+    private Dictionary<Role, double>[] RegionRoleShares()
+    {
+        var res = new Dictionary<Role, double>[Regions.Length];
+        var n = new int[Regions.Length];
+        for (int r = 0; r < res.Length; r++) res[r] = new Dictionary<Role, double>();
+        foreach (var a in Agents)
+        {
+            if (!a.Active || a.Role is Role.Speculator or Role.Bot) continue;
+            int r = Towns[a.Town].Region;
+            res[r][a.Role] = res[r].GetValueOrDefault(a.Role) + 1;
+            n[r]++;
+        }
+        for (int r = 0; r < res.Length; r++)
+            foreach (var k in res[r].Keys.ToList()) res[r][k] /= Math.Max(1, n[r]);
+        return res;
+    }
+
+    /// <summary>A craft is short in a region when it has under half its normal share of players there.</summary>
+    private bool LocalShort(Dictionary<Role, double>[] regional, int region, Role role) =>
+        Roles.IsCrafter(role) && regional[region].GetValueOrDefault(role) < Config.RoleMix.GetValueOrDefault(role) * 0.5;
+
+    private List<(Role, double)> LocalMix(List<(Role, double)> mix, Dictionary<Role, double>[] regional, int region) =>
+        mix.Select(m => (m.Item1, m.Item2 > 0 && LocalShort(regional, region, m.Item1) ? m.Item2 * Config.LocalShortageBoost : m.Item2)).ToList();
+
+    private int PickTownInRegion(Role role, int region, Economy.Core.Random.SimRandom rng)
+    {
+        var towns = Towns.Where(t => t.Region == region).ToList();
+        var goods = SettleNearFor(role);
+        return PickWeighted(towns.Select(t => (t.Index, t.Def.Size * Math.Max(0.1, goods.Length == 0 ? 1 : goods.Sum(id => t.Richness[Goods[id]])))).ToList(), rng);
+    }
     public int RoleSwitchesBlocked { get; private set; }
 
     /// <summary>Share of active players in each role.</summary>

@@ -140,6 +140,14 @@ public sealed class SimConfig
     /// <summary>Buyers weigh quality against price: a bid is for standard quality (50); quality 100 is worth 1 + slope, quality 0 worth 1 - slope.</summary>
     public bool QualityPricing { get; set; } = true;
     public double QualityPriceSlope { get; set; } = 0.25;
+    /// <summary>
+    /// New and switching players notice a craft missing locally (Ian, 2026-11-22):
+    /// a craft under half its normal share in a region weighs this much more for
+    /// players there, and they set up shop in that region.
+    /// </summary>
+    public double LocalShortageBoost { get; set; } = 1.0;
+    /// <summary>Crafters value what they make at the best buy order on the board when it beats their own price belief.</summary>
+    public bool CraftersSeeBids { get; set; } = false;
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;
@@ -278,12 +286,26 @@ public sealed class SimConfig
     public int WeaponWearPerHour { get; set; } = 10;
     public int ArmorWearPerHour { get; set; } = 10;
     public double PotionsPerFightHour { get; set; } = 0.2;
+    /// <summary>
+    /// Food heals over time (Ian, 2026-11-22, WoW style): this share of the
+    /// heals a fighter needs comes from eating between fights (bread or roast,
+    /// FoodHealUnits each). Potions stay the instant heal for mid-fight and deaths.
+    /// </summary>
+    public double FoodHealShare { get; set; } = 0;
+    public double FoodHealUnits { get; set; } = 1;
     /// <summary>Harder zones (Ian, 2026-11-20): heals and buff meals used per fight hour rise by this share per level band above the first.</summary>
     public double ZoneSupplyPerBand { get; set; } = 0;
     public double FighterHidePerHour { get; set; } = 0.4;
     public double FighterMeatPerHour { get; set; } = 0.5;
     public double RelicCoreDropPerHour { get; set; } = 0.015;
     public double DungeonRunMultiplier { get; set; } = 1.0;
+    /// <summary>
+    /// Players weigh a relic core's price against farming one (Ian, 2026-11-22):
+    /// they pay at most the coins they'd earn in the hours it takes to farm it,
+    /// otherwise they run dungeons themselves (drops x CoreHuntFactor until they have one).
+    /// </summary>
+    public bool CoreFarmChoice { get; set; } = false;
+    public double CoreHuntFactor { get; set; } = 2.0;
     public double CarefulShare { get; set; } = 0.5;
 
     // Skill

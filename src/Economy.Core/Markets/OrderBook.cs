@@ -39,6 +39,9 @@ namespace Economy.Core.Markets
 
         /// <summary>Free-form tag for the owner (for example which stabilizer role placed it).</summary>
         public int Tag { get; set; }
+
+        /// <summary>Price per unit of standard quality, cached by the book (NaN until set).</summary>
+        internal double StandardPriceCache = double.NaN;
     }
 
     /// <summary>One match between a buy and a sell order.</summary>
@@ -94,7 +97,12 @@ namespace Economy.Core.Markets
         private double Weight(int quality) => QualityWeight == null ? 1.0 : Math.Max(0.05, QualityWeight(quality));
 
         /// <summary>Price per unit of standard worth.</summary>
-        public double StandardPrice(Order sell) => sell.Price / Weight(sell.Quality);
+        public double StandardPrice(Order sell)
+        {
+            // Compared many times while matching and sorting, so worked out once per order.
+            if (double.IsNaN(sell.StandardPriceCache)) sell.StandardPriceCache = sell.Price / Weight(sell.Quality);
+            return sell.StandardPriceCache;
+        }
 
         /// <summary>
         /// Matches an incoming order against the other side and rests what is

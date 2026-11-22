@@ -51,7 +51,16 @@ public static class LevelBands
     }
 
     /// <summary>Band of a good: from its id, or fixed for the special top gear.</summary>
-    public static int BandOf(string id)
+    // Pure lookups called every fight hour; cached (thread-safe, sweeps run in parallel).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _band = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _rank = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _minLevel = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int), int> _wearRank = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int), string> _wearId = new();
+
+    public static int BandOf(string id) => _band.GetOrAdd(id, BandOfUncached);
+
+    private static int BandOfUncached(string id)
     {
         if (id == "plate_armor") return 2;
         if (id == "relic_sword") return 3;
@@ -61,7 +70,7 @@ public static class LevelBands
     }
 
     /// <summary>How far up the gear ladder a piece sits: band * StepsPerBand + step.</summary>
-    public static int RankOf(string id) => BandOf(id) * StepsPerBand + SplitStep(id).step;
+    public static int RankOf(string id) => _rank.GetOrAdd(id, x => BandOf(x) * StepsPerBand + SplitStep(x).step);
 
     public static int BandForLevel(int level) => Math.Clamp((level - 1) / LevelsPerBand, 0, Count - 1);
 
@@ -84,7 +93,9 @@ public static class LevelBands
     /// requirements aren't all 1/21/41/61 (Ian, 2026-11-19). Band 1 starts at
     /// level 1 so new players can gear up. Weapon steps come about every 4 levels.
     /// </summary>
-    public static int MinLevel(string id)
+    public static int MinLevel(string id) => _minLevel.GetOrAdd(id, MinLevelUncached);
+
+    private static int MinLevelUncached(string id)
     {
         if (id == "plate_armor" || id == "relic_sword") return BandOf(id) * LevelsPerBand + 1;
         int band = BandOf(id);
@@ -103,7 +114,9 @@ public static class LevelBands
     public static int WearableBand(string baseId, int level) => WearableRank(baseId, level) / (IsStepped(baseId) ? StepsPerBand : 1);
 
     /// <summary>Highest rank (band, or band and step for weapons) the player's level allows.</summary>
-    public static int WearableRank(string baseId, int level)
+    public static int WearableRank(string baseId, int level) => _wearRank.GetOrAdd((baseId, level), k => WearableRankUncached(k.Item1, k.Item2));
+
+    private static int WearableRankUncached(string baseId, int level)
     {
         if (!IsStepped(baseId))
         {
@@ -117,7 +130,9 @@ public static class LevelBands
     }
 
     /// <summary>The id a player of this level should wear.</summary>
-    public static string WearableId(string baseId, int level) =>
+    public static string WearableId(string baseId, int level) => _wearId.GetOrAdd((baseId, level), k => WearableIdUncached(k.Item1, k.Item2));
+
+    private static string WearableIdUncached(string baseId, int level) =>
         IsStepped(baseId) ? StepId(baseId, WearableRank(baseId, level)) : Id(baseId, WearableRank(baseId, level));
 
     /// <summary>Adds the band 2-4 versions of each banded good and its recipe.</summary>
