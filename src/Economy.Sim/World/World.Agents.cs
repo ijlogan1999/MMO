@@ -926,6 +926,11 @@ public sealed partial class World
         double zone = 1 + Config.ZonePayPerBand * band;
         AddLoot(a, Goods["hide"], Config.FighterHidePerHour * power * zone);
         AddLoot(a, Goods["meat"], Config.FighterMeatPerHour * power * zone);
+        // Harder zones drop the materials that level's gear needs.
+        if (band >= 1 && Config.ZoneCopperDropPerHour > 0 && CopperOre >= 0)
+            AddLoot(a, CopperOre, Config.ZoneCopperDropPerHour * power * band);
+        if (band >= 2 && Config.ZoneRareDropPerHour > 0)
+            AddLoot(a, Goods[_agentRng.Chance(0.5) ? "ember_slag" : "ice_crystal"], Config.ZoneRareDropPerHour * power * (band - 1));
         double hunt = a.HuntingCore ? Config.CoreHuntFactor : 1.0;
         if (_agentRng.Chance(Config.RelicCoreDropPerHour * Config.DungeonRunMultiplier * power * hunt))
         {
@@ -1159,9 +1164,10 @@ public sealed partial class World
         // a little fresh money per fight hour, on top of recycling sinks.
         if (Config.BountyMintPerFightHour > 0 && _fightersThisHour.Count > 0)
         {
-            double total = 0;
-            foreach (var f in _fightersThisHour) total += Math.Max(0.01, f.LastPower);
-            double pool = Config.BountyMintPerFightHour * _fightersThisHour.Count;
+            // Harder zones mint more per fighter (ZoneMintPerBand), and pay it to those fighters.
+            double Zm(Agent f) => 1 + Config.ZoneMintPerBand * (Config.LevelBands ? LevelBands.BandForLevel(LevelOf(f)) : 0);
+            double total = 0, pool = 0;
+            foreach (var f in _fightersThisHour) { total += Math.Max(0.01, f.LastPower) * Zm(f); pool += Config.BountyMintPerFightHour * Zm(f); }
             // The town's new money passes through the treasury on its way to the fighters.
             // A treasury above its starting level pays from its surplus first, so it doesn't hoard.
             double seed = (double)Config.TreasurySeedPerAgent * Config.AgentCount;
@@ -1169,7 +1175,7 @@ public sealed partial class World
             if (mint > 0) Ledger.Transfer(Ledger.Mint, Ledger.Treasury, mint, Flow.TreasurySeed);
             foreach (var f in _fightersThisHour)
             {
-                long each = (long)(pool * Math.Max(0.01, f.LastPower) / total);
+                long each = (long)(pool * Math.Max(0.01, f.LastPower) * Zm(f) / total);
                 if (each <= 0) continue;
                 Ledger.Transfer(Ledger.Treasury, f.Account, each, Flow.TownContract);
                 f.TodayIncome += each;

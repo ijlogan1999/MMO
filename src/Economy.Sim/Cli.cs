@@ -268,6 +268,16 @@ public static class Cli
                 Console.WriteLine($"  fight-focused: {fighters.Count}, {fighters.Count(a => a.Weapon != null)} with a weapon, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)))} up to level, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)) - 1)} within one step");
                 var unarmedF = fighters.Where(a => a.Weapon == null).ToList();
                 Console.WriteLine($"  unarmed fight-focused by wanted weapon: " + string.Join(", ", unarmedF.GroupBy(a => a.WantWeapon >= 0 ? world.Goods.Defs[a.WantWeapon].Id : "?").OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()} (median coins {g.Select(a => world.Coins(a)).OrderBy(c => c).ElementAt(g.Count() / 2)}, open buy {g.Count(a => a.Orders.Any(o => o.Good == a.WantWeapon))})")));
+                foreach (var g in players.GroupBy(a => LevelBands.BandForLevel(World.World.LevelOf(a))).OrderBy(g => g.Key))
+                {
+                    var bInc = g.Select(a => world.HourlyIncome(a)).OrderBy(v => v).ToList();
+                    var bLv = g.Select(a => World.World.LevelOf(a)).OrderBy(v => v).ToList();
+                    int midLevel = bLv[bLv.Count / 2];
+                    string bSw = LevelBands.WearableId("sword", midLevel);
+                    double price = world.Towns.Average(t => t.Markets[world.Goods[bSw]].Reference.Value);
+                    double medInc = bInc[bInc.Count / 2];
+                    Console.WriteLine($"  band {g.Key + 1}: {g.Count()} players, median level {midLevel}, median income {medInc:0}c/h, {bSw} ~{price:0}c = {price / Math.Max(1, medInc):0.0}h of income");
+                }
                 Console.WriteLine($"  fight-focused by level band: " + string.Join(", ", fighters.GroupBy(a => LevelBands.BandForLevel(World.World.LevelOf(a))).OrderBy(g => g.Key).Select(g => $"b{g.Key + 1} {g.Count()} ({g.Count(a => a.Weapon != null)} armed)")));
                 Console.WriteLine($"  repairs failed: no crafter with materials in town {world.RepairNoCrafter} (mats brought {world.RepairMatsBrought}, sent to another town {world.RemoteRepairs}, NPC smith {world.NpcRepairs}), too poor {world.RepairTooPoor}; worn-out gear salvaged {world.SalvageWornOut}; affordable lower buys {world.AffordableBuys}");
                 Console.WriteLine("  repair fails by good: " + string.Join(", ", world.RepairFailByGood.OrderByDescending(kv => kv.Value).Take(8).Select(kv => $"{world.Goods.Defs[kv.Key].Id} {kv.Value}")));

@@ -187,6 +187,13 @@ public sealed class SimConfig
     public double LevelsPerFightHour { get; set; } = 0.8;
     public double GearGapPenalty { get; set; } = 0.75;
     public double ZonePayPerBand { get; set; } = 0.5;
+    /// <summary>Harder zones pay more (Ian, 2026-11-22): extra minted bounty coin per fight hour,
+    /// as a multiple of BountyMintPerFightHour, for each level band above the first.</summary>
+    public double ZoneMintPerBand { get; set; } = 1;
+    /// <summary>Level 21+ mobs drop copper ore (per fight hour at power 1, per band above the first).</summary>
+    public double ZoneCopperDropPerHour { get; set; } = 1;
+    /// <summary>Level 41+ mobs drop ember slag / ice crystal (per fight hour at power 1, per band above the second).</summary>
+    public double ZoneRareDropPerHour { get; set; } = 0.5;
 
     /// <summary>What fighters and casual players gather on the side (sharing nodes with the trades).</summary>
     public string[] SideGatherGoods { get; set; } = { "iron_ore", "timber", "herbs" };
