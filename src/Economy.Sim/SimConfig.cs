@@ -438,7 +438,7 @@ public sealed class SimConfig
     public int FreeTokenAtDay { get; set; } = 30;
 
     // Shared rules
-    public DurabilitySettings Durability { get; set; } = new();
+    public DurabilitySettings Durability { get; set; } = new() { CoreSurvivesBreak = true };
     public QualitySettings Quality { get; set; } = new();
     public StabilizerSettings Stabilizer { get; set; } = new();
 

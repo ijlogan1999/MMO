@@ -128,6 +128,19 @@ public class DurabilityTests
     }
 
     [Fact]
+    public void CoreCanSurviveABreakAndTheRepair()
+    {
+        var rules = new DurabilityRules(new DurabilitySettings { CoreSurvivesBreak = true });
+        var sword = rules.Create(RelicSword, 80, coreQuality: 70);
+        Assert.Equal(WearOutcome.Broke, rules.Wear(sword, sword.Durability));
+        Assert.True(sword.HasCore);
+        Assert.False(sword.IsUsable);
+        Assert.True(rules.RepairBroken(sword, 50));
+        Assert.Equal(70, sword.CoreQuality);
+        Assert.True(sword.IsUsable);
+    }
+
+    [Fact]
     public void RepairingAMagicalItemNeedsANewCore()
     {
         var rules = new DurabilityRules();

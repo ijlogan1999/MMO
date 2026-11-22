@@ -259,7 +259,7 @@ public sealed partial class World
     {
         int g = Goods[item.Good.Id];
         int material = Goods.RepairMaterial[g];
-        bool magical = item.Good.IsMagical && item.IsBroken;
+        bool magical = item.Good.IsMagical && item.IsBroken && !item.CoreQuality.HasValue;
         if (magical && owner.Inventory[RelicCore] == 0)
         {
             // Repairing a broken magical item needs a new core: buy one first.
@@ -324,7 +324,7 @@ public sealed partial class World
             if (item.IsBroken)
             {
                 int? core = null;
-                if (item.Good.IsMagical) { core = owner.Inventory.QualityOf(RelicCore); owner.Inventory.Take(RelicCore, 1); }
+                if (item.Good.IsMagical && !item.CoreQuality.HasValue) { core = owner.Inventory.QualityOf(RelicCore); owner.Inventory.Take(RelicCore, 1); }
                 return Durability.RepairBroken(item, Config.NpcRepairSkill, core);
             }
             Durability.Upkeep(item, Config.NpcRepairSkill);
@@ -352,7 +352,7 @@ public sealed partial class World
         if (item.IsBroken)
         {
             int? core = null;
-            if (item.Good.IsMagical)
+            if (item.Good.IsMagical && !item.CoreQuality.HasValue)
             {
                 core = owner.Inventory.QualityOf(RelicCore);
                 owner.Inventory.Take(RelicCore, 1);

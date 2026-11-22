@@ -23,6 +23,13 @@ namespace Economy.Core.Items
         /// <summary>A fresh item's ceiling scales with quality: quality 1 gets this share, quality 100 gets 100%.</summary>
         public double MinQualityDurabilityFactor { get; set; } = 0.50;
 
+        /// <summary>
+        /// Ian, 2026-11-22: a relic core survives ordinary breaks and is lost
+        /// only when the item wears out for good. Off keeps the old rule (the
+        /// core shatters on every break).
+        /// </summary>
+        public bool CoreSurvivesBreak { get; set; }
+
         public void Validate()
         {
             if (NoviceRepairLoss <= 0 || NoviceRepairLoss >= 1) throw new InvalidOperationException("NoviceRepairLoss must be in (0, 1).");
@@ -97,7 +104,7 @@ namespace Economy.Core.Items
             if (item.Durability > 0) return WearOutcome.Worn;
 
             item.BreakCount++;
-            if (item.Good.IsMagical)
+            if (item.Good.IsMagical && !Settings.CoreSurvivesBreak)
             {
                 item.CoreQuality = null;
                 return WearOutcome.BrokeAndCoreShattered;
@@ -122,7 +129,7 @@ namespace Economy.Core.Items
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
             if (!item.IsBroken) throw new InvalidOperationException($"{item} is not broken; use Upkeep instead.");
-            if (item.Good.IsMagical && !newCoreQuality.HasValue)
+            if (item.Good.IsMagical && !newCoreQuality.HasValue && !item.CoreQuality.HasValue)
                 throw new InvalidOperationException($"{item} lost its core when it broke; repairing it needs a new relic core.");
             if (!item.Good.IsMagical && newCoreQuality.HasValue)
                 throw new InvalidOperationException($"{item} is not magical and cannot hold a core.");
