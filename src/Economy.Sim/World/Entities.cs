@@ -269,8 +269,28 @@ public sealed class GoodMarket
         HourNpcUnits = 0;
     }
 
+    // Player trade value and units for each of the last 30 days, for the listing price cap.
+    private readonly long[] _histValue = new long[30];
+    private readonly int[] _histUnits = new int[30];
+    private int _histDay;
+
+    /// <summary>
+    /// Average traded price over the last <paramref name="days"/> full days, or
+    /// null below minUnits. Today's trades are left out so a run of sales can't
+    /// ratchet the cap up within the same day.
+    /// </summary>
+    public double? AveragePrice(int days, int minUnits)
+    {
+        long v = 0; int u = 0;
+        for (int i = 1; i <= Math.Min(days, 29); i++) { int k = ((_histDay - i) % 30 + 30) % 30; v += _histValue[k]; u += _histUnits[k]; }
+        return u >= minUnits && u > 0 ? (double)v / u : null;
+    }
+
     public void ResetDay()
     {
+        _histDay = (_histDay + 1) % 30;
+        _histValue[((_histDay - 1) % 30 + 30) % 30] = DayPlayerValue;
+        _histUnits[((_histDay - 1) % 30 + 30) % 30] = DayPlayerUnits;
         DayPlayerValue = 0;
         DayPlayerUnits = 0;
         DayNpcValue = 0;

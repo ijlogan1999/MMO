@@ -150,6 +150,10 @@ public sealed class SimConfig
     public bool CraftersSeeBids { get; set; } = false;
     /// <summary>A player who can't afford gear for their level buys the best lower piece on sale instead of going without.</summary>
     public bool BuyBestAffordable { get; set; } = true;
+    /// <summary>Listings can't be priced above this many times the town's recent average (0 = no cap).</summary>
+    public double ListCapMultiple { get; set; } = 2;
+    /// <summary>Units traded in 7 days needed to use the 7-day average; otherwise the 30-day one.</summary>
+    public int ListCapMinUnits { get; set; } = 10;
     /// <summary>When the crafter is out of repair materials, the player buys them and brings them along.</summary>
     public bool RepairBringMaterials { get; set; } = false;
     /// <summary>Players can get repairs from a crafter anywhere in their region, not only their own town.</summary>

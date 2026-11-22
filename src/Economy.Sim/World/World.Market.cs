@@ -84,6 +84,7 @@ public sealed partial class World
         }
 
         int town = good == TokenIndex ? -1 : a.Town;
+        if (good != TokenIndex) price = ListCap(town, good, price);
         var book = BookFor(town, good);
         var order = new Order(++_orderIds, a.Id, Side.Sell, price, qty, quality, book.NextSequence());
         _fills.Clear();
@@ -103,7 +104,7 @@ public sealed partial class World
     private void PlaceSellAt(Agent a, int town, int good, int qty, long price, int quality)
     {
         var book = BookFor(town, good);
-        var order = new Order(++_orderIds, a.Id, Side.Sell, Math.Max(1, price), qty, quality, book.NextSequence());
+        var order = new Order(++_orderIds, a.Id, Side.Sell, ListCap(town, good, Math.Max(1, price)), qty, quality, book.NextSequence());
         _fills.Clear();
         book.Submit(order, _fills, true);
         SettleAll(town, good);
@@ -117,6 +118,25 @@ public sealed partial class World
     /// </summary>
     private long BidCap(int good, long price) =>
         Config.QualityPricing && good != TokenIndex ? (long)Math.Ceiling(price * (1 + Config.QualityPriceSlope)) : price;
+
+    /// <summary>
+    /// Listing cap (Ian, 2026-11-22): nobody may list above ListCapMultiple times
+    /// the town's recent average traded price. Thin markets (rare goods) use a
+    /// 30-day average so one sale can't set it; with no trades at all, no cap.
+    /// </summary>
+    private long ListCap(int town, int good, long price)
+    {
+        if (Config.ListCapMultiple <= 0) return price;
+        var m = Towns[town].Markets[good];
+        double? avg = m.AveragePrice(7, Config.ListCapMinUnits) ?? m.AveragePrice(30, 1);
+        if (avg is not double v) return price;
+        long cap = Math.Max(1, (long)Math.Ceiling(v * Config.ListCapMultiple * (Config.QualityPricing ? QualityWeightMax : 1.0)));
+        if (price > cap) { ListingsCapped++; return cap; }
+        return price;
+    }
+
+    public long ListingsCapped { get; private set; }
+    private double QualityWeightMax => 1 + Config.QualityPriceSlope;
 
     /// <summary>Best bid as a standard-quality price (undoing the quality headroom).</summary>
     private long? StandardBid(GoodMarket m) =>
