@@ -71,4 +71,4 @@ The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests`
 
 ## Skinning minigame
 
-Open `Assets/Game/Scenes/Skinning.unity` and press Play. Hunting is ordinary combat; this is the skinning and hide work afterwards, turn-based with no timing or aiming: choose open or cased, feel/pull/cut each patch of hide free while the body cools, gut it before the meat sours, clean the hide on the beam, then salt, stretch or roll it green. Rules and numbers: `docs/skinning-minigame.md`.
+Open `Assets/Game/Scenes/Skinning.unity` and press Play. Hunting is ordinary combat; this is the skinning and hide work afterwards, turn-based with no timing or aiming: choose open or cased, feel/pull/cut each patch of hide free while the body cools, field-dress it before the meat spoils, clean the hide on the beam, then salt, stretch or roll it up untreated. Kept non-graphic: no blood, flesh or innards shown. Rules and numbers: `docs/skinning-minigame.md`.

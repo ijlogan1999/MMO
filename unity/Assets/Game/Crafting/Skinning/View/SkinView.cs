@@ -9,9 +9,9 @@ namespace Mmo.Crafting.Skinning.View
     /// The rules live in SkinMinigame (Core); this class only draws and forwards input.
     ///
     /// A knowledge game with no timing or aiming. The player chooses how to open the animal, feels how the hide holds,
-    /// pulls or cuts each patch free working out from the cuts, guts it before the belly sours, hones the knife when it
+    /// pulls or cuts each patch free working out from the cuts, field-dresses it before the meat spoils, hones the knife when it
     /// drags, cleans the hide on the beam and decides how to keep it. Nothing on screen says how a patch holds or what to
-    /// do; the steam fading off the body, the belly swelling and the look of the flesh side are the only readings.
+    /// do; the steam fading off the body, the coat losing its sheen and the look of the flesh side are the only readings.
     /// The results screen explains what happened.
     /// </summary>
     public sealed class SkinView : MonoBehaviour
@@ -348,7 +348,7 @@ namespace Mmo.Crafting.Skinning.View
             return (new Color(0.24f, 0.16f, 0.11f), new Color(0.3f, 0.21f, 0.15f));
         }
 
-        private static readonly Color Muscle = new Color(0.55f, 0.17f, 0.15f);
+        private static readonly Color Under = new Color(0.12f, 0.13f, 0.1f);
 
         private static string SeasonName(Season s) => s.ToString().ToLowerInvariant();
 
@@ -360,34 +360,34 @@ namespace Mmo.Crafting.Skinning.View
             ("Before the knife",
              "You've made the kill. The work starts now, and the body won't wait for you.\n\n" +
              "Warm hide comes away easy. Every moment you spend, the body cools and the hide holds harder. Watch the " +
-             "steam coming off it: when it's gone, you're late. Cold meat comes off with the hide and has to be cut away after.\n\n" +
-             "And the guts. Left in, they sour the meat. Big bodies keep their heat and sour fastest; small ones cool " +
-             "quick and keep. If the belly starts to swell, you've waited too long. Gutting takes a while, mind."),
+             "steam coming off it: when it's gone, you're late. Once it stiffens, bits come away stuck to the hide and have to be cleaned off after.\n\n" +
+             "And field-dress it in time, or the meat won't keep. Big bodies hold their heat and spoil fastest; small ones cool " +
+             "quick and keep. When the coat goes dull and loses its sheen, you've waited too long. Dressing takes a while, mind."),
             ("Opening",
              "Two ways to open an animal.\n\n" +
-             "Open: slit the belly from throat to tail and down the inside of each leg. The hide comes off flat. That's " +
+             "Open: cut along the belly from neck to tail and down the inside of each leg. The hide comes off flat. That's " +
              "how you take anything big; there's no other way to get it off.\n\n" +
              "Cased: cut only across the hind legs, under the tail, and peel the skin forward like pulling off a sleeve. " +
              "A furrier pays more for a pelt that's still a whole tube. Try it on anything big and it tears. And if you " +
-             "slit the belly to gut it before the skin is off, the tube's gone."),
+             "open the belly to field-dress it before the skin is off, the tube's gone."),
             ("Working it off",
              "Work from an open edge: where you cut, or where hide is already off. Anywhere else you're tearing or cutting blind.\n\n" +
              "Feel it first if you're unsure. Hide that slides, take off with your fist. Hide that clings stretches if you " +
              "pull it; cut it free. Hide that's held tight tears; cut it free. Fat holds a hide like glue, and only lets go to the knife. " +
              "But don't take a blade to loose hide: it flaps against the edge and you score it.\n\n" +
-             "Cut around a wound; pull it and it rips wide open. Some hide under the fur.\n\n" +
+             "Cut around any holes from the fight; pull them and they tear wider. Some hide under the fur.\n\n" +
              "Fat and hair dull an edge fast. When the knife starts to drag, hone it. A dull blade skips and scores."),
             ("On the beam",
              "Lay the hide flesh side up and clean it.\n\n" +
-             "Scrape off the film and the fat. Trim meat away with the knife; a scraper just skids over it. " +
+             "Scrape off the film and the fat. Trim stuck bits away with the knife; a scraper just skids over them. " +
              "Don't scrape hide that's already clean, you'll thin it, and where the skin is thin you'll go straight through. " +
              "Hold it to the light: thin skin glows. Don't take the knife to film, it bites the hide.\n\n" +
-             "Anything left on rots, and the tan won't take."),
+             "Anything left on spoils, and the tan won't take."),
             ("Keeping it",
              "A hide for leather wants salt; it keeps supple until the tanner gets it. A pelt wants the stretcher, fur in, " +
              "to dry; salt stiffens fur.\n\n" +
-             "In summer nothing dries clean: flies and slipping hair. In real cold, you can roll a hide green and carry it " +
-             "to the tanner as it is. Any warmer and it turns.\n\n" +
+             "In summer nothing dries clean: the heat spoils it. In real cold, you can roll a hide up untreated and carry it " +
+             "to the tanner as it is. Any warmer and it spoils.\n\n" +
              "That's all I'll tell you. The animals will teach you the rest. Go on."),
         };
 
@@ -441,7 +441,7 @@ namespace Mmo.Crafting.Skinning.View
             Text(new Rect(x, 80, 700, 30), $"Skinning skill: <b>{_skill}</b> ({SkinTuning.RankFor(_skill)})", 18, Color.white);
             int newSkill = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x, 115, 500, 20), _skill, 1, 100));
             if (newSkill != _skill) { _skill = newSkill; PlayerPrefs.SetInt(SkillPref, _skill); }
-            Text(new Rect(x, 135, 780, 40), "Test slider. Skill sharpens your senses (more feels, more wounds spotted, earlier warnings) and raises the quality cap.", 13, new Color(0.65f, 0.62f, 0.6f));
+            Text(new Rect(x, 135, 780, 40), "Test slider. Skill sharpens your senses (more feels, more fight damage spotted, earlier warnings) and raises the quality cap.", 13, new Color(0.65f, 0.62f, 0.6f));
             if (_skill < sp.RequiredSkill)
                 Text(new Rect(x, 172, 780, 24), $"Below this animal's rank ({sp.RequiredSkill}). You can still practise on it.", 14, new Color(1f, 0.6f, 0.4f));
 
@@ -462,7 +462,7 @@ namespace Mmo.Crafting.Skinning.View
             _setup.AnimalGrade = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 200, 390, 300, 20), _setup.AnimalGrade, 1, 100));
             Text(new Rect(x + 520, 382, 300, 30), $"{_setup.AnimalGrade}  <size=13><color=#a6a09a>age and health; hidden in game</color></size>", 15, GradeColor(_setup.AnimalGrade));
 
-            Text(new Rect(x, 420, 200, 30), "Wounds from the fight", 15, Color.white);
+            Text(new Rect(x, 420, 200, 30), "Fight damage", 15, Color.white);
             _setup.Wounds = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 200, 428, 300, 20), _setup.Wounds, 0, 6));
             Text(new Rect(x + 520, 420, 300, 30), $"{_setup.Wounds}  <size=13><color=#a6a09a>test slider; comes from combat in game</color></size>", 15, Color.white);
 
@@ -504,9 +504,9 @@ namespace Mmo.Crafting.Skinning.View
             string keys = g.Stage switch
             {
                 SkinStage.Open => "<b>1</b> open (belly and legs)   <b>2</b> cased (hind legs only)",
-                SkinStage.Skin => "<b>1</b> feel  <b>2</b> pull  <b>3</b> knife   <b>MOUSE</b>/<b>ARROWS</b> choose   <b>CLICK</b>/<b>SPACE</b> use   <b>H</b> hone   <b>G</b> gut   <b>E</b> stop",
+                SkinStage.Skin => "<b>1</b> feel  <b>2</b> pull  <b>3</b> knife   <b>MOUSE</b>/<b>ARROWS</b> choose   <b>CLICK</b>/<b>SPACE</b> use   <b>H</b> hone   <b>G</b> field-dress   <b>E</b> stop",
                 SkinStage.Flesh => "<b>1</b> scrape  <b>2</b> trim (knife)   <b>MOUSE</b>/<b>ARROWS</b> choose   <b>CLICK</b>/<b>SPACE</b> use   <b>ENTER</b> done",
-                SkinStage.Preserve => "<b>1</b> salt   <b>2</b> stretch and dry   <b>3</b> roll it green",
+                SkinStage.Preserve => "<b>1</b> salt   <b>2</b> stretch and dry   <b>3</b> roll it up untreated",
                 _ => "",
             };
             var bar = new Rect(0, H - 40, W, 40);
@@ -541,16 +541,12 @@ namespace Mmo.Crafting.Skinning.View
 
             if (p.State != PatchState.OnBody)
             {
-                // Hide off: bare muscle, darker once cold.
-                float cold = (float)(1 - g.Warmth);
-                Fill(inner, Shade(Muscle, 1f - 0.3f * cold));
-                for (int i = 0; i < 6; i++)
-                    Fill(new Rect(inner.x + 4, inner.y + 6 + i * 13 + (float)rng.NextDouble() * 4, inner.width - 8, 1), Shade(Muscle, 0.75f));
-                if (p.Fat) for (int i = 0; i < 8; i++)
-                        Fill(new Rect(inner.x + (float)rng.NextDouble() * (inner.width - 20), inner.y + (float)rng.NextDouble() * (inner.height - 10), 18, 8), new Color(0.93f, 0.88f, 0.7f));
+                // Hide off: drawn as an empty space (kept deliberately non-graphic; no flesh or blood anywhere).
+                Fill(inner, Under);
+                Outline(inner, Shade(back, 0.6f), 1);
                 if (p.State == PatchState.Torn)
-                    for (int i = 0; i < 5; i++) // shreds of hide left stuck to the body
-                        Fill(new Rect(inner.x + (float)rng.NextDouble() * (inner.width - 16), inner.y + (float)rng.NextDouble() * (inner.height - 12), 14, 10), back);
+                    for (int i = 0; i < 4; i++) // ragged bits of hide left behind
+                        Fill(new Rect(inner.x + (float)rng.NextDouble() * (inner.width - 16), inner.y + (float)rng.NextDouble() * (inner.height - 12), 14, 10), Shade(back, 0.8f));
                 return;
             }
 
@@ -562,12 +558,12 @@ namespace Mmo.Crafting.Skinning.View
                 float sx = inner.x + (float)rng.NextDouble() * (inner.width - 2), sy = inner.y + (float)rng.NextDouble() * (inner.height - 6);
                 Fill(new Rect(sx, sy, 1, 4 + rng.Next(4)), Shade(fur, 0.8f + 0.35f * (float)rng.NextDouble()));
             }
-            // Wounds the skinner has seen: a dark hole with dried blood.
+            // Holes from the fight the skinner has seen: a small dark notch in the fur.
             if (p.Wound && p.WoundSeen)
             {
                 float cx = inner.x + 20 + (float)rng.NextDouble() * (inner.width - 40), cy = inner.y + 20 + (float)rng.NextDouble() * (inner.height - 40);
-                Fill(new Rect(cx - 9, cy - 7, 18, 14), new Color(0.35f, 0.06f, 0.05f, 0.8f));
-                Fill(new Rect(cx - 4, cy - 3, 8, 6), new Color(0.08f, 0.02f, 0.02f));
+                Fill(new Rect(cx - 7, cy - 5, 14, 10), Shade(fur, 0.55f));
+                Fill(new Rect(cx - 3, cy - 2, 6, 4), new Color(0.08f, 0.08f, 0.07f));
             }
 
             // Chalked feel: what the fingers said, when they said it.
@@ -579,10 +575,10 @@ namespace Mmo.Crafting.Skinning.View
             }
         }
 
-        /// <summary>The opening cuts: a red line through each cut patch.</summary>
+        /// <summary>The opening cuts: a thin dark line through each cut patch.</summary>
         private void DrawCuts(SkinMinigame g)
         {
-            var cut = new Color(0.6f, 0.08f, 0.06f);
+            var cut = new Color(0.12f, 0.1f, 0.08f, 0.85f);
             foreach (var p in g.Patches)
             {
                 if (!g.IsOpened(p) || p.State != PatchState.OnBody) continue;
@@ -593,17 +589,17 @@ namespace Mmo.Crafting.Skinning.View
             }
         }
 
-        /// <summary>A souring belly swells. Only drawn once the skinner would notice it.</summary>
+        /// <summary>
+        /// When the meat is close to spoiling, the coat goes dull and loses its sheen (a grey wash over the fur).
+        /// Only drawn once the skinner would notice it.
+        /// </summary>
         private void DrawSwelling(SkinMinigame g)
         {
             float s = (float)g.Swelling;
             if (s <= 0) return;
-            var top = CellRect(2, 2);
-            var c = new Color(0.95f, 0.92f, 0.85f, 0.18f + 0.3f * s);
-            float grow = 6 + 16 * s;
-            var rect = new Rect(top.x - grow, top.y + 10, top.width + 2 * grow, CellH * 3 - 20);
-            Fill(rect, c);
-            Outline(rect, new Color(0.3f, 0.25f, 0.2f, 0.4f + 0.4f * s), 2);
+            var wash = new Color(0.45f, 0.46f, 0.44f, 0.15f + 0.4f * s);
+            foreach (var p in g.Patches)
+                if (p.State == PatchState.OnBody) Fill(CellRect(p.Row, p.Col), wash);
         }
 
         /// <summary>Steam off the warm body: the only reading of how warm it still is.</summary>
@@ -632,14 +628,14 @@ namespace Mmo.Crafting.Skinning.View
             Text(new Rect(panel.x + 18, panel.y + 14, 380, 30), "<b>How will you open it?</b>", 19, new Color(0.9f, 0.85f, 0.7f));
             if (Button(new Rect(panel.x + 18, panel.y + 60, 384, 52), "<b>1</b>  Open: belly and legs"))
             { g.ChooseStyle(SkinStyle.Open); DrainEvents(); }
-            Text(new Rect(panel.x + 22, panel.y + 116, 376, 60), "Slit from throat to tail and down the inside of each leg. The hide comes off flat.", 14, new Color(0.75f, 0.72f, 0.68f));
+            Text(new Rect(panel.x + 22, panel.y + 116, 376, 60), "Cut along the belly and down the inside of each leg. The hide comes off flat.", 14, new Color(0.75f, 0.72f, 0.68f));
             if (Button(new Rect(panel.x + 18, panel.y + 190, 384, 52), "<b>2</b>  Cased: hind legs only"))
             { g.ChooseStyle(SkinStyle.Cased); DrainEvents(); }
             Text(new Rect(panel.x + 22, panel.y + 246, 376, 60), "Cut across the hind legs under the tail and peel it forward like a sleeve. The pelt stays a tube.", 14, new Color(0.75f, 0.72f, 0.68f));
-            Text(new Rect(panel.x + 22, panel.y + 330, 376, 90), "Look it over first. Wounds you can see show through the fur.", 14, new Color(0.65f, 0.62f, 0.6f));
+            Text(new Rect(panel.x + 22, panel.y + 330, 376, 90), "Look it over first. Holes from the fight you can see show through the fur.", 14, new Color(0.65f, 0.62f, 0.6f));
         }
 
-        /// <summary>The skinner's kit: tools, patience left for feeling, hone, gut.</summary>
+        /// <summary>The skinner's kit: tools, patience left for feeling, hone, field-dress.</summary>
         private void DrawKit(SkinMinigame g)
         {
             var panel = new Rect(830, 96, 420, 440);
@@ -654,9 +650,9 @@ namespace Mmo.Crafting.Skinning.View
             }
             y += 8;
             Text(new Rect(panel.x + 20, y, 380, 24), $"Feels left in your patience: <b>{g.FeelsLeft}</b>", 15, Color.white); y += 30;
-            Text(new Rect(panel.x + 20, y, 380, 24), g.Gutted ? "Gutted." : "Not gutted yet.", 15, new Color(0.85f, 0.82f, 0.78f)); y += 34;
+            Text(new Rect(panel.x + 20, y, 380, 24), g.Gutted ? "Field-dressed." : "Not field-dressed yet.", 15, new Color(0.85f, 0.82f, 0.78f)); y += 34;
             if (Button(new Rect(panel.x + 18, y, 124, 40), "H  Hone")) { g.Hone(); DrainEvents(); }
-            if (Button(new Rect(panel.x + 148, y, 124, 40), "G  Gut", false, !g.Gutted)) { g.Gut(); DrainEvents(); }
+            if (Button(new Rect(panel.x + 148, y, 124, 40), "G  Dress", false, !g.Gutted)) { g.Gut(); DrainEvents(); }
             if (Button(new Rect(panel.x + 278, y, 124, 40), "E  Stop")) { g.StopSkinning(); DrainEvents(); }
         }
 
@@ -665,9 +661,9 @@ namespace Mmo.Crafting.Skinning.View
         private static Color LayerColor(Layer l) => l switch
         {
             Layer.Clean => new Color(0.84f, 0.84f, 0.8f),
-            Layer.Membrane => new Color(0.86f, 0.7f, 0.68f),
+            Layer.Membrane => new Color(0.88f, 0.82f, 0.72f),
             Layer.Fat => new Color(0.95f, 0.9f, 0.66f),
-            _ => new Color(0.6f, 0.16f, 0.13f),
+            _ => new Color(0.55f, 0.45f, 0.36f), // stuck bits: a dull brown, kept non-graphic
         };
 
         /// <summary>The hide on the beam, flesh side up, held to the light.</summary>
@@ -693,7 +689,7 @@ namespace Mmo.Crafting.Skinning.View
                 switch (p.Layer)
                 {
                     case Layer.Membrane:
-                        Fill(new Rect(inner.x + 4, inner.y + 4, inner.width - 8, inner.height - 8), new Color(0.86f, 0.66f, 0.64f, 0.75f));
+                        Fill(new Rect(inner.x + 4, inner.y + 4, inner.width - 8, inner.height - 8), new Color(0.86f, 0.78f, 0.66f, 0.75f));
                         for (int i = 0; i < 6; i++)
                             Fill(new Rect(inner.x + 8 + (float)rng.NextDouble() * (inner.width - 30), inner.y + 8 + (float)rng.NextDouble() * (inner.height - 16), 18, 1), new Color(1f, 1f, 1f, 0.5f));
                         break;
@@ -715,7 +711,7 @@ namespace Mmo.Crafting.Skinning.View
                     Dots(a, b, new Color(0.1f, 0.08f, 0.06f), 5f, 3f);
                 }
                 if (p.State == PatchState.Scored || p.Mark == FleshMark.Scored)
-                    Dots(new Vector2(inner.x + 20, inner.center.y + 10), new Vector2(inner.xMax - 30, inner.center.y - 8), new Color(0.35f, 0.1f, 0.08f), 2f, 2f);
+                    Dots(new Vector2(inner.x + 20, inner.center.y + 10), new Vector2(inner.xMax - 30, inner.center.y - 8), new Color(0.25f, 0.2f, 0.16f), 2f, 2f);
                 if (p.State == PatchState.Holed)
                     Fill(new Rect(inner.center.x - 6, inner.center.y - 5, 12, 10), new Color(0.1f, 0.08f, 0.06f));
                 if (p.State == PatchState.Stretched)
@@ -747,7 +743,7 @@ namespace Mmo.Crafting.Skinning.View
             Text(new Rect(panel.x + 18, panel.y + 14, 380, 50), $"<b>How will you keep the {g.Species.HideName.ToLowerInvariant()}?</b>\nIt's {SeasonName(g.Setup.Season)}.", 18, new Color(0.9f, 0.85f, 0.7f));
             if (Button(new Rect(panel.x + 18, panel.y + 90, 384, 48), "1  Salt it")) g.Keep(Preserve.Salt);
             if (Button(new Rect(panel.x + 18, panel.y + 150, 384, 48), "2  Stretch it and dry it")) g.Keep(Preserve.Stretch);
-            if (Button(new Rect(panel.x + 18, panel.y + 210, 384, 48), "3  Roll it green for the tanner")) g.Keep(Preserve.Green);
+            if (Button(new Rect(panel.x + 18, panel.y + 210, 384, 48), "3  Roll it up untreated for the tanner")) g.Keep(Preserve.Green);
         }
 
         // ------------------------------------------------------------------ results screen
@@ -765,15 +761,15 @@ namespace Mmo.Crafting.Skinning.View
 
             string dim(string s) => $"<size=14><color=#a9a294>{s}</color></size>";
             string capNote = r.HideRaw > r.Ceiling ? $" → capped at <b>{r.Ceiling}</b> by {r.CeilingReason}" : "";
-            string style = r.Style == SkinStyle.Open ? "opened" : r.TubeKept ? "cased, the tube whole" : "cased, but slit to gut";
+            string style = r.Style == SkinStyle.Open ? "opened" : r.TubeKept ? "cased, the tube whole" : "cased, but opened to field-dress";
             string body =
-                $"<b>Skinning</b>  {style} · {r.Clean} clean, {r.Stretched} stretched, {r.Scored} scored, {r.Holed} cut round a wound, {r.Torn} torn, {r.Left} left on\n" +
-                dim($"work done {r.TimeUsed} · hones {r.Hones} · wounds the cuts ran through {r.WoundsAbsorbed}") + "\n" +
-                $"<b>Gutting</b>  " + (g.Species.Meat == 0 ? "no meat on this one" : r.GuttedLate ? $"<color=#ff9a80>late</color> (at {r.GutAt}; it held until {r.SpoilPoint})" : $"in time (at {r.GutAt}; it held until {r.SpoilPoint})") + "\n" +
-                $"<b>On the beam</b>  clean {r.LayerClean}, film left {r.LayerMembrane}, fat left {r.LayerFat}, meat left {r.LayerMeat} · thinned {r.Thinned}, cut {r.ScoredOnBeam}, holed {r.TornOnBeam}\n" +
+                $"<b>Skinning</b>  {style} · {r.Clean} clean, {r.Stretched} stretched, {r.Scored} scored, {r.Holed} cut round a hole, {r.Torn} torn, {r.Left} left on\n" +
+                dim($"work done {r.TimeUsed} · hones {r.Hones} · fight holes the cuts ran through {r.WoundsAbsorbed}") + "\n" +
+                $"<b>Field-dressing</b>  " + (g.Species.Meat == 0 ? "no meat on this one" : r.GuttedLate ? $"<color=#ff9a80>late</color> (at {r.GutAt}; it kept until {r.SpoilPoint})" : $"in time (at {r.GutAt}; it kept until {r.SpoilPoint})") + "\n" +
+                $"<b>On the beam</b>  clean {r.LayerClean}, film left {r.LayerMembrane}, fat left {r.LayerFat}, bits left {r.LayerMeat} · thinned {r.Thinned}, cut {r.ScoredOnBeam}, holed {r.TornOnBeam}\n" +
                 $"<b>Kept</b>  {KeepName(r.Preserve)} ×{r.PreserveFactor:0.00}\n\n" +
                 $"<b>Hide</b>  grade {r.AnimalGrade} × (0.4 + 0.6 × skinning {r.SkinScore:0.00} × beam {r.FleshScore:0.00}) × style {r.StyleFactor:0.00} × kept {r.PreserveFactor:0.00} × season {r.SeasonHide:0.00} = {r.HideRaw}{capNote}\n" +
-                (g.Species.Meat > 0 ? $"<b>Meat</b>  grade {r.AnimalGrade} × gutting {r.MeatFactor:0.00} × season {r.SeasonMeat:0.00} = {r.MeatRaw}" + (r.MeatRaw > r.MeatQuality ? $" → capped at {r.MeatQuality} by skill" : "") + "\n" : "") +
+                (g.Species.Meat > 0 ? $"<b>Meat</b>  grade {r.AnimalGrade} × dressing {r.MeatFactor:0.00} × season {r.SeasonMeat:0.00} = {r.MeatRaw}" + (r.MeatRaw > r.MeatQuality ? $" → capped at {r.MeatQuality} by skill" : "") + "\n" : "") +
                 $"\n<b>Skill</b>  {_skillBefore} → {_skill}" + (r.SkillGain == 0 ? "  " + dim("(no gain: no hide came of it, or this animal is too easy for you)") : "") + "\n\n" +
                 "<b>What went wrong</b>\n" + (r.Notes.Count > 0 ? string.Join("\n", r.Notes) : "Nothing. That was clean work.");
             Text(new Rect(40, 100, 780, 530), body, 15, new Color(0.9f, 0.88f, 0.85f));
@@ -788,7 +784,7 @@ namespace Mmo.Crafting.Skinning.View
         {
             Preserve.Salt => "salted",
             Preserve.Stretch => "stretched and dried",
-            Preserve.Green => "rolled green",
+            Preserve.Green => "rolled up untreated",
             _ => "not kept",
         };
 
@@ -817,7 +813,7 @@ namespace Mmo.Crafting.Skinning.View
                     PatchState.Torn => "TORN",
                     _ => "left on",
                 };
-                string extra = (p.Fat ? " fat" : "") + (p.Thin ? " thin" : "") + (p.Wound ? " wound" : "");
+                string extra = (p.Fat ? " fat" : "") + (p.Thin ? " thin" : "") + (p.Wound ? " hole" : "");
                 Text(r, $"<size=11>{hold}{extra}\n<b>{state}</b></size>", 11, Color.white, TextAnchor.MiddleCenter);
             }
             Text(new Rect(map.x, map.yMax + 8, map.width, 90),

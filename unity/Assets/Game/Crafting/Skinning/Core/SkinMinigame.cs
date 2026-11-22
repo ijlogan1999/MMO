@@ -167,7 +167,7 @@ namespace Mmo.Crafting.Skinning
             }
             Stage = SkinStage.Skin;
             Events.Add(new SkinEvent(SkinEventKind.StyleChosen,
-                style == SkinStyle.Open ? "You slit the belly from throat to tail and down each leg"
+                style == SkinStyle.Open ? "You cut along the belly from neck to tail and down each leg"
                                         : "You cut across the hind legs, under the tail"));
             Events.Add(new SkinEvent(SkinEventKind.StageChanged, "Skin"));
         }
@@ -195,7 +195,7 @@ namespace Mmo.Crafting.Skinning
             if (p.Fat) msg += ", over a thick layer of fat";
             if (p.Wound)
             {
-                if (!p.WoundSeen) msg += ". There's a wound under the fur";
+                if (!p.WoundSeen) msg += ". There's a hole from the fight under the fur";
                 p.WoundSeen = true;
             }
             Events.Add(new SkinEvent(SkinEventKind.Felt, msg, p.Id));
@@ -218,9 +218,9 @@ namespace Mmo.Crafting.Skinning
 
             if (tool == SkinTool.Pull)
             {
-                if (!workable) Finish(p, PatchState.Torn, Layer.Membrane, SkinEventKind.Tore, "Nothing to grip there: you tear into it");
-                else if (wound) { p.WoundSeen = true; Finish(p, PatchState.Torn, Layer.Membrane, SkinEventKind.Tore, "The wound rips wide open"); }
-                else if (p.Fat) Finish(p, PatchState.Torn, Layer.Fat, SkinEventKind.Tore, "The fat holds it and the hide rips");
+                if (!workable) Finish(p, PatchState.Torn, Layer.Membrane, SkinEventKind.Tore, "Nothing to grip there, and it tears");
+                else if (wound) { p.WoundSeen = true; Finish(p, PatchState.Torn, Layer.Membrane, SkinEventKind.Tore, "The hole from the fight tears wider"); }
+                else if (p.Fat) Finish(p, PatchState.Torn, Layer.Fat, SkinEventKind.Tore, "The fat holds it and the hide tears");
                 else if (hold == Hold.Loose)
                     Finish(p, PatchState.Clean, _rng.NextDouble() < 0.5 ? Layer.Clean : Layer.Membrane, SkinEventKind.CameAway, "It peels away clean");
                 else if (hold == Hold.Clinging)
@@ -240,14 +240,14 @@ namespace Mmo.Crafting.Skinning
             if (!workable) Finish(p, PatchState.Scored, under, SkinEventKind.Scored, "Cutting blind, you score the hide");
             else if (dull)
             {
-                if (wound) { p.WoundSeen = true; Finish(p, PatchState.Torn, under, SkinEventKind.Tore, "The dull blade catches the wound and rips it"); }
+                if (wound) { p.WoundSeen = true; Finish(p, PatchState.Torn, under, SkinEventKind.Tore, "The dull blade catches the hole and tears it wider"); }
                 else Finish(p, PatchState.Scored, under, SkinEventKind.Scored, "The dull blade skips and scores the hide");
             }
-            else if (wound) { p.WoundSeen = true; Finish(p, PatchState.Holed, under, SkinEventKind.Holed, "You cut neatly around the wound"); }
+            else if (wound) { p.WoundSeen = true; Finish(p, PatchState.Holed, under, SkinEventKind.Holed, "You cut neatly around the hole"); }
             else if (hold == Hold.Loose && !p.Fat)
                 Finish(p, PatchState.Scored, under, SkinEventKind.Scored, "The loose hide flaps against the blade and you score it");
             else Finish(p, PatchState.Clean, under, SkinEventKind.CameAway,
-                set ? "It cuts free, but the cold meat comes with it" : p.Fat ? "You cut it free of the fat" : "It cuts free clean");
+                set ? "It cuts free, but it's gone stiff and bits stay stuck to it" : p.Fat ? "You cut it free of the fat" : "It cuts free clean");
             Spend(SkinTuning.KnifeCost);
             if (!_dragNoticed && Edge < SkinTuning.DragNoticeAt(Skill))
             {
@@ -287,11 +287,11 @@ namespace Mmo.Crafting.Skinning
                 if (slit)
                 {
                     TubeKept = false;
-                    Events.Add(new SkinEvent(SkinEventKind.Gutted, "You slit the belly to gut it. The pelt won't come off as a tube now"));
+                    Events.Add(new SkinEvent(SkinEventKind.Gutted, "You open the belly to field-dress it. The pelt won't come off as a tube now"));
                     return;
                 }
             }
-            Events.Add(new SkinEvent(SkinEventKind.Gutted, Species.Meat > 0 ? "You gut it and the body starts to cool inside" : "You gut it"));
+            Events.Add(new SkinEvent(SkinEventKind.Gutted, "You field-dress it"));
         }
 
         /// <summary>Stop skinning: whatever is still on the body stays there.</summary>
@@ -315,7 +315,7 @@ namespace Mmo.Crafting.Skinning
             if (!_swellNoticed && Swelling > 0)
             {
                 _swellNoticed = true;
-                Events.Add(new SkinEvent(SkinEventKind.Swelling, "The belly has started to swell"));
+                Events.Add(new SkinEvent(SkinEventKind.Swelling, "The meat won't keep much longer"));
             }
             bool allOff = true;
             foreach (var p in _patches) if (p.State == PatchState.OnBody) { allOff = false; break; }
@@ -343,7 +343,7 @@ namespace Mmo.Crafting.Skinning
                 {
                     case Layer.Membrane: p.Layer = Layer.Clean; Beam(SkinEventKind.Scraped, "The film scrapes away", p); break;
                     case Layer.Fat: p.Layer = Layer.Membrane; Beam(SkinEventKind.Scraped, "The fat comes off in curls", p); break;
-                    case Layer.Meat: _skids++; Beam(SkinEventKind.Skid, "The scraper skids over the meat", p); break;
+                    case Layer.Meat: _skids++; Beam(SkinEventKind.Skid, "The scraper skids over the stuck bits", p); break;
                     default:
                         if (p.Thin || p.Mark == FleshMark.Thinned) { p.Mark = FleshMark.Torn; Beam(SkinEventKind.Tore, "You scrape straight through the skin", p); }
                         else { p.Mark = FleshMark.Thinned; Beam(SkinEventKind.Scraped, "You scrape into bare hide and thin it", p); }
@@ -355,7 +355,7 @@ namespace Mmo.Crafting.Skinning
                 _trims++;
                 switch (p.Layer)
                 {
-                    case Layer.Meat: p.Layer = Layer.Membrane; Beam(SkinEventKind.Trimmed, "You trim the meat away", p); break;
+                    case Layer.Meat: p.Layer = Layer.Membrane; Beam(SkinEventKind.Trimmed, "You trim the bits away", p); break;
                     case Layer.Fat: p.Layer = Layer.Membrane; Beam(SkinEventKind.Trimmed, "You slice the fat away", p); break;
                     default:
                         p.Mark = p.Mark == FleshMark.Scored || p.Mark == FleshMark.Torn ? FleshMark.Torn : FleshMark.Scored;
@@ -505,7 +505,7 @@ namespace Mmo.Crafting.Skinning
                 n.Add($"A {Species.Name.ToLowerInvariant()} is too big to case: the tube tore over the shoulders.");
             else if (Species.FurBearer && !TubeKept)
                 n.Add(Style == SkinStyle.Cased
-                    ? "Slitting the belly to gut it before the pelt was off spoiled the tube. A furrier pays more for a whole one."
+                    ? "Opening the belly to field-dress it before the pelt was off spoiled the tube. A furrier pays more for a whole one."
                     : "A furrier pays more for a cased pelt, peeled off whole.");
 
             int pulledTight = 0, pulledFat = 0, pulledWound = 0, knifedLoose = 0, set = 0;
@@ -517,17 +517,17 @@ namespace Mmo.Crafting.Skinning
                 if (p.State == PatchState.Scored) knifedLoose++;
                 if (p.IsOff && p.Layer == Layer.Meat) set++;
             }
-            if (pulledFat > 0) n.Add($"{pulledFat} patch(es) over fat were pulled and ripped. Fat only lets go to the knife.");
-            if (pulledWound > 0) n.Add($"{pulledWound} wound(s) ripped wide. Cut around a wound; pulling tears it open.");
+            if (pulledFat > 0) n.Add($"{pulledFat} patch(es) over fat were pulled and tore. Fat only lets go to the knife.");
+            if (pulledWound > 0) n.Add($"{pulledWound} hole(s) from the fight tore wider. Cut around a hole; pulling tears it.");
             if (pulledTight > 0) n.Add($"{pulledTight} patch(es) tore: held too tight to pull, thin skin pulled while it clung, or pulled with no open edge to work from.");
             if (r.Stretched > 0) n.Add($"{r.Stretched} patch(es) stretched: they clung, and a pull drags them thin. The knife frees clinging hide clean.");
             if (knifedLoose > 0) n.Add($"{knifedLoose} patch(es) scored by the knife: loose hide flaps against the blade, a dull edge skips, and cutting where there's no open edge is cutting blind.");
-            if (set > 0) n.Add($"{set} patch(es) came off with meat on: the body had gone cold and set before you got to them.");
+            if (set > 0) n.Add($"{set} patch(es) came off with bits stuck on: the body had gone cold and stiff before you got to them.");
             if (r.Left > 0) n.Add($"{r.Left} patch(es) left on the body.");
-            if (r.GuttedLate && Species.Meat > 0) n.Add($"The belly soured before it was gutted (gutted after {r.GutAt} units of work; it would hold for {r.SpoilPoint}).");
-            if (r.LayerFat + r.LayerMeat > 0) n.Add($"{r.LayerFat + r.LayerMeat} patch(es) went into keeping with fat or meat still on. It rots and the tan won't take.");
+            if (r.GuttedLate && Species.Meat > 0) n.Add($"The meat spoiled before it was field-dressed (dressed after {r.GutAt} units of work; it would keep for {r.SpoilPoint}).");
+            if (r.LayerFat + r.LayerMeat > 0) n.Add($"{r.LayerFat + r.LayerMeat} patch(es) went into keeping with fat or bits still on. It spoils and the tan won't take.");
             if (r.Thinned + r.TornOnBeam > 0) n.Add($"{r.Thinned + r.TornOnBeam} patch(es) scraped when already bare. Thin skin goes straight through.");
-            if (r.ScoredOnBeam > 0) n.Add($"{r.ScoredOnBeam} patch(es) cut on the beam: the knife is for meat and fat, not film.");
+            if (r.ScoredOnBeam > 0) n.Add($"{r.ScoredOnBeam} patch(es) cut on the beam: the knife is for stuck bits and fat, not film.");
             if (r.PreserveFactor < 1) n.Add(PreserveNote(Species, Preserve, Setup.Season));
         }
 
@@ -537,11 +537,11 @@ namespace Mmo.Crafting.Skinning
             {
                 case Preserve.Salt: return "Salt kept it, but stiffened the fur. Pelts keep best stretched and dried.";
                 case Preserve.Stretch:
-                    return s == Season.Summer ? "Drying in summer heat: flies and slipping hair got to it."
+                    return s == Season.Summer ? "Drying in summer heat spoiled it a little: the hair started to loosen."
                                               : "A leather hide dries flint-hard on the stretcher. Salt keeps it supple for the tanner.";
                 default:
-                    return s == Season.Summer ? "A green hide in summer turns before the day is out."
-                                              : "Rolled green, it started to turn before the tanner had it. Only real cold keeps a green hide.";
+                    return s == Season.Summer ? "An untreated hide in summer spoils before the day is out."
+                                              : "Rolled up untreated, it started to spoil before the tanner had it. Only real cold keeps it.";
             }
         }
     }

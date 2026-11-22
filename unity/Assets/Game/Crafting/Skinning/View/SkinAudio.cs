@@ -38,7 +38,7 @@ namespace Mmo.Crafting.Skinning.View
                 float s = t < 0.4f ? Mathf.Sin(Mathf.PI * t / 0.4f) : t > 0.5f ? Mathf.Sin(Mathf.PI * (t - 0.5f) / 0.4f) : 0;
                 return N() * s * 0.18f + Mathf.Sin(2 * Mathf.PI * 4100 * t) * s * 0.03f;
             });
-            _gut = Make("gut", 0.6f, t => Mathf.Sin(2 * Mathf.PI * 70 * t) * Mathf.Exp(-t * 7) * 0.45f + N() * Mathf.Exp(-t * 12) * 0.12f);
+            _gut = Make("dress", 0.4f, t => Mathf.Sin(2 * Mathf.PI * 110 * t) * Mathf.Exp(-t * 10) * 0.3f);
             _drag = Make("drag", 0.4f, t => N() * Mathf.Sin(Mathf.PI * t / 0.4f) * 0.2f * (0.6f + 0.4f * Mathf.Sin(2 * Mathf.PI * 25 * t)));
             _scrape = Make("scrape", 0.4f, t => N() * Mathf.Sin(Mathf.PI * t / 0.4f) * 0.15f);
             _skid = Make("skid", 0.2f, t => N() * Mathf.Exp(-t * 20) * 0.15f + Mathf.Sin(2 * Mathf.PI * 300 * t) * Mathf.Exp(-t * 25) * 0.15f);

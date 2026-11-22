@@ -107,7 +107,7 @@ namespace Mmo.Crafting.Skinning
                 case Preserve.Salt:
                     return sp.Pelt ? 0.9 : 1.0; // salt keeps anything, but stiffens fur
                 case Preserve.Stretch:
-                    if (s == Season.Summer) return sp.Pelt ? 0.85 : 0.7; // flies and hair slip
+                    if (s == Season.Summer) return sp.Pelt ? 0.85 : 0.7; // summer heat loosens the hair
                     return sp.Pelt ? 1.0 : 0.88;                          // a leather hide dries flint-hard
                 case Preserve.Green:
                     return s switch
