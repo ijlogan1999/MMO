@@ -67,4 +67,8 @@ Assets/Game/Scenes/Blacksmithing.unity
 Assets/Game/Scenes/Mining.unity
 ```
 
-The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` and `dotnet test tests/Mining.Tests` (needs the .NET 8 SDK).
+The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests`, `dotnet test tests/Mining.Tests` and `dotnet test tests/Skinning.Tests` (needs the .NET 8 SDK).
+
+## Skinning minigame
+
+Open `Assets/Game/Scenes/Skinning.unity` and press Play. Hunting is ordinary combat; this is the skinning and hide work afterwards, turn-based with no timing or aiming: choose open or cased, feel/pull/cut each patch of hide free while the body cools, gut it before the meat sours, clean the hide on the beam, then salt, stretch or roll it green. Rules and numbers: `docs/skinning-minigame.md`.

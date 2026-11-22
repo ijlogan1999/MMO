@@ -1,0 +1,14 @@
+{
+    "name": "Mmo.Crafting.Skinning.Core",
+    "rootNamespace": "Mmo.Crafting.Skinning",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
