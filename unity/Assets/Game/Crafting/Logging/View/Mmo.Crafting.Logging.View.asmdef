@@ -1,0 +1,16 @@
+{
+    "name": "Mmo.Crafting.Logging.View",
+    "rootNamespace": "Mmo.Crafting.Logging.View",
+    "references": [
+        "Mmo.Crafting.Logging.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

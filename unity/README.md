@@ -31,13 +31,21 @@ Scoring follows the Crafting & Gathering Spec:
 
 Recipes are the iron path for level 1–20: Plain Iron Sword (Novice), Iron Shortsword (Apprentice), Iron Longsword (Journeyman).
 
+## Logging minigame
+
+Open `Assets/Game/Scenes/Logging.unity` and press Play. A turn-based knowledge game (no timing, no gauges): survey the stand (lean, crown, rot signs, knock the trunk), choose where the tree should fall, chop the notch and saw the back cut by eye, wedge it over, buck the stem by how it lies, then stack, peel or split each length. An old forester explains it once; the results screen explains the rest. Full rules: `docs/logging-minigame.md`. Tests: `dotnet test tests/Logging.Tests`.
+
 ## Code layout
 
 ```
 Assets/Game/Crafting/Blacksmithing/
   Core/   rules only, no UnityEngine (asmdef with noEngineReferences) -> reusable on the C# server
   View/   ForgeView (placeholder visuals drawn with IMGUI), ForgeAudio (sounds generated in code)
+Assets/Game/Crafting/Logging/
+  Core/   rules only, no UnityEngine
+  View/   LogView (IMGUI), LogAudio (sounds generated in code)
 Assets/Game/Scenes/Blacksmithing.unity
+Assets/Game/Scenes/Logging.unity
 ```
 
 The Core rules are tested outside Unity: `dotnet test tests/Blacksmithing.Tests` (needs the .NET 8 SDK).
