@@ -41,7 +41,8 @@ public static class DataLoader
                 r.MethodCeiling,
                 r.Minutes));
 
-        return new Catalog(goods.ToList(), recipes.ToList());
+        var (allGoods, allRecipes) = LevelBands.Expand(goods.ToList(), recipes.ToList());
+        return new Catalog(allGoods, allRecipes);
     }
 
     /// <summary>Walks up from the working directory to find the repo's data/ folder.</summary>

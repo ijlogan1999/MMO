@@ -17,5 +17,7 @@ jobs:
         run: dotnet build --configuration Release
       - name: Test
         run: dotnet test --configuration Release --no-build
-      - name: Smoke run
-        run: dotnet run --project src/Economy.Sim --configuration Release --no-build -- 1
+      - name: Smoke run (one baseline world, 40 days)
+        run: dotnet run --project src/Economy.Sim --configuration Release --no-build -- --days 40
+      - name: Mini sweep (every scenario, one seed, 60 days; fails if any ledger is off by a coin)
+        run: dotnet run --project src/Economy.Sim --configuration Release --no-build -- --sweep --seeds 1 --days 60 --out sweep-smoke

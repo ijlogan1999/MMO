@@ -29,7 +29,7 @@ public class DurabilityTests
     }
 
     [Fact]
-    public void NoviceRestoresHalfAndExpertNinetyPercent()
+    public void NoviceRepairTakesFortyPercentOffAndExpertFifteen()
     {
         var rules = new DurabilityRules();
         var a = rules.Create(Pickaxe, 100);
@@ -38,8 +38,8 @@ public class DurabilityTests
         rules.Wear(b, 400);
         Assert.True(rules.RepairBroken(a, repairerSkill: 0));
         Assert.True(rules.RepairBroken(b, repairerSkill: 100));
-        Assert.Equal(200, a.MaxDurability);
-        Assert.Equal(360, b.MaxDurability);
+        Assert.Equal(240, a.MaxDurability);
+        Assert.Equal(340, b.MaxDurability);
         Assert.Equal(a.MaxDurability, a.Durability);
     }
 
@@ -66,7 +66,7 @@ public class DurabilityTests
         var broken = rules.Create(Pickaxe, 100);
 
         rules.Wear(maintained, 200); // half worn, then topped up
-        rules.Upkeep(maintained);
+        rules.Upkeep(maintained, 100);
         rules.Wear(broken, 400);
         rules.RepairBroken(broken, repairerSkill: 100);
 
@@ -88,7 +88,22 @@ public class DurabilityTests
             Assert.True(repairs < 50, "Item never wore out.");
         }
         Assert.True(item.IsBroken);
-        Assert.True(repairs >= 1);
+        Assert.Equal(2, repairs); // novice: 100, 60, 20, then done
+    }
+
+    [Fact]
+    public void MasterGetsAboutFiveRepairsOutOfAnItem()
+    {
+        var rules = new DurabilityRules();
+        var item = rules.Create(Pickaxe, 100);
+        int repairs = 0;
+        while (repairs < 50)
+        {
+            rules.Wear(item, item.Durability);
+            if (!rules.RepairBroken(item, repairerSkill: 100)) break;
+            repairs++;
+        }
+        Assert.Equal(5, repairs); // 100, 85, 70, 55, 40, 25
     }
 
     [Fact]
@@ -113,6 +128,19 @@ public class DurabilityTests
     }
 
     [Fact]
+    public void CoreCanSurviveABreakAndTheRepair()
+    {
+        var rules = new DurabilityRules(new DurabilitySettings { CoreSurvivesBreak = true });
+        var sword = rules.Create(RelicSword, 80, coreQuality: 70);
+        Assert.Equal(WearOutcome.Broke, rules.Wear(sword, sword.Durability));
+        Assert.True(sword.HasCore);
+        Assert.False(sword.IsUsable);
+        Assert.True(rules.RepairBroken(sword, 50));
+        Assert.Equal(70, sword.CoreQuality);
+        Assert.True(sword.IsUsable);
+    }
+
+    [Fact]
     public void RepairingAMagicalItemNeedsANewCore()
     {
         var rules = new DurabilityRules();
@@ -131,7 +159,7 @@ public class DurabilityTests
         var rules = new DurabilityRules();
         var sword = rules.Create(RelicSword, 80, coreQuality: 70);
         rules.Wear(sword, sword.Durability - 1);
-        rules.Upkeep(sword);
+        rules.Upkeep(sword, 100);
         Assert.Equal(70, sword.CoreQuality);
         Assert.True(sword.IsUsable);
     }
