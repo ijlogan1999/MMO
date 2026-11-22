@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        run: dotnet build --configuration Release
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+      - name: Smoke run (one baseline world, 40 days)
+        run: dotnet run --project src/Economy.Sim --configuration Release --no-build -- --days 40
+      - name: Mini sweep (every scenario, one seed, 60 days; fails if any ledger is off by a coin)
+        run: dotnet run --project src/Economy.Sim --configuration Release --no-build -- --sweep --seeds 1 --days 60 --out sweep-smoke

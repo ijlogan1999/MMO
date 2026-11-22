@@ -1,0 +1,456 @@
+{
+  "_note": "Starting recipes. methodCeiling = best quality the basic method can reach; discovered methods will add higher-ceiling variants later.",
+  "recipes": [
+    {
+      "id": "smelt_iron",
+      "output": "iron_ingot",
+      "qty": 1,
+      "inputs": {
+        "iron_ore": 2,
+        "coal": 1
+      },
+      "station": "smelter",
+      "skill": "blacksmithing",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 5
+    },
+    {
+      "id": "smelt_copper",
+      "output": "copper_ingot",
+      "qty": 1,
+      "inputs": {
+        "copper_ore": 2,
+        "coal": 1
+      },
+      "station": "smelter",
+      "skill": "blacksmithing",
+      "minSkill": 20,
+      "methodCeiling": 85,
+      "minutes": 5
+    },
+    {
+      "id": "smelt_alloy",
+      "output": "alloy_ingot",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 1,
+        "copper_ingot": 1,
+        "coal": 1
+      },
+      "station": "smelter",
+      "skill": "blacksmithing",
+      "minSkill": 40,
+      "methodCeiling": 95,
+      "minutes": 8
+    },
+    {
+      "id": "saw_planks",
+      "output": "plank",
+      "qty": 2,
+      "inputs": {
+        "timber": 1
+      },
+      "station": "sawpit",
+      "skill": "carpentry",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 4
+    },
+    {
+      "id": "mill_flour",
+      "output": "flour",
+      "qty": 2,
+      "inputs": {
+        "grain": 3
+      },
+      "station": "mill",
+      "skill": "cooking",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 3
+    },
+    {
+      "id": "weave_cloth",
+      "output": "cloth",
+      "qty": 1,
+      "inputs": {
+        "fiber": 3
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 6
+    },
+    {
+      "id": "tan_leather",
+      "output": "leather",
+      "qty": 1,
+      "inputs": {
+        "hide": 2,
+        "bark": 1
+      },
+      "station": "tannery",
+      "skill": "leatherworking",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 8
+    },
+    {
+      "id": "forge_blade",
+      "output": "blade_blank",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 1,
+        "coal": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 15,
+      "methodCeiling": 90,
+      "minutes": 12
+    },
+    {
+      "id": "simmer_stock",
+      "output": "stock",
+      "qty": 2,
+      "inputs": {
+        "meat": 1,
+        "herbs": 1
+      },
+      "station": "kitchen",
+      "skill": "cooking",
+      "minSkill": 20,
+      "methodCeiling": 90,
+      "minutes": 10
+    },
+    {
+      "id": "quilt_padding",
+      "output": "padding",
+      "qty": 1,
+      "inputs": {
+        "cloth": 2,
+        "fiber": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 20,
+      "methodCeiling": 90,
+      "minutes": 8
+    },
+    {
+      "id": "bake_bread",
+      "output": "bread",
+      "qty": 4,
+      "inputs": {
+        "flour": 2,
+        "firewood": 1
+      },
+      "station": "oven",
+      "skill": "cooking",
+      "minSkill": 0,
+      "methodCeiling": 70,
+      "minutes": 6
+    },
+    {
+      "id": "roast_meat",
+      "output": "roast_meat",
+      "qty": 6,
+      "inputs": {
+        "meat": 4,
+        "herbs": 1,
+        "firewood": 2
+      },
+      "station": "kitchen",
+      "skill": "cooking",
+      "minSkill": 0,
+      "methodCeiling": 70,
+      "minutes": 5
+    },
+    {
+      "id": "cook_stew",
+      "output": "stew",
+      "qty": 4,
+      "inputs": {
+        "stock": 2,
+        "meat": 1,
+        "grain": 1,
+        "firewood": 1
+      },
+      "station": "kitchen",
+      "skill": "cooking",
+      "minSkill": 25,
+      "methodCeiling": 95,
+      "minutes": 15
+    },
+    {
+      "id": "brew_healing",
+      "output": "healing_potion",
+      "qty": 2,
+      "inputs": {
+        "herbs": 4,
+        "firewood": 1
+      },
+      "station": "alembic",
+      "skill": "alchemy",
+      "minSkill": 10,
+      "methodCeiling": 90,
+      "minutes": 8
+    },
+    {
+      "id": "forge_pickaxe",
+      "output": "pickaxe",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 2,
+        "plank": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 5,
+      "methodCeiling": 85,
+      "minutes": 10
+    },
+    {
+      "id": "forge_woodaxe",
+      "output": "woodaxe",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 2,
+        "plank": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 5,
+      "methodCeiling": 85,
+      "minutes": 10
+    },
+    {
+      "id": "forge_sickle",
+      "output": "sickle",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 1,
+        "plank": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 8
+    },
+    {
+      "id": "forge_knife",
+      "output": "skinning_knife",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 1,
+        "leather": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 8
+    },
+    {
+      "id": "forge_sword",
+      "output": "sword",
+      "qty": 1,
+      "inputs": {
+        "blade_blank": 1,
+        "leather": 1,
+        "plank": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 20,
+      "methodCeiling": 95,
+      "minutes": 20
+    },
+    {
+      "id": "stitch_leather",
+      "output": "leather_armor",
+      "qty": 1,
+      "inputs": {
+        "leather": 3,
+        "cloth": 1
+      },
+      "station": "workbench",
+      "skill": "leatherworking",
+      "minSkill": 20,
+      "methodCeiling": 90,
+      "minutes": 20
+    },
+    {
+      "id": "forge_plate",
+      "output": "plate_armor",
+      "qty": 1,
+      "inputs": {
+        "iron_ingot": 10,
+        "padding": 2,
+        "leather": 2,
+        "ice_crystal": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 60,
+      "methodCeiling": 100,
+      "minutes": 60
+    },
+    {
+      "id": "forge_relic",
+      "output": "relic_sword",
+      "qty": 1,
+      "inputs": {
+        "blade_blank": 1,
+        "leather": 1,
+        "plank": 1,
+        "relic_core": 1,
+        "ember_slag": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 60,
+      "methodCeiling": 100,
+      "minutes": 30
+    },
+    {
+      "id": "split_firewood",
+      "output": "firewood",
+      "qty": 3,
+      "inputs": {
+        "timber": 1
+      },
+      "station": "sawpit",
+      "skill": "carpentry",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 3
+    },
+    {
+      "id": "forge_nails",
+      "output": "nails",
+      "qty": 6,
+      "inputs": {
+        "iron_ingot": 1
+      },
+      "station": "forge",
+      "skill": "blacksmithing",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 3
+    },
+    {
+      "id": "roll_bandage",
+      "output": "bandage",
+      "qty": 3,
+      "inputs": {
+        "cloth": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 0,
+      "methodCeiling": 80,
+      "minutes": 3
+    },
+    {
+      "id": "fold_gauze",
+      "output": "gauze",
+      "qty": 2,
+      "inputs": {
+        "cloth": 1,
+        "herbs": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 25,
+      "methodCeiling": 90,
+      "minutes": 6
+    },
+    {
+      "id": "build_furniture",
+      "output": "furniture",
+      "qty": 1,
+      "inputs": {
+        "plank": 6,
+        "nails": 4,
+        "cloth": 1
+      },
+      "station": "workbench",
+      "skill": "carpentry",
+      "minSkill": 30,
+      "methodCeiling": 90,
+      "minutes": 30
+    },
+    {
+      "id": "sew_cloth_armor",
+      "output": "cloth_armor",
+      "qty": 1,
+      "inputs": {
+        "cloth": 5
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 20,
+      "methodCeiling": 90,
+      "minutes": 20
+    },
+    {
+      "id": "sew_quiver",
+      "output": "quiver",
+      "qty": 1,
+      "inputs": {
+        "cloth": 2,
+        "leather": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 15,
+      "methodCeiling": 90,
+      "minutes": 15
+    },
+    {
+      "id": "sew_reagent_bag",
+      "output": "reagent_bag",
+      "qty": 1,
+      "inputs": {
+        "cloth": 2,
+        "fiber": 1
+      },
+      "station": "loom",
+      "skill": "tailoring",
+      "minSkill": 10,
+      "methodCeiling": 90,
+      "minutes": 12
+    },
+    {
+      "id": "stitch_pack",
+      "output": "travel_pack",
+      "qty": 1,
+      "inputs": {
+        "leather": 2,
+        "cloth": 1
+      },
+      "station": "tannery",
+      "skill": "leatherworking",
+      "minSkill": 10,
+      "methodCeiling": 90,
+      "minutes": 10
+    },
+    {
+      "id": "stitch_saddle",
+      "output": "saddle",
+      "qty": 1,
+      "inputs": {
+        "leather": 5
+      },
+      "station": "workbench",
+      "skill": "leatherworking",
+      "minSkill": 25,
+      "methodCeiling": 90,
+      "minutes": 30
+    }
+  ]
+}

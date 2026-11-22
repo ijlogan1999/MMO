@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared economy rules. Targets netstandard2.1 and C# 9 so the Unity client,
+    the game server and the headless simulation can all reference it.
+    Keep this project free of engine, server and serializer dependencies.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Economy.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

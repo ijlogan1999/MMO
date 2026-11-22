@@ -1,0 +1,288 @@
+{
+  "_note": "Starting goods for the phase 1 economy sim. Names are placeholders. tier: Raw | Intermediate | Component | Finished | RelicCore. use: Material | Food | Consumable | Equipment.",
+  "goods": [
+    {
+      "id": "iron_ore",
+      "name": "Iron ore",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "timber",
+      "name": "Timber",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "bark",
+      "name": "Bark",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "grain",
+      "name": "Grain",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "fiber",
+      "name": "Fiber",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "herbs",
+      "name": "Herbs",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "hide",
+      "name": "Hide",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "meat",
+      "name": "Meat",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "iron_ingot",
+      "name": "Iron ingot",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "copper_ore",
+      "name": "Copper ore",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "copper_ingot",
+      "name": "Copper ingot",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "alloy_ingot",
+      "name": "Copper-iron alloy",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "plank",
+      "name": "Plank",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "flour",
+      "name": "Flour",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "cloth",
+      "name": "Cloth",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "leather",
+      "name": "Leather",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "blade_blank",
+      "name": "Blade blank",
+      "tier": "Component",
+      "use": "Material"
+    },
+    {
+      "id": "stock",
+      "name": "Stock",
+      "tier": "Component",
+      "use": "Material"
+    },
+    {
+      "id": "padding",
+      "name": "Padding",
+      "tier": "Component",
+      "use": "Material"
+    },
+    {
+      "id": "bread",
+      "name": "Bread",
+      "tier": "Finished",
+      "use": "Food"
+    },
+    {
+      "id": "roast_meat",
+      "name": "Roast meat",
+      "tier": "Finished",
+      "use": "Food"
+    },
+    {
+      "id": "stew",
+      "name": "Stew",
+      "tier": "Finished",
+      "use": "Food"
+    },
+    {
+      "id": "healing_potion",
+      "name": "Healing potion",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
+      "id": "pickaxe",
+      "name": "Pickaxe",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 400
+    },
+    {
+      "id": "woodaxe",
+      "name": "Wood axe",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 400
+    },
+    {
+      "id": "sickle",
+      "name": "Sickle",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 350
+    },
+    {
+      "id": "skinning_knife",
+      "name": "Skinning knife",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 300
+    },
+    {
+      "id": "sword",
+      "name": "Sword",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 600
+    },
+    {
+      "id": "leather_armor",
+      "name": "Leather armor",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 700
+    },
+    {
+      "id": "plate_armor",
+      "name": "Plate armor",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 1200
+    },
+    {
+      "id": "relic_sword",
+      "name": "Relic sword",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 600,
+      "isMagical": true
+    },
+    {
+      "id": "ember_slag",
+      "name": "Ember slag",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "ice_crystal",
+      "name": "Ice crystal",
+      "tier": "Raw",
+      "use": "Material"
+    },
+    {
+      "id": "firewood",
+      "name": "Firewood",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "nails",
+      "name": "Nails",
+      "tier": "Intermediate",
+      "use": "Material"
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
+      "id": "gauze",
+      "name": "Gauze",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
+      "id": "travel_pack",
+      "name": "Travel pack",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
+      "id": "saddle",
+      "name": "Saddle",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 400
+    },
+    {
+      "id": "quiver",
+      "name": "Quiver",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 500
+    },
+    {
+      "id": "reagent_bag",
+      "name": "Reagent bag",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 500
+    },
+    {
+      "id": "furniture",
+      "name": "Furniture",
+      "tier": "Finished",
+      "use": "Consumable"
+    },
+    {
+      "id": "cloth_armor",
+      "name": "Cloth armor",
+      "tier": "Finished",
+      "use": "Equipment",
+      "baseDurability": 600
+    },
+    {
+      "id": "relic_core",
+      "name": "Relic core",
+      "tier": "RelicCore",
+      "use": "Material"
+    }
+  ]
+}
