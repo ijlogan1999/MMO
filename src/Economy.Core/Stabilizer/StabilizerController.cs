@@ -50,7 +50,7 @@ namespace Economy.Core.Stabilizer
         public double CaravanCap { get; set; } = 0.20;
         public double BuyerGuildCap { get; set; } = 0.15;
         public double HiredHandCap { get; set; } = 0.10;
-        public double MarketMakerCap { get; set; } = 0.05;
+        public double MarketMakerCap { get; set; } = 0; // off (Ian, 2026-11-22): prices recover as fast without it
 
         /// <summary>Reference price half-life in hours (14 days).</summary>
         public double ReferenceHalfLifeHours { get; set; } = 14 * 24;

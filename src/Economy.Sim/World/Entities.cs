@@ -122,6 +122,8 @@ public sealed class Agent
     public double FoodHours { get; set; }
     public double PotionCredit { get; set; }
     public double FoodHealCredit { get; set; }
+    /// <summary>The last meal eaten (its regen buff lasts until the next meal); -1 none.</summary>
+    public int LastMeal { get; set; } = -1;
     /// <summary>Running dungeons for a relic core because buying one costs more than farming it.</summary>
     public bool HuntingCore { get; set; }
     public double BuffCredit { get; set; }

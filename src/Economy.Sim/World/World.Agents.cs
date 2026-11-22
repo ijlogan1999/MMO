@@ -102,7 +102,8 @@ public sealed partial class World
         {
             if (a.Inventory.Take(food, 1) == 1)
             {
-                a.FoodHours += (food == Stew ? Config.StewFoodValue : 1.0) / Config.FoodPerHour;
+                a.FoodHours += (food == Stew ? Config.StewFoodValue : food == Bread ? Config.BreadFoodValue : 1.0) / Config.FoodPerHour;
+                a.LastMeal = food;
                 return 1;
             }
         }
@@ -312,6 +313,22 @@ public sealed partial class World
                     PlaceBuy(owner, material, need, ask.Value, rest: false);
             }
             if (owner.Inventory[material] >= units) { best = bestNoMats; brought = true; RepairMatsBrought++; }
+        }
+        if (best == null && Config.NpcRepair)
+        {
+            // The town's NPC smith (Ian, 2026-11-22): always there, dearer, and rougher on the item.
+            long npcCost = Config.NpcRepairPrice + Config.RepairStationFee;
+            if (Coins(owner) < npcCost) { RepairTooPoor++; return false; }
+            Ledger.Transfer(owner.Account, Ledger.Treasury, npcCost, Flow.RepairFee);
+            NpcRepairs++;
+            if (item.IsBroken)
+            {
+                int? core = null;
+                if (item.Good.IsMagical) { core = owner.Inventory.QualityOf(RelicCore); owner.Inventory.Take(RelicCore, 1); }
+                return Durability.RepairBroken(item, Config.NpcRepairSkill, core);
+            }
+            Durability.Upkeep(item, Config.NpcRepairSkill);
+            return true;
         }
         if (best == null) { RepairNoCrafter++; RepairFailByGood[g] = RepairFailByGood.GetValueOrDefault(g) + 1; return false; }
 
@@ -830,7 +847,7 @@ public sealed partial class World
         bool healed = HasHealerThisHour(a);
         if (healed) HealedFightHours++;
         double zoneSupply = 1 + Config.ZoneSupplyPerBand * band;
-        a.PotionCredit += Config.PotionsPerFightHour * (1 - Config.FoodHealShare) * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
+        a.PotionCredit += Config.PotionsPerFightHour * (1 - Config.FoodHealShare) * (1 - MealRegen(a)) * zoneSupply * (healed ? Config.HealedConsumableFactor : 1.0);
         if (a.PotionCredit >= 1)
         {
             a.PotionCredit -= 1;
@@ -928,6 +945,14 @@ public sealed partial class World
     public long RepairNoCrafter { get; private set; }
     public long RepairMatsBrought { get; private set; }
     public long RemoteRepairs { get; private set; }
+    public long NpcRepairs { get; private set; }
+
+    /// <summary>Every meal gives a regen buff (Ian, 2026-11-22): fewer potions needed, more for better meals.</summary>
+    private double MealRegen(Agent a)
+    {
+        if (!Config.MealRegen || a.LastMeal < 0) return 0;
+        return a.LastMeal == Stew ? Config.StewRegen : a.LastMeal == Roast ? Config.RoastRegen : a.LastMeal == Bread ? Config.BreadRegen : 0;
+    }
     public Dictionary<int, long> RepairFailByGood { get; } = new();
     public long RepairTooPoor { get; private set; }
     public long SalvageWornOut { get; private set; }

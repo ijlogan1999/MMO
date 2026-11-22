@@ -145,11 +145,11 @@ public sealed class SimConfig
     /// a craft under half its normal share in a region weighs this much more for
     /// players there, and they set up shop in that region.
     /// </summary>
-    public double LocalShortageBoost { get; set; } = 1.0;
+    public double LocalShortageBoost { get; set; } = 3.0;
     /// <summary>Crafters value what they make at the best buy order on the board when it beats their own price belief.</summary>
     public bool CraftersSeeBids { get; set; } = false;
     /// <summary>A player who can't afford gear for their level buys the best lower piece on sale instead of going without.</summary>
-    public bool BuyBestAffordable { get; set; } = false;
+    public bool BuyBestAffordable { get; set; } = true;
     /// <summary>When the crafter is out of repair materials, the player buys them and brings them along.</summary>
     public bool RepairBringMaterials { get; set; } = false;
     /// <summary>Players can get repairs from a crafter anywhere in their region, not only their own town.</summary>
@@ -304,6 +304,19 @@ public sealed class SimConfig
     public double FoodHealUnits { get; set; } = 1;
     /// <summary>Fighters restock healing food (bread or roast) when under this many, up to twice it.</summary>
     public int FoodHealStock { get; set; } = 2;
+    /// <summary>
+    /// Meals give a health regen buff (Ian, 2026-11-22): the share of potion use
+    /// each meal saves while it lasts. Bread is the poor meal: little regen, fills less.
+    /// </summary>
+    public bool MealRegen { get; set; } = true;
+    public double BreadRegen { get; set; } = 0.1;
+    public double RoastRegen { get; set; } = 0.35;
+    public double StewRegen { get; set; } = 0.5;
+    public double BreadFoodValue { get; set; } = 0.6;
+    /// <summary>Every town's NPC smith repairs when no player crafter can: dearer, and repairs like a novice.</summary>
+    public bool NpcRepair { get; set; } = true;
+    public long NpcRepairPrice { get; set; } = 300;
+    public int NpcRepairSkill { get; set; } = 10;
     /// <summary>Harder zones (Ian, 2026-11-20): heals and buff meals used per fight hour rise by this share per level band above the first.</summary>
     public double ZoneSupplyPerBand { get; set; } = 0;
     public double FighterHidePerHour { get; set; } = 0.4;
@@ -315,7 +328,7 @@ public sealed class SimConfig
     /// they pay at most the coins they'd earn in the hours it takes to farm it,
     /// otherwise they run dungeons themselves (drops x CoreHuntFactor until they have one).
     /// </summary>
-    public bool CoreFarmChoice { get; set; } = false;
+    public bool CoreFarmChoice { get; set; } = true;
     public double CoreHuntFactor { get; set; } = 2.0;
     public double CarefulShare { get; set; } = 0.5;
 
