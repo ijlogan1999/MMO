@@ -30,6 +30,7 @@ public static class Cli
             Parallel.For(1, seeds + 1, seed =>
             {
                 var cfg = new SimConfig { Seed = (ulong)seed, Days = days, AgentCount = agents };
+                ApplySets(args, cfg);
                 var w = new World.World(cfg, catalog, worldFile, ScenarioCatalog.Get("baseline"));
                 w.Run();
                 foreach (var r in w.Metrics.MarketDays.Where(r => r.Day >= days - 60 && r.PlayerUnits > 0))
@@ -154,7 +155,7 @@ public static class Cli
                     armedShare = w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator) && a.Weapon != null) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role is not (Role.Bot or Role.Speculator))),
                     fighterArmed = w.Agents.Count(a => a.Active && a.Role == Role.Fighter && a.Weapon != null) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role == Role.Fighter)),
                     fighterUpToLevel = w.Agents.Count(a => a.Active && a.Role == Role.Fighter && a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)) - 1) / (double)Math.Max(1, w.Agents.Count(a => a.Active && a.Role == Role.Fighter)),
-                    foodHeals = w.FoodHeals, foodHealMisses = w.FoodHealMisses, coresSelfFarmed = w.CoresSelfFarmed, coreBuysSkipped = w.CoreBuysSkipped,
+                    foodHeals = w.FoodHeals, affordableBuys = w.AffordableBuys, foodHealMisses = w.FoodHealMisses, coresSelfFarmed = w.CoresSelfFarmed, coreBuysSkipped = w.CoreBuysSkipped,
                     localJoins = w.LocalShortageJoins, localSwitches = w.LocalShortageSwitches,
                     upgradeGapEarly = w.UpgradeGapsEarly.Count == 0 ? -1 : w.UpgradeGapsEarly.OrderBy(v => v).ElementAt(w.UpgradeGapsEarly.Count / 2),
                     upgradesEarly = w.UpgradeGapsEarly.Count,
@@ -265,6 +266,12 @@ public static class Cli
             {
                 var fighters = players.Where(a => a.Role == Role.Fighter).ToList();
                 Console.WriteLine($"  fight-focused: {fighters.Count}, {fighters.Count(a => a.Weapon != null)} with a weapon, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)))} up to level, {fighters.Count(a => a.Weapon != null && LevelBands.RankOf(a.Weapon.Good.Id) >= LevelBands.WearableRank("sword", World.World.LevelOf(a)) - 1)} within one step");
+                var unarmedF = fighters.Where(a => a.Weapon == null).ToList();
+                Console.WriteLine($"  unarmed fight-focused by wanted weapon: " + string.Join(", ", unarmedF.GroupBy(a => a.WantWeapon >= 0 ? world.Goods.Defs[a.WantWeapon].Id : "?").OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()} (median coins {g.Select(a => world.Coins(a)).OrderBy(c => c).ElementAt(g.Count() / 2)}, open buy {g.Count(a => a.Orders.Any(o => o.Good == a.WantWeapon))})")));
+                Console.WriteLine($"  fight-focused by level band: " + string.Join(", ", fighters.GroupBy(a => LevelBands.BandForLevel(World.World.LevelOf(a))).OrderBy(g => g.Key).Select(g => $"b{g.Key + 1} {g.Count()} ({g.Count(a => a.Weapon != null)} armed)")));
+                Console.WriteLine($"  repairs failed: no crafter with materials in town {world.RepairNoCrafter} (mats brought {world.RepairMatsBrought}, sent to another town {world.RemoteRepairs}), too poor {world.RepairTooPoor}; worn-out gear salvaged {world.SalvageWornOut}; affordable lower buys {world.AffordableBuys}");
+                Console.WriteLine("  repair fails by good: " + string.Join(", ", world.RepairFailByGood.OrderByDescending(kv => kv.Value).Take(8).Select(kv => $"{world.Goods.Defs[kv.Key].Id} {kv.Value}")));
+                Console.WriteLine("  repairers per town: " + string.Join(", ", world.Towns.Select(t => $"{t.Def.Id} " + string.Join("/", t.Repairers.Select(id => world.Agents[id]).Where(r => r.Active).GroupBy(r => r.Role).Select(g => $"{g.Key.ToString()[..2]}{g.Count()}")))));
                 Console.WriteLine($"  healing: {world.FoodHeals} food heals ({world.FoodHealMisses} fell back to potions); cores: {world.CoresSelfFarmed} self-farmed, {world.CoreBuysSkipped} buys skipped as too dear; local-shortage joins {world.LocalShortageJoins}, switches {world.LocalShortageSwitches}");
             }
             Console.WriteLine($"  gear: {players.Count} players, {armed} with a weapon, {armored} with armor, {upToDate} weapon up to level; behind-on-weapon median coins {(behind.Count > 0 ? behind[behind.Count / 2] : 0)}");

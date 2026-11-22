@@ -138,7 +138,9 @@ public sealed partial class World
         {
             if (item.IsBroken || (a.Careful && item.Durability < item.MaxDurability * 0.3))
             {
-                if (Durability.IsWornOut(item) || !TryRepair(a, item))
+                bool worn = Durability.IsWornOut(item);
+                if (worn && item.IsBroken) SalvageWornOut++;
+                if (worn || !TryRepair(a, item))
                 {
                     if (item.IsBroken)
                     {
@@ -199,6 +201,29 @@ public sealed partial class World
                 return older;
             }
         }
+        // Can't afford the piece for my level? Buy the best lower piece on sale that I can afford
+        // (as a real player would), and keep shopping for the right one.
+        if (a.Inventory[good] == 0 && Config.BuyBestAffordable && Config.LevelBands && Coins(a) < AskOrBelief(a, good))
+        {
+            int pick = -1, pickRank = -1, want = LevelBands.RankOf(Goods.Defs[good].Id);
+            long budget = Coins(a) * 8 / 10;
+            foreach (int g in Goods.GearLadder(good))
+            {
+                int r = LevelBands.RankOf(Goods.Defs[g].Id);
+                if (r >= want || r <= pickRank || LevelBands.MinLevel(Goods.Defs[g].Id) > LevelOf(a)) continue;
+                var ask = Towns[a.Town].Markets[g].Book.BestAsk;
+                if (ask.HasValue && ask.Value <= budget) { pick = g; pickRank = r; }
+            }
+            if (pick >= 0 && PlaceBuy(a, pick, 1, Towns[a.Town].Markets[pick].Book.BestAsk!.Value, rest: false) > 0)
+            {
+                int q = a.Inventory.QualityOf(pick);
+                a.Inventory.Take(pick, 1);
+                var older = Durability.Create(Goods.Defs[pick], q, Goods.Defs[pick].IsMagical ? q : null);
+                set(older);
+                AffordableBuys++;
+                return older;
+            }
+        }
         if (a.Inventory[good] > 0)
         {
             int q = a.Inventory.QualityOf(good);
@@ -248,28 +273,62 @@ public sealed partial class World
             if (owner.Inventory[RelicCore] == 0) return false;
         }
 
-        Agent? best = null;
+        Agent? best = null, bestNoMats = null;
         // Better gear takes more material to repair.
         int units = (int)Math.Ceiling(Config.GearTiers[TierFor(item.Quality)].InputMultiplier);
         // Repair is a lesser form of making: the craft that makes the item fixes it.
         string? craft = Goods.RecipesByOutput[g].FirstOrDefault()?.Skill;
-        foreach (int id in Towns[owner.Town].Repairers)
+        int region = Towns[owner.Town].Region;
+        foreach (var town in Towns)
         {
-            var r = Agents[id];
-            if (!r.Active || r.Id == owner.Id) continue;
-            if (r.Role != Role.Repairer && Roles.CraftSkill(r.Role) != craft) continue;
-            if (material >= 0 && r.Inventory[material] < units) continue;
-            if (best == null || r.RepairPrice < best.RepairPrice) best = r;
+            // Normally a crafter in town; optionally anyone in the region (the player rides over).
+            if (town.Index != owner.Town && !(Config.RepairInRegion && town.Region == region) && !Config.RepairAnyTown) continue;
+            foreach (int id in town.Repairers)
+            {
+                var r = Agents[id];
+                if (!r.Active || r.Id == owner.Id) continue;
+                if (r.Role != Role.Repairer && Roles.CraftSkill(r.Role) != craft) continue;
+                bool home = town.Index == owner.Town;
+                if (material >= 0 && r.Inventory[material] < units)
+                {
+                    if (bestNoMats == null || r.RepairPrice < bestNoMats.RepairPrice) bestNoMats = r;
+                    continue;
+                }
+                // A crafter in the player's own town wins ties; one elsewhere costs the courier fee too.
+                long price = r.RepairPrice + (home ? 0 : Config.RemoteRepairFee);
+                long bestPrice = best == null ? long.MaxValue : best.RepairPrice + (best.Town == owner.Town ? 0 : Config.RemoteRepairFee);
+                if (price < bestPrice || (home && price == bestPrice)) best = r;
+            }
         }
-        if (best == null) return false;
+        // The crafter is out of materials: the player buys them and brings them along.
+        bool brought = false;
+        if (best == null && bestNoMats != null && Config.RepairBringMaterials && material >= 0)
+        {
+            int need = units - owner.Inventory[material];
+            if (need > 0)
+            {
+                var ask = Towns[owner.Town].Markets[material].Book.BestAsk;
+                if (ask.HasValue && Coins(owner) > ask.Value * need + bestNoMats.RepairPrice + Config.RepairStationFee)
+                    PlaceBuy(owner, material, need, ask.Value, rest: false);
+            }
+            if (owner.Inventory[material] >= units) { best = bestNoMats; brought = true; RepairMatsBrought++; }
+        }
+        if (best == null) { RepairNoCrafter++; RepairFailByGood[g] = RepairFailByGood.GetValueOrDefault(g) + 1; return false; }
 
-        long cost = best.RepairPrice + Config.RepairStationFee;
-        if (Coins(owner) < cost) return false;
+        bool remote = best.Town != owner.Town;
+        long cost = best.RepairPrice + Config.RepairStationFee + (remote ? Config.RemoteRepairFee : 0);
+        if (Coins(owner) < cost) { RepairTooPoor++; return false; }
+        if (remote && Config.RemoteRepairFee > 0)
+        {
+            // Sent by courier to a smith in another town (a coin sink for now).
+            Ledger.Transfer(owner.Account, Ledger.Treasury, Config.RemoteRepairFee, Flow.RepairFee);
+            RemoteRepairs++;
+        }
         Ledger.Transfer(owner.Account, best.Account, best.RepairPrice, Flow.PlayerTrade);
         best.TodayIncome += best.RepairPrice;
         Track(best, IncomeKind.Repairs, best.RepairPrice);
         Ledger.Transfer(owner.Account, Ledger.Treasury, Config.RepairStationFee, Flow.RepairFee);
-        if (material >= 0) best.Inventory.Take(material, units);
+        if (material >= 0) (brought ? owner : best).Inventory.Take(material, units);
         best.RepairsToday++;
         if (best.Role == Role.Repairer) best.RepairSkill = Math.Min(100, best.RepairSkill + Config.SkillGainPerHour * 2);
 
@@ -585,8 +644,8 @@ public sealed partial class World
 
     private int KeepAmount(Agent a, int g)
     {
-        if (g == Bread) return Config.FoodHealShare > 0 && Fights(a) ? 8 : 6;
-        if (g == Roast && Config.FoodHealShare > 0 && Fights(a)) return 8;
+        if (g == Bread) return Config.FoodHealShare > 0 && Fights(a) ? Math.Max(6, 2 * Config.FoodHealStock) : 6;
+        if (g == Roast && Config.FoodHealShare > 0 && Fights(a)) return 2 * Config.FoodHealStock;
         if (g == Stew) return Fights(a) ? 6 : 3;
         if (g == Potion && Fights(a)) return 6;
         if (g == Bandage && Fights(a)) return 6;
@@ -790,10 +849,10 @@ public sealed partial class World
                 else FoodHeals++;
             }
             int onHand = a.Inventory[Bread] + (Roast >= 0 ? a.Inventory[Roast] : 0);
-            if (onHand < 4)
+            if (onHand < Config.FoodHealStock)
             {
                 int basic = Roast >= 0 && AskOrBelief(a, Roast) < AskOrBelief(a, Bread) ? Roast : Bread;
-                int qty = 8 - onHand - TryNoviceMake(a, basic, 8 - onHand);
+                int qty = 2 * Config.FoodHealStock - onHand - TryNoviceMake(a, basic, 2 * Config.FoodHealStock - onHand);
                 long price = Math.Max(1, (long)Math.Round(a.Belief[basic]));
                 if (qty > 0 && price * qty > Coins(a) / 3) qty = (int)(Coins(a) / 3 / price);
                 if (qty > 0) PlaceBuy(a, basic, qty, price);
@@ -865,6 +924,13 @@ public sealed partial class World
 
     public long Deaths { get; private set; }
     public long FoodHeals { get; private set; }
+    public long AffordableBuys { get; private set; }
+    public long RepairNoCrafter { get; private set; }
+    public long RepairMatsBrought { get; private set; }
+    public long RemoteRepairs { get; private set; }
+    public Dictionary<int, long> RepairFailByGood { get; } = new();
+    public long RepairTooPoor { get; private set; }
+    public long SalvageWornOut { get; private set; }
     public long FoodHealMisses { get; private set; }
     public long CoresSelfFarmed { get; private set; }
     public long CoreBuysSkipped { get; private set; }

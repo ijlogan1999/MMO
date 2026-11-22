@@ -148,6 +148,15 @@ public sealed class SimConfig
     public double LocalShortageBoost { get; set; } = 1.0;
     /// <summary>Crafters value what they make at the best buy order on the board when it beats their own price belief.</summary>
     public bool CraftersSeeBids { get; set; } = false;
+    /// <summary>A player who can't afford gear for their level buys the best lower piece on sale instead of going without.</summary>
+    public bool BuyBestAffordable { get; set; } = false;
+    /// <summary>When the crafter is out of repair materials, the player buys them and brings them along.</summary>
+    public bool RepairBringMaterials { get; set; } = false;
+    /// <summary>Players can get repairs from a crafter anywhere in their region, not only their own town.</summary>
+    public bool RepairInRegion { get; set; } = false;
+    /// <summary>Broken gear can be sent to a crafter in any town (courier fee) instead of being scrapped when none is local.</summary>
+    public bool RepairAnyTown { get; set; } = false;
+    public long RemoteRepairFee { get; set; } = 50;
 
     /// <summary>Everyone can make bottom-tier goods at novice level (Ian, 2026-11-19).</summary>
     public bool NoviceCrafting { get; set; } = true;
@@ -293,6 +302,8 @@ public sealed class SimConfig
     /// </summary>
     public double FoodHealShare { get; set; } = 0;
     public double FoodHealUnits { get; set; } = 1;
+    /// <summary>Fighters restock healing food (bread or roast) when under this many, up to twice it.</summary>
+    public int FoodHealStock { get; set; } = 2;
     /// <summary>Harder zones (Ian, 2026-11-20): heals and buff meals used per fight hour rise by this share per level band above the first.</summary>
     public double ZoneSupplyPerBand { get; set; } = 0;
     public double FighterHidePerHour { get; set; } = 0.4;
