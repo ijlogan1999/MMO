@@ -188,12 +188,30 @@ public sealed class SimConfig
     public double GearGapPenalty { get; set; } = 0.75;
     public double ZonePayPerBand { get; set; } = 0.5;
     /// <summary>Harder zones pay more (Ian, 2026-11-22): extra minted bounty coin per fight hour,
-    /// as a multiple of BountyMintPerFightHour, for each level band above the first.</summary>
-    public double ZoneMintPerBand { get; set; } = 1;
+    /// as a multiple of BountyMintPerFightHour, for each level band above the first.
+    /// 2026-11-28: harder zones pay more in materials and less in new coin (was 1), to
+    /// bring average player coin back down; see ZonePayInCoin to restore the old pay.</summary>
+    public double ZoneMintPerBand { get; set; } = 0.6;
     /// <summary>Level 21+ mobs drop copper ore (per fight hour at power 1, per band above the first).</summary>
     public double ZoneCopperDropPerHour { get; set; } = 1;
-    /// <summary>Level 41+ mobs drop ember slag / ice crystal (per fight hour at power 1, per band above the second).</summary>
-    public double ZoneRareDropPerHour { get; set; } = 0.5;
+    /// <summary>Level 41+ mobs drop ember slag / ice crystal (per fight hour at power 1, per band
+    /// above the second). 2026-11-28: raised from 0.5 as part of paying high zones in materials.</summary>
+    public double ZoneRareDropPerHour { get; set; } = 1.5;
+    /// <summary>
+    /// Restores the 2026-11-22 high-zone pay (mostly minted coin): ZoneMintPerBand 1,
+    /// ZoneRareDropPerHour 0.5. Use `--set ZonePayInCoin=true` (put any later
+    /// --set of those two after it).
+    /// </summary>
+    public bool ZonePayInCoin
+    {
+        get => _zonePayInCoin;
+        set
+        {
+            _zonePayInCoin = value;
+            if (value) { ZoneMintPerBand = 1; ZoneRareDropPerHour = 0.5; }
+        }
+    }
+    private bool _zonePayInCoin;
 
     /// <summary>What fighters and casual players gather on the side (sharing nodes with the trades).</summary>
     public string[] SideGatherGoods { get; set; } = { "iron_ore", "timber", "herbs" };
